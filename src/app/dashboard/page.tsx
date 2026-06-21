@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 
+import { LiveBankValues } from "@/components/live-bank-values";
+import { getLatestBankValueSnapshot } from "@/lib/snapshots";
+
 export const metadata: Metadata = {
   title: "Dashboard",
 };
@@ -42,7 +45,9 @@ const toneStyles = {
   violet: "border-violet-300/15 bg-violet-300/5 text-violet-100",
 };
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const latestSnapshot = await getLatestBankValueSnapshot();
+
   return (
     <div className="mx-auto max-w-7xl">
       <section className="flex flex-col gap-5 border-b border-white/10 pb-8 sm:flex-row sm:items-end sm:justify-between">
@@ -60,31 +65,15 @@ export default function DashboardPage() {
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
           <p className="text-xs uppercase tracking-[0.18em] text-muted">
-            Workspace state
+            Data source
           </p>
           <p className="mt-1 text-sm font-medium text-accent">
-            Ready for tool integrations
+            portfolio_database
           </p>
         </div>
       </section>
 
-      <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          ["Data source", "portfolio_database"],
-          ["Authentication", "Protected"],
-          ["Tools online", "0"],
-          ["Environment", "Configured"],
-        ].map(([label, value]) => (
-          <article className="surface rounded-2xl p-5" key={label}>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted">
-              {label}
-            </p>
-            <p className="mt-3 truncate text-xl font-semibold text-white">
-              {value}
-            </p>
-          </article>
-        ))}
-      </section>
+      <LiveBankValues initialSnapshot={latestSnapshot} />
 
       <section className="mt-10">
         <div className="flex items-end justify-between gap-4">

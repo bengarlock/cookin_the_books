@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 
-import { getPortfolioApiBaseUrl } from "@/lib/config";
+import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
 export const AUTH_COOKIE_NAME =
   process.env.AUTH_COOKIE_NAME || "cookinTheBooksToken";

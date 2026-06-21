@@ -49,6 +49,7 @@ Update `.env.local` for the local backend:
 ```dotenv
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 PORTFOLIO_API_BASE_URL=http://127.0.0.1:8000
+PORTFOLIO_WEBSOCKET_BASE_URL=ws://127.0.0.1:8001
 AUTH_COOKIE_NAME=cookinTheBooksToken
 AUTH_COOKIE_MAX_AGE_SECONDS=86400
 ```
@@ -140,7 +141,25 @@ Next.js to receive the configured base path.
 | --- | --- |
 | `NEXT_PUBLIC_API_BASE_URL` | Optional public API base URL for future direct browser requests |
 | `PORTFOLIO_API_BASE_URL` | Preferred server-only base URL for `portfolio_database` |
+| `PORTFOLIO_WEBSOCKET_BASE_URL` | Optional Channels/Daphne WebSocket origin; derived from the API URL when omitted |
 | `AUTH_COOKIE_NAME` | Name of the HTTP-only backend-token cookie |
 | `AUTH_COOKIE_MAX_AGE_SECONDS` | Browser cookie lifetime in seconds |
 
 No production URLs, credentials, or API tokens are committed to the project.
+
+## Live snapshot updates
+
+The overview loads the newest authenticated bank-value snapshot from
+`portfolio_database`, then requests a short-lived WebSocket ticket through the
+Next.js server. Browser JavaScript receives only that temporary ticket—not the
+long-lived portfolio token.
+
+The dashboard subscribes to:
+
+```text
+/ws/cookin-the-books/bank-value-snapshots/
+```
+
+When a new snapshot is accepted by the backend, Django Channels publishes it
+to the authenticated user's private channel group. The dashboard updates
+without a browser refresh and reconnects automatically after interruptions.

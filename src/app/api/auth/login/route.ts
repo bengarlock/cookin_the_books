@@ -7,7 +7,7 @@ import {
 import {
   getPortfolioApiBaseUrl,
   PortfolioApiConfigurationError,
-} from "@/lib/config";
+} from "@/lib/server-config";
 
 type LoginPayload = {
   username?: string;
