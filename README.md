@@ -113,7 +113,7 @@ pm2 start ecosystem.config.cjs
 pm2 save
 ```
 
-The default app port is `6432`. It can be changed in the PM2 environment
+The default app port is `6433`. It can be changed in the PM2 environment
 without changing application code.
 
 ### Reverse proxy
@@ -123,7 +123,7 @@ forwarding to Next.js. A representative Nginx location is:
 
 ```nginx
 location /cookinthebooks/ {
-    proxy_pass http://127.0.0.1:6432;
+    proxy_pass http://127.0.0.1:6433;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Host $host;
