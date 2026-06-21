@@ -637,12 +637,7 @@ export function LiveBankValues({
                     className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 border-b border-white/[0.07] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5"
                   >
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-white/75">Citi Card</span>
-                        <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] text-muted md:inline">
-                          Liability
-                        </span>
-                      </div>
+                      <span className="text-sm text-white/75">Citi Card</span>
                       <p className="mt-1 text-xs text-muted">
                         Current {formatCurrency(currentPosted)}
                         <span className="mx-1.5 text-white/20">·</span>
