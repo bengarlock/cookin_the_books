@@ -50,6 +50,34 @@ const liabilityAccounts = new Set<keyof BankValueSnapshot>([
   "barclays_card",
 ]);
 
+const accountSections: Array<{
+  title: string;
+  description: string;
+  keys: Array<keyof BankValueSnapshot>;
+}> = [
+  {
+    title: "Cash accounts",
+    description: "Checking and savings",
+    keys: ["chase_checking", "chase_savings"],
+  },
+  {
+    title: "Liability accounts",
+    description: "Credit-card balances and pending charges",
+    keys: ["chase_credit", "citi_current", "barclays_card"],
+  },
+  {
+    title: "Investments & retirement",
+    description: "Taxable and retirement portfolios",
+    keys: [
+      "etrade",
+      "betterment_general",
+      "betterment_safety",
+      "betterment_retirement",
+      "fidelity_retirement",
+    ],
+  },
+];
+
 const budgetSettings = {
   daysToNextPayCycle: 10,
   totalBudget: 1600,
@@ -576,8 +604,23 @@ export function LiveBankValues({
               <span>Posted</span>
               <span className="w-32 text-right">Adjusted</span>
             </div>
-            {accounts.filter((account) => account.key !== "citi_pending").map((account) => {
-              if (account.key === "citi_current") {
+            {accountSections.map((section) => (
+              <div key={section.title}>
+                <div className="border-b border-white/10 bg-white/[0.025] px-4 py-3 sm:px-5">
+                  <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                    <h3 className="text-xs font-semibold uppercase tracking-[0.17em] text-white/75">
+                      {section.title}
+                    </h3>
+                    <p className="text-xs text-muted">{section.description}</p>
+                  </div>
+                </div>
+                {section.keys.map((accountKey) => {
+                  const account = accounts.find(
+                    (item) => item.key === accountKey,
+                  );
+                  if (!account) return null;
+
+                  if (account.key === "citi_current") {
                 const currentPosted = valueFromSnapshot(snapshot, "citi_current");
                 const pendingPosted = valueFromSnapshot(snapshot, "citi_pending");
                 const currentManual =
@@ -620,57 +663,56 @@ export function LiveBankValues({
                     </span>
                   </div>
                 );
-              }
+                  }
 
-              const posted = valueFromSnapshot(snapshot, account.key);
-              const pending =
-                calculations.pendingByAccount.get(account.key) || 0;
-              const adjusted = calculations.adjustedValue(account.key);
-              const overdrawn =
-                !liabilityAccounts.has(account.key) && adjusted < 0;
-              return (
-                <div
-                  key={account.key}
-                  className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 gap-y-1 border-b px-4 py-3.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5 ${
-                    overdrawn
-                      ? "border-rose-300/15 bg-rose-500/10"
-                      : "border-white/[0.07]"
-                  }`}
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                  const posted = valueFromSnapshot(snapshot, account.key);
+                  const pending =
+                    calculations.pendingByAccount.get(account.key) || 0;
+                  const adjusted = calculations.adjustedValue(account.key);
+                  const overdrawn =
+                    !liabilityAccounts.has(account.key) && adjusted < 0;
+                  return (
+                    <div
+                      key={account.key}
+                      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 gap-y-1 border-b px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5 ${
+                        overdrawn
+                          ? "border-rose-300/15 bg-rose-500/10"
+                          : "border-white/[0.07]"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`truncate text-sm ${
+                              overdrawn
+                                ? "font-semibold text-rose-200"
+                                : "text-white/75"
+                            }`}
+                          >
+                            {account.label}
+                          </span>
+                        </div>
+                        {pending > 0 ? (
+                          <p className="mt-1 text-xs text-amber-100/70">
+                            {formatCurrency(pending)} pending
+                          </p>
+                        ) : null}
+                      </div>
+                      <span className="hidden whitespace-nowrap font-mono text-sm text-white/55 sm:block">
+                        {formatCurrency(posted)}
+                      </span>
                       <span
-                        className={`truncate text-sm ${
-                          overdrawn
-                            ? "font-semibold text-rose-200"
-                            : "text-white/75"
+                        className={`w-32 whitespace-nowrap text-right font-mono text-sm font-semibold ${
+                          overdrawn ? "text-rose-300" : "text-white"
                         }`}
                       >
-                        {account.label}
-                      </span>
-                      <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] text-muted md:inline">
-                        {account.category}
+                        {formatCurrency(adjusted)}
                       </span>
                     </div>
-                    {pending > 0 ? (
-                      <p className="mt-1 text-xs text-amber-100/70">
-                        {formatCurrency(pending)} pending
-                      </p>
-                    ) : null}
-                  </div>
-                  <span className="hidden whitespace-nowrap font-mono text-sm text-white/55 sm:block">
-                    {formatCurrency(posted)}
-                  </span>
-                  <span
-                    className={`w-32 whitespace-nowrap text-right font-mono text-sm font-semibold ${
-                      overdrawn ? "text-rose-300" : "text-white"
-                    }`}
-                  >
-                    {formatCurrency(adjusted)}
-                  </span>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            ))}
 
             <div className="border-t border-white/10 bg-black/10 p-4 sm:p-5">
               <button
