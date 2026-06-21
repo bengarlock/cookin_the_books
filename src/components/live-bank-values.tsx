@@ -6,39 +6,45 @@ import { APP_BASE_PATH } from "@/lib/config";
 import type { BankValueSnapshot } from "@/lib/snapshot-types";
 
 type ConnectionState = "connecting" | "live" | "reconnecting" | "unavailable";
+type FinancialView = "overview" | "accounts" | "budget";
 
 const accounts: Array<{
   key: keyof BankValueSnapshot;
   label: string;
+  category: string;
 }> = [
-  { key: "chase_checking", label: "Chase Checking" },
-  { key: "chase_savings", label: "Chase Savings" },
-  { key: "chase_credit", label: "Chase Mastercard" },
-  { key: "citi_current", label: "Citi Card — Current" },
-  { key: "citi_pending", label: "Citi Card — Pending" },
-  { key: "barclays_card", label: "Barclaycard" },
-  { key: "etrade", label: "E*TRADE" },
+  { key: "chase_checking", label: "Chase Checking", category: "Cash" },
+  { key: "chase_savings", label: "Chase Savings", category: "Cash" },
+  { key: "chase_credit", label: "Chase Mastercard", category: "Liability" },
+  { key: "citi_current", label: "Citi Card — Current", category: "Liability" },
+  { key: "citi_pending", label: "Citi Card — Pending", category: "Pending" },
+  { key: "barclays_card", label: "Barclaycard", category: "Liability" },
+  { key: "etrade", label: "E*TRADE", category: "Investment" },
   {
     key: "betterment_general",
     label: "Betterment — General",
+    category: "Investment",
   },
   {
     key: "betterment_safety",
     label: "Betterment — Safety Net",
+    category: "Investment",
   },
   {
     key: "betterment_retirement",
     label: "Betterment — Retirement",
+    category: "Retirement",
   },
   {
     key: "fidelity_retirement",
     label: "Fidelity 401(k)",
+    category: "Retirement",
   },
 ];
 
 const budgetSettings = {
   daysToNextPayCycle: 10,
-  payCycleBudget: 1600,
+  totalBudget: 1600,
   budgetOffset: 0,
   cashTransferToSavings: 0,
   charge: 0,
@@ -50,19 +56,13 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 });
 
 function formatCurrency(value: string | number | undefined) {
-  if (value === undefined) {
-    return "—";
-  }
-
+  if (value === undefined) return "—";
   const number = Number(value);
   return Number.isFinite(number) ? currencyFormatter.format(number) : "—";
 }
 
 function formatUpdatedAt(value?: string) {
-  if (!value) {
-    return "Waiting for the first snapshot";
-  }
-
+  if (!value) return "Waiting for the first snapshot";
   return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -83,25 +83,34 @@ function SummaryRow({
   value,
   emphasized = false,
   negative = false,
+  badge,
 }: {
   label: string;
   value: string;
   emphasized?: boolean;
   negative?: boolean;
+  badge?: string;
 }) {
   return (
     <div
-      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-5 border-b border-white/[0.07] px-4 py-3 last:border-b-0 sm:px-5 ${
+      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-5 border-b border-white/[0.07] px-4 py-3.5 last:border-b-0 sm:px-5 ${
         emphasized ? "bg-white/[0.045]" : ""
       }`}
     >
-      <span
-        className={`min-w-0 text-sm ${
-          emphasized ? "font-semibold text-white" : "text-white/70"
-        }`}
-      >
-        {label}
-      </span>
+      <div className="flex min-w-0 items-center gap-3">
+        <span
+          className={`min-w-0 text-sm ${
+            emphasized ? "font-semibold text-white" : "text-white/70"
+          }`}
+        >
+          {label}
+        </span>
+        {badge ? (
+          <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted sm:inline">
+            {badge}
+          </span>
+        ) : null}
+      </div>
       <span
         className={`whitespace-nowrap font-mono text-sm sm:text-base ${
           negative
@@ -117,10 +126,48 @@ function SummaryRow({
   );
 }
 
+function MetricCard({
+  label,
+  value,
+  description,
+  featured = false,
+  negative = false,
+}: {
+  label: string;
+  value: string;
+  description: string;
+  featured?: boolean;
+  negative?: boolean;
+}) {
+  return (
+    <article
+      className={`rounded-2xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] ${
+        featured
+          ? "border-accent/25 bg-accent/[0.09]"
+          : "border-white/10 bg-white/[0.045]"
+      }`}
+    >
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+        {label}
+      </p>
+      <p
+        className={`mt-4 font-mono text-2xl font-semibold tracking-tight sm:text-3xl ${
+          negative ? "text-rose-300" : featured ? "text-accent" : "text-white"
+        }`}
+      >
+        {value}
+      </p>
+      <p className="mt-3 text-xs leading-5 text-muted">{description}</p>
+    </article>
+  );
+}
+
 export function LiveBankValues({
   initialSnapshot,
+  view = "overview",
 }: {
   initialSnapshot: BankValueSnapshot | null;
+  view?: FinancialView;
 }) {
   const [snapshot, setSnapshot] = useState(initialSnapshot);
   const [connectionState, setConnectionState] =
@@ -150,18 +197,15 @@ export function LiveBankValues({
         }
 
         socket = new WebSocket(ticketData.url);
-
         socket.onopen = () => {
           reconnectAttempts = 0;
           setConnectionState("live");
         };
-
         socket.onmessage = (event) => {
           const message = JSON.parse(event.data) as {
             type?: string;
             snapshot?: BankValueSnapshot | null;
           };
-
           if (
             (message.type === "snapshot.initial" ||
               message.type === "snapshot.updated") &&
@@ -170,17 +214,15 @@ export function LiveBankValues({
             setSnapshot(message.snapshot);
           }
         };
-
-        socket.onerror = () => {
-          socket?.close();
-        };
-
+        socket.onerror = () => socket?.close();
         socket.onclose = () => {
           if (disposed) return;
           reconnectAttempts += 1;
           setConnectionState("reconnecting");
-          const delay = Math.min(1000 * 2 ** (reconnectAttempts - 1), 30000);
-          reconnectTimer = setTimeout(connect, delay);
+          reconnectTimer = setTimeout(
+            connect,
+            Math.min(1000 * 2 ** (reconnectAttempts - 1), 30000),
+          );
         };
       } catch {
         if (disposed) return;
@@ -188,13 +230,14 @@ export function LiveBankValues({
         setConnectionState(
           reconnectAttempts > 3 ? "unavailable" : "reconnecting",
         );
-        const delay = Math.min(1000 * 2 ** (reconnectAttempts - 1), 30000);
-        reconnectTimer = setTimeout(connect, delay);
+        reconnectTimer = setTimeout(
+          connect,
+          Math.min(1000 * 2 ** (reconnectAttempts - 1), 30000),
+        );
       }
     }
 
     connect();
-
     return () => {
       disposed = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
@@ -202,17 +245,10 @@ export function LiveBankValues({
     };
   }, []);
 
-  const connectionLabel = useMemo(() => {
-    if (connectionState === "live") return "Live updates";
-    if (connectionState === "connecting") return "Connecting";
-    if (connectionState === "reconnecting") return "Reconnecting";
-    return "Live updates unavailable";
-  }, [connectionState]);
-
   const calculations = useMemo(() => {
     const chaseChecking = valueFromSnapshot(snapshot, "chase_checking");
     const chaseSavings = valueFromSnapshot(snapshot, "chase_savings");
-    const creditCardDebt =
+    const grossLiabilities =
       valueFromSnapshot(snapshot, "chase_credit") +
       valueFromSnapshot(snapshot, "citi_current") +
       valueFromSnapshot(snapshot, "citi_pending") +
@@ -227,31 +263,37 @@ export function LiveBankValues({
       valueFromSnapshot(snapshot, "betterment_retirement") +
       valueFromSnapshot(snapshot, "fidelity_retirement");
     const grossAssets = nonRetirementCash + retirementCash;
-    const budgetDifference =
-      budgetSettings.payCycleBudget - creditCardDebt;
-    const remainingBudget =
-      budgetDifference + budgetSettings.budgetOffset;
+    const budgetDifference = budgetSettings.totalBudget - grossLiabilities;
+    const remainingBudget = budgetDifference + budgetSettings.budgetOffset;
     const dailyBudget =
       budgetSettings.daysToNextPayCycle > 0
         ? remainingBudget / budgetSettings.daysToNextPayCycle
         : 0;
-    const checkingAvailable =
-      chaseChecking -
-      budgetSettings.cashTransferToSavings -
-      budgetSettings.charge;
 
     return {
-      creditCardDebt,
+      grossLiabilities,
       nonRetirementCash,
       retirementCash,
       grossAssets,
       budgetDifference,
       remainingBudget,
       dailyBudget,
-      checkingAvailable,
-      netAssets: grossAssets - creditCardDebt,
+      checkingAvailable:
+        chaseChecking -
+        budgetSettings.cashTransferToSavings -
+        budgetSettings.charge,
+      netAssets: grossAssets - grossLiabilities,
     };
   }, [snapshot]);
+
+  const connectionLabel =
+    connectionState === "live"
+      ? "Live updates"
+      : connectionState === "connecting"
+        ? "Connecting"
+        : connectionState === "reconnecting"
+          ? "Reconnecting"
+          : "Live updates unavailable";
 
   return (
     <section className="mt-8">
@@ -277,66 +319,98 @@ export function LiveBankValues({
         </div>
       </div>
 
-      <div className="surface overflow-hidden rounded-2xl">
-        <div className="flex flex-col gap-3 border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
-              Account overview
-            </p>
-            <p className="mt-1 text-sm text-muted">
-              Current balances and planning summary
-            </p>
-          </div>
-          <div className="sm:text-right">
-            <p className="text-xs uppercase tracking-[0.18em] text-muted">
-              Remaining budget
-            </p>
-            <p
-              className={`mt-1 font-mono text-xl font-semibold ${
-                calculations.remainingBudget < 0
-                  ? "text-rose-300"
-                  : "text-accent"
-              }`}
-            >
-              {formatCurrency(calculations.remainingBudget)}
-            </p>
+      {view === "overview" ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            label="Total budget"
+            value={formatCurrency(budgetSettings.totalBudget)}
+            description="Budget allocated for the current pay cycle."
+          />
+          <MetricCard
+            label="Remaining budget"
+            value={formatCurrency(calculations.remainingBudget)}
+            description="Total budget less current card obligations."
+            featured
+            negative={calculations.remainingBudget < 0}
+          />
+          <MetricCard
+            label="Days until pay cycle"
+            value={`${budgetSettings.daysToNextPayCycle}`}
+            description="Days remaining in the current planning period."
+          />
+          <MetricCard
+            label="Daily budget"
+            value={formatCurrency(calculations.dailyBudget)}
+            description="Remaining budget available per day."
+            featured
+            negative={calculations.dailyBudget < 0}
+          />
+          <MetricCard
+            label="Gross assets"
+            value={formatCurrency(calculations.grossAssets)}
+            description="Cash and investment balances combined."
+          />
+          <MetricCard
+            label="Gross liabilities"
+            value={formatCurrency(-calculations.grossLiabilities)}
+            description="Current and pending credit-card balances."
+            negative={calculations.grossLiabilities > 0}
+          />
+          <div className="sm:col-span-2">
+            <MetricCard
+              label="Net assets"
+              value={formatCurrency(calculations.netAssets)}
+              description="Gross assets after subtracting current liabilities."
+              featured
+              negative={calculations.netAssets < 0}
+            />
           </div>
         </div>
+      ) : null}
 
-        <div className="grid xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div className="border-b border-white/10 xl:border-r xl:border-b-0">
-            <div className="border-b border-white/10 px-4 py-3 sm:px-5">
-              <h2 className="text-sm font-semibold text-white">Accounts</h2>
-            </div>
-            {accounts.map((account) => (
-              <SummaryRow
-                key={account.key}
-                label={account.label}
-                value={formatCurrency(
-                  snapshot?.[account.key] as string | undefined,
-                )}
-              />
-            ))}
+      {view === "accounts" ? (
+        <div className="surface overflow-hidden rounded-2xl">
+          <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
+              Current balances
+            </p>
+            <p className="mt-1 text-sm text-muted">
+              All values come from the latest portfolio snapshot.
+            </p>
           </div>
+          {accounts.map((account) => (
+            <SummaryRow
+              key={account.key}
+              label={account.label}
+              badge={account.category}
+              value={formatCurrency(
+                snapshot?.[account.key] as string | undefined,
+              )}
+            />
+          ))}
+        </div>
+      ) : null}
 
-          <div>
-            <div className="border-b border-white/10 px-4 py-3 sm:px-5">
-              <h2 className="text-sm font-semibold text-white">
-                Budget and cash position
-              </h2>
+      {view === "budget" ? (
+        <div className="grid gap-5 xl:grid-cols-2">
+          <div className="surface overflow-hidden rounded-2xl">
+            <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
+                Budget plan
+              </p>
             </div>
             <SummaryRow
-              label="Time to next pay cycle"
+              label="Days until next pay cycle"
               value={`${budgetSettings.daysToNextPayCycle} days`}
             />
             <SummaryRow
-              label="Pay cycle budget"
-              value={formatCurrency(budgetSettings.payCycleBudget)}
+              label="Total budget"
+              value={formatCurrency(budgetSettings.totalBudget)}
             />
             <SummaryRow
               label="Credit card debt"
-              value={formatCurrency(-calculations.creditCardDebt)}
-              negative={calculations.creditCardDebt > 0}
+              value={formatCurrency(-calculations.grossLiabilities)}
+              negative={calculations.grossLiabilities > 0}
             />
             <SummaryRow
               label="Budget difference"
@@ -348,10 +422,25 @@ export function LiveBankValues({
               value={formatCurrency(budgetSettings.budgetOffset)}
             />
             <SummaryRow
+              label="Remaining budget"
+              value={formatCurrency(calculations.remainingBudget)}
+              emphasized
+              negative={calculations.remainingBudget < 0}
+            />
+            <SummaryRow
               label="Daily budget"
               value={formatCurrency(calculations.dailyBudget)}
+              emphasized
               negative={calculations.dailyBudget < 0}
             />
+          </div>
+
+          <div className="surface overflow-hidden rounded-2xl">
+            <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
+                Cash position
+              </p>
+            </div>
             <SummaryRow
               label="Cash — non-retirement"
               value={formatCurrency(calculations.nonRetirementCash)}
@@ -370,34 +459,13 @@ export function LiveBankValues({
               emphasized
               negative={calculations.checkingAvailable < 0}
             />
+            <SummaryRow
+              label="Charge"
+              value={formatCurrency(budgetSettings.charge)}
+            />
           </div>
         </div>
-
-        <div className="grid border-t border-white/10 md:grid-cols-3">
-          <SummaryRow
-            label="Gross assets"
-            value={formatCurrency(calculations.grossAssets)}
-          />
-          <SummaryRow
-            label="Gross liabilities"
-            value={formatCurrency(-calculations.creditCardDebt)}
-            negative={calculations.creditCardDebt > 0}
-          />
-          <SummaryRow
-            label="Net assets"
-            value={formatCurrency(calculations.netAssets)}
-            emphasized
-            negative={calculations.netAssets < 0}
-          />
-        </div>
-
-        <div className="border-t border-white/10">
-          <SummaryRow
-            label="Charge"
-            value={formatCurrency(budgetSettings.charge)}
-          />
-        </div>
-      </div>
+      ) : null}
     </section>
   );
 }

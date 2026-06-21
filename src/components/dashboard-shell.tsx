@@ -1,11 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 
 import { LogoutButton } from "@/components/logout-button";
 
 const navigation = [
-  { name: "Overview", href: "/dashboard", active: true },
-  { name: "Accounts", href: "/dashboard/accounts", disabled: true },
+  { name: "Overview", href: "/dashboard" },
+  { name: "Accounts", href: "/dashboard/accounts" },
+  { name: "Budget", href: "/dashboard/budget" },
   { name: "Snapshots", href: "/dashboard/snapshots", disabled: true },
   { name: "Automations", href: "/dashboard/automations", disabled: true },
 ];
@@ -23,6 +27,8 @@ function GridIcon() {
 }
 
 export function DashboardShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+
   return (
     <div className="app-backdrop min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
       <aside className="border-b border-white/10 bg-black/15 px-5 py-5 backdrop-blur lg:fixed lg:inset-y-0 lg:w-[260px] lg:border-r lg:border-b-0 lg:px-6 lg:py-7">
@@ -58,7 +64,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               <Link
                 key={item.name}
                 href={item.href}
-                className="flex shrink-0 items-center gap-3 rounded-xl border border-accent/15 bg-accent/10 px-3 py-2.5 text-sm font-medium text-accent lg:w-full"
+                className={`flex shrink-0 items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition lg:w-full ${
+                  pathname === item.href
+                    ? "border-accent/15 bg-accent/10 text-accent"
+                    : "border-transparent text-white/60 hover:border-white/10 hover:bg-white/[0.04] hover:text-white"
+                }`}
               >
                 <GridIcon />
                 {item.name}

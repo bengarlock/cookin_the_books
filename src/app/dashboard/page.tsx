@@ -73,7 +73,7 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <LiveBankValues initialSnapshot={latestSnapshot} />
+      <LiveBankValues initialSnapshot={latestSnapshot} view="overview" />
 
       <section className="mt-10">
         <div className="flex items-end justify-between gap-4">
