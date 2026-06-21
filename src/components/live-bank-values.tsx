@@ -198,7 +198,9 @@ export function LiveBankValues({
   );
   const [formOpen, setFormOpen] = useState(false);
   const [formError, setFormError] = useState("");
+  const [registerError, setRegisterError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [transactionForm, setTransactionForm] = useState({
     note: "",
     amount: "",
@@ -336,6 +338,16 @@ export function LiveBankValues({
       netAssets: grossAssets - grossLiabilities,
       pendingByAccount,
       adjustedValue,
+      overdrawnAccounts: accounts
+        .filter(
+          (account) =>
+            !liabilityAccounts.has(account.key) &&
+            adjustedValue(account.key) < 0,
+        )
+        .map((account) => ({
+          ...account,
+          adjustedBalance: adjustedValue(account.key),
+        })),
     };
   }, [pendingTransactions, snapshot]);
 
@@ -386,6 +398,7 @@ export function LiveBankValues({
   }
 
   async function markCleared(transaction: PendingTransaction) {
+    setRegisterError("");
     const response = await fetch(
       `${APP_BASE_PATH}/api/pending-transactions/${transaction.id}`,
       {
@@ -401,6 +414,42 @@ export function LiveBankValues({
       setPendingTransactions((current) =>
         current.map((item) => (item.id === updated.id ? updated : item)),
       );
+    } else {
+      setRegisterError("Unable to mark the transaction cleared.");
+    }
+  }
+
+  async function deleteTransaction(transaction: PendingTransaction) {
+    if (
+      !window.confirm(
+        `Delete “${transaction.note}” from the pending transaction register?`,
+      )
+    ) {
+      return;
+    }
+
+    setRegisterError("");
+    setDeletingId(transaction.id);
+
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/pending-transactions/${transaction.id}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) {
+        throw new Error("Unable to delete the pending transaction.");
+      }
+      setPendingTransactions((current) =>
+        current.filter((item) => item.id !== transaction.id),
+      );
+    } catch (error) {
+      setRegisterError(
+        error instanceof Error
+          ? error.message
+          : "Unable to delete the pending transaction.",
+      );
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -438,50 +487,78 @@ export function LiveBankValues({
       </div>
 
       {view === "overview" ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Total budget"
-            value={formatCurrency(budgetSettings.totalBudget)}
-            description="Budget allocated for the current pay cycle."
-          />
-          <MetricCard
-            label="Remaining budget"
-            value={formatCurrency(calculations.remainingBudget)}
-            description="Total budget less current card obligations."
-            featured
-            negative={calculations.remainingBudget < 0}
-          />
-          <MetricCard
-            label="Days until pay cycle"
-            value={`${budgetSettings.daysToNextPayCycle}`}
-            description="Days remaining in the current planning period."
-          />
-          <MetricCard
-            label="Daily budget"
-            value={formatCurrency(calculations.dailyBudget)}
-            description="Remaining budget available per day."
-            featured
-            negative={calculations.dailyBudget < 0}
-          />
-          <MetricCard
-            label="Gross assets"
-            value={formatCurrency(calculations.grossAssets)}
-            description="Cash and investment balances combined."
-          />
-          <MetricCard
-            label="Gross liabilities"
-            value={formatCurrency(-calculations.grossLiabilities)}
-            description="Current and pending credit-card balances."
-            negative={calculations.grossLiabilities > 0}
-          />
-          <div className="sm:col-span-2">
+        <div className="space-y-4">
+          {calculations.overdrawnAccounts.length ? (
+            <div
+              className="rounded-2xl border border-rose-300/25 bg-rose-500/10 p-5"
+              role="alert"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-200">
+                Overdrawn account alert
+              </p>
+              <p className="mt-2 text-sm text-rose-100/80">
+                {calculations.overdrawnAccounts.length === 1
+                  ? "One account has a negative adjusted balance."
+                  : `${calculations.overdrawnAccounts.length} accounts have negative adjusted balances.`}
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {calculations.overdrawnAccounts.map((account) => (
+                  <span
+                    key={account.key}
+                    className="rounded-full border border-rose-200/20 bg-black/10 px-3 py-1.5 text-xs font-medium text-rose-100"
+                  >
+                    {account.label}: {formatCurrency(account.adjustedBalance)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
-              label="Net assets"
-              value={formatCurrency(calculations.netAssets)}
-              description="Gross assets after subtracting current liabilities."
-              featured
-              negative={calculations.netAssets < 0}
+              label="Total budget"
+              value={formatCurrency(budgetSettings.totalBudget)}
+              description="Budget allocated for the current pay cycle."
             />
+            <MetricCard
+              label="Remaining budget"
+              value={formatCurrency(calculations.remainingBudget)}
+              description="Total budget less current card obligations."
+              featured
+              negative={calculations.remainingBudget < 0}
+            />
+            <MetricCard
+              label="Days until pay cycle"
+              value={`${budgetSettings.daysToNextPayCycle}`}
+              description="Days remaining in the current planning period."
+            />
+            <MetricCard
+              label="Daily budget"
+              value={formatCurrency(calculations.dailyBudget)}
+              description="Remaining budget available per day."
+              featured
+              negative={calculations.dailyBudget < 0}
+            />
+            <MetricCard
+              label="Gross assets"
+              value={formatCurrency(calculations.grossAssets)}
+              description="Cash and investment balances combined."
+            />
+            <MetricCard
+              label="Gross liabilities"
+              value={formatCurrency(-calculations.grossLiabilities)}
+              description="Current and pending credit-card balances."
+              negative={calculations.grossLiabilities > 0}
+            />
+            <div className="sm:col-span-2">
+              <MetricCard
+                label="Net assets"
+                value={formatCurrency(calculations.netAssets)}
+                description="Gross assets after subtracting current liabilities."
+                featured
+                negative={calculations.netAssets < 0}
+              />
+            </div>
           </div>
         </div>
       ) : null}
@@ -622,14 +699,26 @@ export function LiveBankValues({
               const pending =
                 calculations.pendingByAccount.get(account.key) || 0;
               const adjusted = calculations.adjustedValue(account.key);
+              const overdrawn =
+                !liabilityAccounts.has(account.key) && adjusted < 0;
               return (
                 <div
                   key={account.key}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 gap-y-1 border-b border-white/[0.07] px-4 py-3.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5"
+                  className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 gap-y-1 border-b px-4 py-3.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5 ${
+                    overdrawn
+                      ? "border-rose-300/15 bg-rose-500/10"
+                      : "border-white/[0.07]"
+                  }`}
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm text-white/75">
+                      <span
+                        className={`truncate text-sm ${
+                          overdrawn
+                            ? "font-semibold text-rose-200"
+                            : "text-white/75"
+                        }`}
+                      >
                         {account.label}
                       </span>
                       <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] text-muted md:inline">
@@ -645,7 +734,11 @@ export function LiveBankValues({
                   <span className="hidden whitespace-nowrap font-mono text-sm text-white/55 sm:block">
                     {formatCurrency(posted)}
                   </span>
-                  <span className="w-32 whitespace-nowrap text-right font-mono text-sm font-semibold text-white">
+                  <span
+                    className={`w-32 whitespace-nowrap text-right font-mono text-sm font-semibold ${
+                      overdrawn ? "text-rose-300" : "text-white"
+                    }`}
+                  >
                     {formatCurrency(adjusted)}
                   </span>
                 </div>
@@ -663,6 +756,14 @@ export function LiveBankValues({
                 balance.
               </p>
             </div>
+            {registerError ? (
+              <p
+                className="border-b border-rose-300/15 bg-rose-500/10 px-5 py-3 text-sm text-rose-100"
+                role="alert"
+              >
+                {registerError}
+              </p>
+            ) : null}
             {pendingTransactions.length ? (
               pendingTransactions.map((transaction) => {
                 const account = accounts.find(
@@ -693,19 +794,29 @@ export function LiveBankValues({
                     <span className="font-mono text-sm font-semibold text-white">
                       {formatCurrency(transaction.amount)}
                     </span>
-                    {transaction.is_cleared ? (
-                      <span className="text-xs font-medium text-accent">
-                        Cleared
-                      </span>
-                    ) : (
+                    <div className="flex items-center gap-2">
+                      {transaction.is_cleared ? (
+                        <span className="text-xs font-medium text-accent">
+                          Cleared
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => markCleared(transaction)}
+                          className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-white/70 transition hover:border-accent/30 hover:text-accent"
+                        >
+                          Mark cleared
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => markCleared(transaction)}
-                        className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-white/70 transition hover:border-accent/30 hover:text-accent"
+                        onClick={() => deleteTransaction(transaction)}
+                        disabled={deletingId === transaction.id}
+                        className="rounded-lg border border-rose-300/15 px-3 py-2 text-xs font-medium text-rose-200/80 transition hover:border-rose-300/35 hover:bg-rose-500/10 hover:text-rose-100 disabled:opacity-50"
                       >
-                        Mark cleared
+                        {deletingId === transaction.id ? "Deleting…" : "Delete"}
                       </button>
-                    )}
+                    </div>
                   </div>
                 );
               })
