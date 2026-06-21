@@ -200,6 +200,9 @@ export function LiveBankValues({
   const [formError, setFormError] = useState("");
   const [registerError, setRegisterError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(
+    null,
+  );
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [transactionForm, setTransactionForm] = useState({
     note: "",
@@ -420,14 +423,6 @@ export function LiveBankValues({
   }
 
   async function deleteTransaction(transaction: PendingTransaction) {
-    if (
-      !window.confirm(
-        `Delete “${transaction.note}” from the pending transaction register?`,
-      )
-    ) {
-      return;
-    }
-
     setRegisterError("");
     setDeletingId(transaction.id);
 
@@ -442,6 +437,7 @@ export function LiveBankValues({
       setPendingTransactions((current) =>
         current.filter((item) => item.id !== transaction.id),
       );
+      setConfirmingDeleteId(null);
     } catch (error) {
       setRegisterError(
         error instanceof Error
@@ -810,12 +806,37 @@ export function LiveBankValues({
                       )}
                       <button
                         type="button"
-                        onClick={() => deleteTransaction(transaction)}
-                        disabled={deletingId === transaction.id}
-                        className="rounded-lg border border-rose-300/15 px-3 py-2 text-xs font-medium text-rose-200/80 transition hover:border-rose-300/35 hover:bg-rose-500/10 hover:text-rose-100 disabled:opacity-50"
+                        onClick={() => setConfirmingDeleteId(transaction.id)}
+                        hidden={confirmingDeleteId === transaction.id}
+                        className="rounded-lg border border-rose-300/15 px-3 py-2 text-xs font-medium text-rose-200/80 transition hover:border-rose-300/35 hover:bg-rose-500/10 hover:text-rose-100"
                       >
-                        {deletingId === transaction.id ? "Deleting…" : "Delete"}
+                        Delete
                       </button>
+                      {confirmingDeleteId === transaction.id ? (
+                        <div className="flex items-center gap-2 rounded-lg border border-rose-300/20 bg-rose-500/10 p-1">
+                          <span className="px-2 text-xs text-rose-100">
+                            Delete?
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmingDeleteId(null)}
+                            disabled={deletingId === transaction.id}
+                            className="rounded-md px-2.5 py-1.5 text-xs font-medium text-white/65 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteTransaction(transaction)}
+                            disabled={deletingId === transaction.id}
+                            className="rounded-md bg-rose-500/20 px-2.5 py-1.5 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/30 disabled:opacity-50"
+                          >
+                            {deletingId === transaction.id
+                              ? "Deleting…"
+                              : "Confirm delete"}
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 );
