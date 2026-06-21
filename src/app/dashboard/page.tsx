@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { LiveBankValues } from "@/components/live-bank-values";
+import { getPendingTransactions } from "@/lib/pending-transactions";
 import { getLatestBankValueSnapshot } from "@/lib/snapshots";
 
 export const metadata: Metadata = {
@@ -46,7 +47,10 @@ const toneStyles = {
 };
 
 export default async function DashboardPage() {
-  const latestSnapshot = await getLatestBankValueSnapshot();
+  const [latestSnapshot, pendingTransactions] = await Promise.all([
+    getLatestBankValueSnapshot(),
+    getPendingTransactions(),
+  ]);
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -73,7 +77,11 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <LiveBankValues initialSnapshot={latestSnapshot} view="overview" />
+      <LiveBankValues
+        initialSnapshot={latestSnapshot}
+        initialPendingTransactions={pendingTransactions}
+        view="overview"
+      />
 
       <section className="mt-10">
         <div className="flex items-end justify-between gap-4">

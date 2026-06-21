@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { APP_BASE_PATH } from "@/lib/config";
+import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import type { BankValueSnapshot } from "@/lib/snapshot-types";
 
 type ConnectionState = "connecting" | "live" | "reconnecting" | "unavailable";
@@ -42,6 +43,13 @@ const accounts: Array<{
   },
 ];
 
+const liabilityAccounts = new Set<keyof BankValueSnapshot>([
+  "chase_credit",
+  "citi_current",
+  "citi_pending",
+  "barclays_card",
+]);
+
 const budgetSettings = {
   daysToNextPayCycle: 10,
   totalBudget: 1600,
@@ -76,6 +84,19 @@ function valueFromSnapshot(
   if (!snapshot) return 0;
   const value = Number(snapshot[key]);
   return Number.isFinite(value) ? value : 0;
+}
+
+function nextBusinessDayString() {
+  const candidate = new Date();
+  candidate.setDate(candidate.getDate() + 1);
+  while (candidate.getDay() === 0 || candidate.getDay() === 6) {
+    candidate.setDate(candidate.getDate() + 1);
+  }
+  return [
+    candidate.getFullYear(),
+    String(candidate.getMonth() + 1).padStart(2, "0"),
+    String(candidate.getDate()).padStart(2, "0"),
+  ].join("-");
 }
 
 function SummaryRow({
@@ -164,12 +185,26 @@ function MetricCard({
 
 export function LiveBankValues({
   initialSnapshot,
+  initialPendingTransactions,
   view = "overview",
 }: {
   initialSnapshot: BankValueSnapshot | null;
+  initialPendingTransactions: PendingTransaction[];
   view?: FinancialView;
 }) {
   const [snapshot, setSnapshot] = useState(initialSnapshot);
+  const [pendingTransactions, setPendingTransactions] = useState(
+    initialPendingTransactions,
+  );
+  const [formOpen, setFormOpen] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [transactionForm, setTransactionForm] = useState({
+    note: "",
+    amount: "",
+    account: "chase_checking" as keyof BankValueSnapshot,
+    expected_post_date: nextBusinessDayString(),
+  });
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("connecting");
 
@@ -246,22 +281,38 @@ export function LiveBankValues({
   }, []);
 
   const calculations = useMemo(() => {
-    const chaseChecking = valueFromSnapshot(snapshot, "chase_checking");
-    const chaseSavings = valueFromSnapshot(snapshot, "chase_savings");
+    const pendingByAccount = new Map<keyof BankValueSnapshot, number>();
+    for (const transaction of pendingTransactions) {
+      if (transaction.is_cleared) continue;
+      pendingByAccount.set(
+        transaction.account,
+        (pendingByAccount.get(transaction.account) || 0) +
+          Number(transaction.amount),
+      );
+    }
+
+    const adjustedValue = (key: keyof BankValueSnapshot) => {
+      const posted = valueFromSnapshot(snapshot, key);
+      const pending = pendingByAccount.get(key) || 0;
+      return liabilityAccounts.has(key) ? posted + pending : posted - pending;
+    };
+
+    const chaseChecking = adjustedValue("chase_checking");
+    const chaseSavings = adjustedValue("chase_savings");
     const grossLiabilities =
-      valueFromSnapshot(snapshot, "chase_credit") +
-      valueFromSnapshot(snapshot, "citi_current") +
-      valueFromSnapshot(snapshot, "citi_pending") +
-      valueFromSnapshot(snapshot, "barclays_card");
+      adjustedValue("chase_credit") +
+      adjustedValue("citi_current") +
+      adjustedValue("citi_pending") +
+      adjustedValue("barclays_card");
     const nonRetirementCash =
       chaseChecking +
       chaseSavings +
-      valueFromSnapshot(snapshot, "etrade") +
-      valueFromSnapshot(snapshot, "betterment_general") +
-      valueFromSnapshot(snapshot, "betterment_safety");
+      adjustedValue("etrade") +
+      adjustedValue("betterment_general") +
+      adjustedValue("betterment_safety");
     const retirementCash =
-      valueFromSnapshot(snapshot, "betterment_retirement") +
-      valueFromSnapshot(snapshot, "fidelity_retirement");
+      adjustedValue("betterment_retirement") +
+      adjustedValue("fidelity_retirement");
     const grossAssets = nonRetirementCash + retirementCash;
     const budgetDifference = budgetSettings.totalBudget - grossLiabilities;
     const remainingBudget = budgetDifference + budgetSettings.budgetOffset;
@@ -283,8 +334,75 @@ export function LiveBankValues({
         budgetSettings.cashTransferToSavings -
         budgetSettings.charge,
       netAssets: grossAssets - grossLiabilities,
+      pendingByAccount,
+      adjustedValue,
     };
-  }, [snapshot]);
+  }, [pendingTransactions, snapshot]);
+
+  async function addPendingTransaction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+    setIsSaving(true);
+
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/pending-transactions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(transactionForm),
+        },
+      );
+      const data = (await response.json().catch(() => null)) as
+        | PendingTransaction
+        | { message?: string; detail?: string; [key: string]: unknown }
+        | null;
+      if (!response.ok || !data || !("id" in data)) {
+        throw new Error(
+          (data && "message" in data && data.message) ||
+            (data && "detail" in data && data.detail) ||
+            "Unable to save the pending transaction.",
+        );
+      }
+
+      const savedTransaction = data as PendingTransaction;
+      setPendingTransactions((current) => [savedTransaction, ...current]);
+      setTransactionForm({
+        note: "",
+        amount: "",
+        account: "chase_checking",
+        expected_post_date: nextBusinessDayString(),
+      });
+      setFormOpen(false);
+    } catch (error) {
+      setFormError(
+        error instanceof Error
+          ? error.message
+          : "Unable to save the pending transaction.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function markCleared(transaction: PendingTransaction) {
+    const response = await fetch(
+      `${APP_BASE_PATH}/api/pending-transactions/${transaction.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_cleared: true }),
+      },
+    );
+    const updated = (await response.json().catch(() => null)) as
+      | PendingTransaction
+      | null;
+    if (response.ok && updated?.id) {
+      setPendingTransactions((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+    }
+  }
 
   const connectionLabel =
     connectionState === "live"
@@ -369,25 +487,234 @@ export function LiveBankValues({
       ) : null}
 
       {view === "accounts" ? (
-        <div className="surface overflow-hidden rounded-2xl">
-          <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
-              Current balances
-            </p>
-            <p className="mt-1 text-sm text-muted">
-              All values come from the latest portfolio snapshot.
-            </p>
+        <div className="space-y-6">
+          <div className="surface overflow-hidden rounded-2xl">
+            <div className="flex flex-col gap-4 border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
+                  Current balances
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  Adjusted balances include uncleared manual transactions.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFormOpen((open) => !open)}
+                className="rounded-xl bg-accent-strong px-4 py-2.5 text-sm font-semibold text-[#03120c] transition hover:bg-accent"
+              >
+                {formOpen ? "Cancel" : "Add pending transaction"}
+              </button>
+            </div>
+
+            {formOpen ? (
+              <form
+                onSubmit={addPendingTransaction}
+                className="grid gap-4 border-b border-white/10 bg-black/10 p-4 sm:grid-cols-2 sm:p-5"
+              >
+                <label className="sm:col-span-2">
+                  <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
+                    Note
+                  </span>
+                  <input
+                    value={transactionForm.note}
+                    onChange={(event) =>
+                      setTransactionForm((current) => ({
+                        ...current,
+                        note: event.target.value,
+                      }))
+                    }
+                    className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-accent/50"
+                    placeholder="What is this transaction for?"
+                    maxLength={255}
+                    required
+                  />
+                </label>
+                <label>
+                  <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
+                    Amount
+                  </span>
+                  <input
+                    value={transactionForm.amount}
+                    onChange={(event) =>
+                      setTransactionForm((current) => ({
+                        ...current,
+                        amount: event.target.value,
+                      }))
+                    }
+                    className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 font-mono text-sm text-white outline-none focus:border-accent/50"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    placeholder="0.00"
+                    required
+                  />
+                </label>
+                <label>
+                  <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
+                    Account
+                  </span>
+                  <select
+                    value={transactionForm.account}
+                    onChange={(event) =>
+                      setTransactionForm((current) => ({
+                        ...current,
+                        account: event.target.value as keyof BankValueSnapshot,
+                      }))
+                    }
+                    className="h-11 w-full rounded-xl border border-white/10 bg-[#0b1714] px-3 text-sm text-white outline-none focus:border-accent/50"
+                  >
+                    {accounts.map((account) => (
+                      <option key={account.key} value={account.key}>
+                        {account.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
+                    Expected post date
+                  </span>
+                  <input
+                    value={transactionForm.expected_post_date}
+                    onChange={(event) =>
+                      setTransactionForm((current) => ({
+                        ...current,
+                        expected_post_date: event.target.value,
+                      }))
+                    }
+                    className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-accent/50"
+                    type="date"
+                    required
+                  />
+                </label>
+                <div className="flex items-end">
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="h-11 w-full rounded-xl border border-accent/25 bg-accent/10 px-4 text-sm font-semibold text-accent transition hover:bg-accent/15 disabled:opacity-50"
+                  >
+                    {isSaving ? "Saving…" : "Save transaction"}
+                  </button>
+                </div>
+                {formError ? (
+                  <p
+                    role="alert"
+                    className="sm:col-span-2 rounded-xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
+                  >
+                    {formError}
+                  </p>
+                ) : null}
+                <p className="sm:col-span-2 text-xs leading-5 text-muted">
+                  Enter outgoing amounts as positive values. Cash and investment
+                  balances are reduced; credit-card balances are increased.
+                </p>
+              </form>
+            ) : null}
+
+            <div className="hidden grid-cols-[minmax(0,1fr)_auto_auto] gap-6 border-b border-white/10 px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted sm:grid">
+              <span>Account</span>
+              <span>Posted</span>
+              <span className="w-32 text-right">Adjusted</span>
+            </div>
+            {accounts.map((account) => {
+              const posted = valueFromSnapshot(snapshot, account.key);
+              const pending =
+                calculations.pendingByAccount.get(account.key) || 0;
+              const adjusted = calculations.adjustedValue(account.key);
+              return (
+                <div
+                  key={account.key}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 gap-y-1 border-b border-white/[0.07] px-4 py-3.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm text-white/75">
+                        {account.label}
+                      </span>
+                      <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] text-muted md:inline">
+                        {account.category}
+                      </span>
+                    </div>
+                    {pending > 0 ? (
+                      <p className="mt-1 text-xs text-amber-100/70">
+                        {formatCurrency(pending)} pending
+                      </p>
+                    ) : null}
+                  </div>
+                  <span className="hidden whitespace-nowrap font-mono text-sm text-white/55 sm:block">
+                    {formatCurrency(posted)}
+                  </span>
+                  <span className="w-32 whitespace-nowrap text-right font-mono text-sm font-semibold text-white">
+                    {formatCurrency(adjusted)}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-          {accounts.map((account) => (
-            <SummaryRow
-              key={account.key}
-              label={account.label}
-              badge={account.category}
-              value={formatCurrency(
-                snapshot?.[account.key] as string | undefined,
-              )}
-            />
-          ))}
+
+          <div className="surface overflow-hidden rounded-2xl">
+            <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
+                Pending transaction register
+              </p>
+              <p className="mt-1 text-sm text-muted">
+                Mark a transaction cleared once it appears in the posted bank
+                balance.
+              </p>
+            </div>
+            {pendingTransactions.length ? (
+              pendingTransactions.map((transaction) => {
+                const account = accounts.find(
+                  (item) => item.key === transaction.account,
+                );
+                return (
+                  <div
+                    key={transaction.id}
+                    className={`grid gap-3 border-b border-white/[0.07] px-4 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:px-5 ${
+                      transaction.is_cleared ? "opacity-45" : ""
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-white">
+                        {transaction.note}
+                      </p>
+                      <p className="mt-1 text-xs text-muted">
+                        {account?.label || transaction.account} · Expected{" "}
+                        {new Intl.DateTimeFormat("en-US", {
+                          dateStyle: "medium",
+                        }).format(
+                          new Date(
+                            `${transaction.expected_post_date}T12:00:00`,
+                          ),
+                        )}
+                      </p>
+                    </div>
+                    <span className="font-mono text-sm font-semibold text-white">
+                      {formatCurrency(transaction.amount)}
+                    </span>
+                    {transaction.is_cleared ? (
+                      <span className="text-xs font-medium text-accent">
+                        Cleared
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => markCleared(transaction)}
+                        className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-white/70 transition hover:border-accent/30 hover:text-accent"
+                      >
+                        Mark cleared
+                      </button>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <p className="px-5 py-8 text-center text-sm text-muted">
+                No pending transactions.
+              </p>
+            )}
+          </div>
         </div>
       ) : null}
 
