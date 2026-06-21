@@ -54,6 +54,7 @@ const accountSections: Array<{
   title: string;
   description: string;
   keys: Array<keyof BankValueSnapshot>;
+  totalKeys?: Array<keyof BankValueSnapshot>;
 }> = [
   {
     title: "Cash accounts",
@@ -64,6 +65,12 @@ const accountSections: Array<{
     title: "Liability accounts",
     description: "Credit-card balances and pending charges",
     keys: ["chase_credit", "citi_current", "barclays_card"],
+    totalKeys: [
+      "chase_credit",
+      "citi_current",
+      "citi_pending",
+      "barclays_card",
+    ],
   },
   {
     title: "Investments & retirement",
@@ -722,6 +729,27 @@ export function LiveBankValues({
                     </div>
                   );
                 })}
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-5 border-b border-white/10 bg-white/[0.04] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5">
+                  <span className="text-sm font-semibold text-white">
+                    Total {section.title.toLowerCase()}
+                  </span>
+                  <span className="hidden sm:block" />
+                  <span
+                    className={`w-32 whitespace-nowrap text-right font-mono text-sm font-semibold ${
+                      section.title === "Liability accounts"
+                        ? "text-rose-200"
+                        : "text-accent"
+                    }`}
+                  >
+                    {formatCurrency(
+                      (section.totalKeys || section.keys).reduce(
+                        (total, key) =>
+                          total + calculations.adjustedValue(key),
+                        0,
+                      ),
+                    )}
+                  </span>
+                </div>
               </div>
             ))}
 
