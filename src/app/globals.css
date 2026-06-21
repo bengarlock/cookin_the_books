@@ -1,26 +1,67 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #07100f;
+  --foreground: #eefbf6;
+  --panel: #0d1917;
+  --panel-soft: #11211e;
+  --line: rgba(189, 255, 226, 0.12);
+  --muted: #91a8a1;
+  --accent: #56e2aa;
+  --accent-strong: #20bc7d;
+  --gold: #f0c978;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-panel: var(--panel);
+  --color-panel-soft: var(--panel-soft);
+  --color-line: var(--line);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-gold: var(--gold);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--background);
 }
 
 body {
+  min-height: 100vh;
+  margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(86, 226, 170, 0.26);
+  color: #ffffff;
+}
+
+.app-backdrop {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(32, 188, 125, 0.18), transparent 31rem),
+    radial-gradient(circle at 94% 4%, rgba(240, 201, 120, 0.11), transparent 28rem),
+    linear-gradient(145deg, #07100f 0%, #091411 54%, #0c1514 100%);
+}
+
+.surface {
+  border: 1px solid var(--line);
+  background: linear-gradient(145deg, rgba(17, 33, 30, 0.94), rgba(10, 22, 20, 0.94));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
 }
