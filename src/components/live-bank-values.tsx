@@ -562,135 +562,66 @@ export function LiveBankValues({
       {view === "accounts" ? (
         <div className="space-y-6">
           <div className="surface overflow-hidden rounded-2xl">
-            <div className="flex flex-col gap-4 border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
-                  Current balances
-                </p>
-                <p className="mt-1 text-sm text-muted">
-                  Adjusted balances include uncleared manual transactions.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFormOpen((open) => !open)}
-                className="rounded-xl bg-accent-strong px-4 py-2.5 text-sm font-semibold text-[#03120c] transition hover:bg-accent"
-              >
-                {formOpen ? "Cancel" : "Add pending transaction"}
-              </button>
+            <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
+                Current balances
+              </p>
+              <p className="mt-1 text-sm text-muted">
+                Adjusted balances include uncleared manual transactions.
+              </p>
             </div>
-
-            {formOpen ? (
-              <form
-                onSubmit={addPendingTransaction}
-                className="grid gap-4 border-b border-white/10 bg-black/10 p-4 sm:grid-cols-2 sm:p-5"
-              >
-                <label className="sm:col-span-2">
-                  <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
-                    Note
-                  </span>
-                  <input
-                    value={transactionForm.note}
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        note: event.target.value,
-                      }))
-                    }
-                    className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-accent/50"
-                    placeholder="What is this transaction for?"
-                    maxLength={255}
-                    required
-                  />
-                </label>
-                <label>
-                  <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
-                    Amount
-                  </span>
-                  <input
-                    value={transactionForm.amount}
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        amount: event.target.value,
-                      }))
-                    }
-                    className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 font-mono text-sm text-white outline-none focus:border-accent/50"
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    placeholder="0.00"
-                    required
-                  />
-                </label>
-                <label>
-                  <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
-                    Account
-                  </span>
-                  <select
-                    value={transactionForm.account}
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        account: event.target.value as keyof BankValueSnapshot,
-                      }))
-                    }
-                    className="h-11 w-full rounded-xl border border-white/10 bg-[#0b1714] px-3 text-sm text-white outline-none focus:border-accent/50"
-                  >
-                    {accounts.map((account) => (
-                      <option key={account.key} value={account.key}>
-                        {account.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
-                    Expected post date
-                  </span>
-                  <input
-                    value={transactionForm.expected_post_date}
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        expected_post_date: event.target.value,
-                      }))
-                    }
-                    className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-accent/50"
-                    type="date"
-                    required
-                  />
-                </label>
-                <div className="flex items-end">
-                  <button
-                    type="submit"
-                    disabled={isSaving}
-                    className="h-11 w-full rounded-xl border border-accent/25 bg-accent/10 px-4 text-sm font-semibold text-accent transition hover:bg-accent/15 disabled:opacity-50"
-                  >
-                    {isSaving ? "Saving…" : "Save transaction"}
-                  </button>
-                </div>
-                {formError ? (
-                  <p
-                    role="alert"
-                    className="sm:col-span-2 rounded-xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
-                  >
-                    {formError}
-                  </p>
-                ) : null}
-                <p className="sm:col-span-2 text-xs leading-5 text-muted">
-                  Enter outgoing amounts as positive values. Cash and investment
-                  balances are reduced; credit-card balances are increased.
-                </p>
-              </form>
-            ) : null}
 
             <div className="hidden grid-cols-[minmax(0,1fr)_auto_auto] gap-6 border-b border-white/10 px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted sm:grid">
               <span>Account</span>
               <span>Posted</span>
               <span className="w-32 text-right">Adjusted</span>
             </div>
-            {accounts.map((account) => {
+            {accounts.filter((account) => account.key !== "citi_pending").map((account) => {
+              if (account.key === "citi_current") {
+                const currentPosted = valueFromSnapshot(snapshot, "citi_current");
+                const pendingPosted = valueFromSnapshot(snapshot, "citi_pending");
+                const currentManual =
+                  calculations.pendingByAccount.get("citi_current") || 0;
+                const pendingManual =
+                  calculations.pendingByAccount.get("citi_pending") || 0;
+                const adjusted =
+                  calculations.adjustedValue("citi_current") +
+                  calculations.adjustedValue("citi_pending");
+
+                return (
+                  <div
+                    key="citi_card"
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 border-b border-white/[0.07] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-white/75">Citi Card</span>
+                        <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] text-muted md:inline">
+                          Liability
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted">
+                        Current {formatCurrency(currentPosted)}
+                        <span className="mx-1.5 text-white/20">·</span>
+                        Pending {formatCurrency(pendingPosted)}
+                        {currentManual + pendingManual > 0 ? (
+                          <span className="text-amber-100/70">
+                            {" "}
+                            · {formatCurrency(currentManual + pendingManual)} manual
+                          </span>
+                        ) : null}
+                      </p>
+                    </div>
+                    <span className="hidden whitespace-nowrap font-mono text-sm text-white/55 sm:block">
+                      {formatCurrency(currentPosted + pendingPosted)}
+                    </span>
+                    <span className="w-32 whitespace-nowrap text-right font-mono text-sm font-semibold text-white">
+                      {formatCurrency(adjusted)}
+                    </span>
+                  </div>
+                );
+              }
+
               const posted = valueFromSnapshot(snapshot, account.key);
               const pending =
                 calculations.pendingByAccount.get(account.key) || 0;
@@ -740,6 +671,121 @@ export function LiveBankValues({
                 </div>
               );
             })}
+
+            <div className="border-t border-white/10 bg-black/10 p-4 sm:p-5">
+              <button
+                type="button"
+                onClick={() => setFormOpen((open) => !open)}
+                className="w-full rounded-xl bg-accent-strong px-4 py-2.5 text-sm font-semibold text-[#03120c] transition hover:bg-accent"
+              >
+                {formOpen ? "Cancel pending transaction" : "Add pending transaction"}
+              </button>
+
+              {formOpen ? (
+                <form
+                  onSubmit={addPendingTransaction}
+                  className="mt-5 grid gap-4 sm:grid-cols-2"
+                >
+                  <label className="sm:col-span-2">
+                    <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
+                      Note
+                    </span>
+                    <input
+                      value={transactionForm.note}
+                      onChange={(event) =>
+                        setTransactionForm((current) => ({
+                          ...current,
+                          note: event.target.value,
+                        }))
+                      }
+                      className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-accent/50"
+                      placeholder="What is this transaction for?"
+                      maxLength={255}
+                      required
+                    />
+                  </label>
+                  <label>
+                    <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
+                      Amount
+                    </span>
+                    <input
+                      value={transactionForm.amount}
+                      onChange={(event) =>
+                        setTransactionForm((current) => ({
+                          ...current,
+                          amount: event.target.value,
+                        }))
+                      }
+                      className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 font-mono text-sm text-white outline-none focus:border-accent/50"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      placeholder="0.00"
+                      required
+                    />
+                  </label>
+                  <label>
+                    <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
+                      Account
+                    </span>
+                    <select
+                      value={transactionForm.account}
+                      onChange={(event) =>
+                        setTransactionForm((current) => ({
+                          ...current,
+                          account: event.target.value as keyof BankValueSnapshot,
+                        }))
+                      }
+                      className="h-11 w-full rounded-xl border border-white/10 bg-[#0b1714] px-3 text-sm text-white outline-none focus:border-accent/50"
+                    >
+                      {accounts.map((account) => (
+                        <option key={account.key} value={account.key}>
+                          {account.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
+                      Expected post date
+                    </span>
+                    <input
+                      value={transactionForm.expected_post_date}
+                      onChange={(event) =>
+                        setTransactionForm((current) => ({
+                          ...current,
+                          expected_post_date: event.target.value,
+                        }))
+                      }
+                      className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-accent/50"
+                      type="date"
+                      required
+                    />
+                  </label>
+                  <div className="flex items-end">
+                    <button
+                      type="submit"
+                      disabled={isSaving}
+                      className="h-11 w-full rounded-xl border border-accent/25 bg-accent/10 px-4 text-sm font-semibold text-accent transition hover:bg-accent/15 disabled:opacity-50"
+                    >
+                      {isSaving ? "Saving…" : "Save transaction"}
+                    </button>
+                  </div>
+                  {formError ? (
+                    <p
+                      role="alert"
+                      className="sm:col-span-2 rounded-xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
+                    >
+                      {formError}
+                    </p>
+                  ) : null}
+                  <p className="sm:col-span-2 text-xs leading-5 text-muted">
+                    Enter outgoing amounts as positive values. Cash and investment
+                    balances are reduced; credit-card balances are increased.
+                  </p>
+                </form>
+              ) : null}
+            </div>
           </div>
 
           <div className="surface overflow-hidden rounded-2xl">
