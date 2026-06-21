@@ -67,14 +67,6 @@ export default async function DashboardPage() {
             financial utilities together around one trusted backend.
           </p>
         </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-          <p className="text-xs uppercase tracking-[0.18em] text-muted">
-            Data source
-          </p>
-          <p className="mt-1 text-sm font-medium text-accent">
-            portfolio_database
-          </p>
-        </div>
       </section>
 
       <LiveBankValues

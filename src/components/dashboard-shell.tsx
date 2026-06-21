@@ -99,10 +99,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               Your financial tools, one workspace
             </p>
           </div>
-          <div className="hidden items-center gap-2 rounded-full border border-accent/15 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent sm:flex">
-            <span className="size-2 rounded-full bg-accent shadow-[0_0_12px_rgba(86,226,170,0.8)]" />
-            Backend connected
-          </div>
         </header>
 
         <main className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">{children}</main>
