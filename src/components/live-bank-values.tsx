@@ -63,7 +63,7 @@ const accountSections: Array<{
   {
     title: "Liability accounts",
     description: "Credit-card balances and pending charges",
-    keys: ["chase_credit", "citi_current", "barclays_card"],
+    keys: ["chase_credit", "citi_current"],
   },
   {
     title: "Investments & retirement",
@@ -619,6 +619,58 @@ export function LiveBankValues({
                     (item) => item.key === accountKey,
                   );
                   if (!account) return null;
+
+                  if (account.key === "chase_credit") {
+                    const chasePosted = valueFromSnapshot(
+                      snapshot,
+                      "chase_credit",
+                    );
+                    const barclaysPosted = valueFromSnapshot(
+                      snapshot,
+                      "barclays_card",
+                    );
+                    const chaseManual =
+                      calculations.pendingByAccount.get("chase_credit") || 0;
+                    const barclaysManual =
+                      calculations.pendingByAccount.get("barclays_card") || 0;
+                    const adjusted =
+                      calculations.adjustedValue("chase_credit") +
+                      calculations.adjustedValue("barclays_card");
+
+                    return (
+                      <div
+                        key="chase_barclays_cards"
+                        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 border-b border-white/[0.07] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5"
+                      >
+                        <div className="min-w-0">
+                          <span className="text-sm text-white/75">
+                            Chase &amp; Barclay Cards
+                          </span>
+                          <p className="mt-1 text-xs text-muted">
+                            Chase {formatCurrency(chasePosted)}
+                            <span className="mx-1.5 text-white/20">·</span>
+                            Barclay {formatCurrency(barclaysPosted)}
+                            {chaseManual + barclaysManual > 0 ? (
+                              <span className="text-amber-100/70">
+                                {" "}
+                                ·{" "}
+                                {formatCurrency(
+                                  chaseManual + barclaysManual,
+                                )}{" "}
+                                manual
+                              </span>
+                            ) : null}
+                          </p>
+                        </div>
+                        <span className="hidden whitespace-nowrap font-mono text-sm text-white/55 sm:block">
+                          {formatCurrency(chasePosted + barclaysPosted)}
+                        </span>
+                        <span className="w-32 whitespace-nowrap text-right font-mono text-sm font-semibold text-white">
+                          {formatCurrency(adjusted)}
+                        </span>
+                      </div>
+                    );
+                  }
 
                   if (account.key === "citi_current") {
                 const currentPosted = valueFromSnapshot(snapshot, "citi_current");
