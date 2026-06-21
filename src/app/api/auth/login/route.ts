@@ -4,7 +4,10 @@ import {
   AUTH_COOKIE_MAX_AGE,
   AUTH_COOKIE_NAME,
 } from "@/lib/auth";
-import { getPortfolioApiBaseUrl } from "@/lib/config";
+import {
+  getPortfolioApiBaseUrl,
+  PortfolioApiConfigurationError,
+} from "@/lib/config";
 
 type LoginPayload = {
   username?: string;
@@ -70,7 +73,14 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch {
+  } catch (error) {
+    if (error instanceof PortfolioApiConfigurationError) {
+      return NextResponse.json(
+        { message: "The portfolio API is not configured for this environment." },
+        { status: 500 },
+      );
+    }
+
     return NextResponse.json(
       { message: "The portfolio API is currently unavailable." },
       { status: 502 },
