@@ -55,6 +55,7 @@ export function ExpenseHistory({
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [savingItemId, setSavingItemId] = useState<number | null>(null);
   const [importingItemId, setImportingItemId] = useState<number | null>(null);
+  const [expandedEntryId, setExpandedEntryId] = useState<number | null>(null);
   const [importMessage, setImportMessage] = useState("");
   const [error, setError] = useState("");
   const [entryForm, setEntryForm] = useState({
@@ -136,15 +137,16 @@ export function ExpenseHistory({
     }
   }
 
-  async function importHousingPdf(itemId: number, file: File) {
-    setImportingItemId(itemId);
+  async function importExpensePdf(item: BudgetItem, file: File) {
+    setImportingItemId(item.id);
     setError("");
     setImportMessage("");
     try {
       const formData = new FormData();
       formData.append("file", file);
+      const importKind = item.key === "power" ? "power" : "housing";
       const response = await fetch(
-        `${APP_BASE_PATH}/api/budget-items/${itemId}/import-housing-pdf`,
+        `${APP_BASE_PATH}/api/budget-items/${item.id}/import-${importKind}-pdf`,
         {
           method: "POST",
           body: formData,
@@ -254,7 +256,7 @@ export function ExpenseHistory({
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {item.key === "housing" ? (
+                  {item.key === "housing" || item.key === "power" ? (
                     <label className="cursor-pointer rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-white/65 transition hover:border-accent/20 hover:text-accent">
                       {importingItemId === item.id
                         ? "Importing…"
@@ -265,7 +267,7 @@ export function ExpenseHistory({
                         disabled={importingItemId === item.id}
                         onChange={(event) => {
                           const file = event.target.files?.[0];
-                          if (file) void importHousingPdf(item.id, file);
+                          if (file) void importExpensePdf(item, file);
                           event.target.value = "";
                         }}
                         type="file"
@@ -412,6 +414,21 @@ export function ExpenseHistory({
                         <span className="whitespace-nowrap font-mono text-sm font-semibold text-white">
                           {currencyFormatter.format(Number(entry.amount))}
                         </span>
+                        {entry.utility_detail ? (
+                          <button
+                            className="rounded-md px-2 py-1 text-xs text-accent/70 hover:bg-accent/10 hover:text-accent"
+                            onClick={() =>
+                              setExpandedEntryId((current) =>
+                                current === entry.id ? null : entry.id,
+                              )
+                            }
+                            type="button"
+                          >
+                            {expandedEntryId === entry.id
+                              ? "Hide details"
+                              : "Details"}
+                          </button>
+                        ) : null}
                         {confirmingDeleteId === entry.id ? (
                           <div className="flex items-center gap-1">
                             <button
@@ -441,6 +458,113 @@ export function ExpenseHistory({
                           </button>
                         )}
                       </div>
+                      {entry.utility_detail &&
+                      expandedEntryId === entry.id ? (
+                        <div className="col-span-2 mt-1 grid gap-3 rounded-xl border border-white/[0.07] bg-black/15 p-4 sm:grid-cols-3">
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">
+                              Billing period
+                            </p>
+                            <p className="mt-1 text-xs text-white/75">
+                              {formatDate(entry.utility_detail.period_start)} -{" "}
+                              {formatDate(entry.utility_detail.period_end)}
+                            </p>
+                            <p className="mt-1 text-[11px] text-muted">
+                              Invoice {entry.utility_detail.invoice_number}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">
+                              Electric usage
+                            </p>
+                            <p className="mt-1 font-mono text-sm text-white">
+                              {Number(
+                                entry.utility_detail.electric_kwh || 0,
+                              ).toLocaleString()}{" "}
+                              kWh
+                            </p>
+                            <p className="mt-1 text-[11px] text-muted">
+                              Delivery{" "}
+                              {currencyFormatter.format(
+                                Number(
+                                  entry.utility_detail
+                                    .electric_delivery_charges || 0,
+                                ),
+                              )}{" "}
+                              · Supply{" "}
+                              {currencyFormatter.format(
+                                Number(
+                                  entry.utility_detail
+                                    .electric_supply_charges || 0,
+                                ),
+                              )}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">
+                              Gas usage
+                            </p>
+                            <p className="mt-1 font-mono text-sm text-white">
+                              {Number(
+                                entry.utility_detail.gas_therms || 0,
+                              ).toLocaleString()}{" "}
+                              therms
+                            </p>
+                            <p className="mt-1 text-[11px] text-muted">
+                              Delivery{" "}
+                              {currencyFormatter.format(
+                                Number(
+                                  entry.utility_detail.gas_delivery_charges || 0,
+                                ),
+                              )}{" "}
+                              · Supply{" "}
+                              {currencyFormatter.format(
+                                Number(
+                                  entry.utility_detail.gas_supply_charges || 0,
+                                ),
+                              )}
+                            </p>
+                          </div>
+                          <div className="sm:col-span-3 flex flex-wrap gap-x-6 gap-y-1 border-t border-white/[0.07] pt-3 text-xs text-muted">
+                            <span>
+                              Electric total{" "}
+                              <strong className="font-mono text-white/80">
+                                {currencyFormatter.format(
+                                  Number(
+                                    entry.utility_detail
+                                      .electric_total_charges || 0,
+                                  ),
+                                )}
+                              </strong>
+                            </span>
+                            <span>
+                              Gas total{" "}
+                              <strong className="font-mono text-white/80">
+                                {currencyFormatter.format(
+                                  Number(
+                                    entry.utility_detail.gas_total_charges || 0,
+                                  ),
+                                )}
+                              </strong>
+                            </span>
+                            <span>
+                              Actual usage cost{" "}
+                              <strong className="font-mono text-accent">
+                                {currencyFormatter.format(
+                                  Number(
+                                    entry.utility_detail
+                                      .electric_total_charges || 0,
+                                  ) +
+                                    Number(
+                                      entry.utility_detail.gas_total_charges ||
+                                        0,
+                                    ),
+                                )}
+                              </strong>
+                            </span>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>
