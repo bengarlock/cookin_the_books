@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { APP_BASE_PATH } from "@/lib/config";
+import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import type { BankValueSnapshot } from "@/lib/snapshot-types";
 
@@ -86,7 +87,6 @@ const accountSections: Array<{
 ];
 
 const budgetSettings = {
-  daysToNextPayCycle: 10,
   totalBudget: 1600,
   budgetOffset: 0,
   cashTransferToSavings: 0,
@@ -247,6 +247,8 @@ export function LiveBankValues({
   });
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("connecting");
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const payCycle = getNextPayCycle(currentDate);
 
   useEffect(() => {
     let socket: WebSocket | null = null;
@@ -320,6 +322,15 @@ export function LiveBankValues({
     };
   }, []);
 
+  useEffect(() => {
+    const refreshDate = window.setInterval(
+      () => setCurrentDate(new Date()),
+      60 * 1000,
+    );
+
+    return () => window.clearInterval(refreshDate);
+  }, []);
+
   const calculations = useMemo(() => {
     const pendingByAccount = new Map<keyof BankValueSnapshot, number>();
     for (const transaction of pendingTransactions) {
@@ -357,8 +368,8 @@ export function LiveBankValues({
     const budgetDifference = budgetSettings.totalBudget - grossLiabilities;
     const remainingBudget = budgetDifference + budgetSettings.budgetOffset;
     const dailyBudget =
-      budgetSettings.daysToNextPayCycle > 0
-        ? remainingBudget / budgetSettings.daysToNextPayCycle
+      payCycle.daysRemaining > 0
+        ? remainingBudget / payCycle.daysRemaining
         : 0;
 
     return {
@@ -387,7 +398,7 @@ export function LiveBankValues({
           adjustedBalance: adjustedValue(account.key),
         })),
     };
-  }, [pendingTransactions, snapshot]);
+  }, [payCycle.daysRemaining, pendingTransactions, snapshot]);
 
   async function addPendingTransaction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -560,8 +571,8 @@ export function LiveBankValues({
             />
             <MetricCard
               label="Days until pay cycle"
-              value={`${budgetSettings.daysToNextPayCycle}`}
-              description="Days remaining in the current planning period."
+              value={`${payCycle.daysRemaining}`}
+              description={`Next payday: ${formatPayday(payCycle.nextPayday)}.`}
             />
             <MetricCard
               label="Daily budget"
@@ -987,7 +998,11 @@ export function LiveBankValues({
             </div>
             <SummaryRow
               label="Days until next pay cycle"
-              value={`${budgetSettings.daysToNextPayCycle} days`}
+              value={`${payCycle.daysRemaining} days`}
+            />
+            <SummaryRow
+              label="Next payday"
+              value={formatPayday(payCycle.nextPayday)}
             />
             <SummaryRow
               label="Total budget"
