@@ -607,30 +607,37 @@ export function LiveBankValues({
 
       {view === "accounts" ? (
         <div className="space-y-6">
-          <div className="surface overflow-hidden rounded-2xl">
-            <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
-                Current balances
-              </p>
-              <p className="mt-1 text-sm text-muted">
-                Adjusted balances include uncleared manual transactions.
-              </p>
-            </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
+              Current balances
+            </p>
+            <p className="mt-1 text-sm text-muted">
+              Adjusted balances include uncleared manual transactions.
+            </p>
+          </div>
 
-            <div className="hidden grid-cols-[minmax(0,1fr)_auto_auto] gap-6 border-b border-white/10 px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted sm:grid">
-              <span>Account</span>
-              <span>Posted</span>
-              <span className="w-32 text-right">Adjusted</span>
-            </div>
+          <div className="grid gap-5 xl:grid-cols-2">
             {accountSections.map((section) => (
-              <div key={section.title}>
-                <div className="border-b border-white/10 bg-white/[0.025] px-4 py-3 sm:px-5">
+              <section
+                key={section.title}
+                className={`surface overflow-hidden rounded-2xl ${
+                  section.title === "Investments & retirement"
+                    ? "xl:col-span-2"
+                    : ""
+                }`}
+              >
+                <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
                   <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-xs font-semibold uppercase tracking-[0.17em] text-white/75">
+                    <h3 className="text-xs font-semibold uppercase tracking-[0.17em] text-gold">
                       {section.title}
                     </h3>
                     <p className="text-xs text-muted">{section.description}</p>
                   </div>
+                </div>
+                <div className="hidden grid-cols-[minmax(0,1fr)_auto_auto] gap-6 border-b border-white/10 px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted sm:grid">
+                  <span>Account</span>
+                  <span>Posted</span>
+                  <span className="w-32 text-right">Adjusted</span>
                 </div>
                 {section.keys.map((accountKey) => {
                   const account = accounts.find(
@@ -740,7 +747,7 @@ export function LiveBankValues({
                     </div>
                   );
                 })}
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-5 border-b border-white/10 bg-white/[0.04] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-5 bg-white/[0.04] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5">
                   <span className="text-sm font-semibold text-white">
                     Total {section.title.toLowerCase()}
                   </span>
@@ -761,10 +768,12 @@ export function LiveBankValues({
                     )}
                   </span>
                 </div>
-              </div>
+              </section>
             ))}
+          </div>
 
-            <div className="border-t border-white/10 bg-black/10 p-4 sm:p-5">
+          <div className="surface overflow-hidden rounded-2xl">
+            <div className="p-4 sm:p-5">
               <button
                 type="button"
                 onClick={() => setFormOpen((open) => !open)}
