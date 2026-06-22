@@ -137,13 +137,15 @@ export function ExpenseHistory({
     }
   }
 
-  async function importExpensePdf(item: BudgetItem, file: File) {
+  async function importExpensePdfs(item: BudgetItem, files: File[]) {
     setImportingItemId(item.id);
     setError("");
     setImportMessage("");
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      for (const file of files) {
+        formData.append("files", file);
+      }
       const importKind = item.key === "power" ? "power" : "housing";
       const response = await fetch(
         `${APP_BASE_PATH}/api/budget-items/${item.id}/import-${importKind}-pdf`,
@@ -157,6 +159,9 @@ export function ExpenseHistory({
             created: ExpenseEntry[];
             created_count: number;
             duplicate_count: number;
+            file_count: number;
+            error_count: number;
+            errors: Array<{ file: string; detail: string }>;
           }
         | { detail?: string; message?: string }
         | null;
@@ -181,7 +186,14 @@ export function ExpenseHistory({
             result.duplicate_count === 1 ? "was" : "were"
           } skipped.`
         : "";
-      setImportMessage(`${createdText}${duplicateText}`);
+      const errorText = result.error_count
+        ? ` ${result.error_count} ${
+            result.error_count === 1 ? "file" : "files"
+          } failed: ${result.errors
+            .map((item) => `${item.file} (${item.detail})`)
+            .join("; ")}`
+        : "";
+      setImportMessage(`${createdText}${duplicateText}${errorText}`);
     } catch (importError) {
       setError(
         importError instanceof Error
@@ -260,14 +272,17 @@ export function ExpenseHistory({
                     <label className="cursor-pointer rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-white/65 transition hover:border-accent/20 hover:text-accent">
                       {importingItemId === item.id
                         ? "Importing…"
-                        : "Import PDF"}
+                        : "Import PDFs"}
                       <input
                         accept="application/pdf,.pdf"
                         className="sr-only"
                         disabled={importingItemId === item.id}
+                        multiple
                         onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          if (file) void importExpensePdf(item, file);
+                          const files = Array.from(event.target.files || []);
+                          if (files.length) {
+                            void importExpensePdfs(item, files);
+                          }
                           event.target.value = "";
                         }}
                         type="file"
