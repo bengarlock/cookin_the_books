@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
+import { BudgetNavigation } from "@/components/budget-navigation";
 import { LiveBankValues } from "@/components/live-bank-values";
+import { RecurringExpenses } from "@/components/recurring-expenses";
 import { getBudgetItems } from "@/lib/budget-items";
 import { getPendingTransactions } from "@/lib/pending-transactions";
 import { getLatestBankValueSnapshot } from "@/lib/snapshots";
@@ -29,14 +31,15 @@ export default async function BudgetPage() {
           Budget availability, daily spending guidance, and cash-position
           details calculated from live account balances.
         </p>
+        <BudgetNavigation />
       </section>
 
       <LiveBankValues
         initialSnapshot={latestSnapshot}
         initialPendingTransactions={pendingTransactions}
-        initialBudgetItems={budgetItems}
         view="budget"
       />
+      <RecurringExpenses initialItems={budgetItems} />
     </div>
   );
 }

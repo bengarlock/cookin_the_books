@@ -6,10 +6,20 @@ import { usePathname } from "next/navigation";
 
 import { LogoutButton } from "@/components/logout-button";
 
-const navigation = [
+const navigation: Array<{
+  name: string;
+  href: string;
+  disabled?: boolean;
+  parent?: string;
+}> = [
   { name: "Overview", href: "/dashboard" },
   { name: "Accounts", href: "/dashboard/accounts" },
   { name: "Budget", href: "/dashboard/budget" },
+  {
+    name: "Expenses",
+    href: "/dashboard/budget/expenses",
+    parent: "/dashboard/budget",
+  },
   { name: "Snapshots", href: "/dashboard/snapshots", disabled: true },
   { name: "Automations", href: "/dashboard/automations", disabled: true },
 ];
@@ -47,7 +57,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <nav className="mt-5 flex gap-2 overflow-x-auto lg:mt-10 lg:block lg:space-y-2">
+        <nav className="mt-5 flex gap-2 overflow-x-auto lg:mt-10 lg:block lg:space-y-2 lg:overflow-x-hidden">
           {navigation.map((item) =>
             item.disabled ? (
               <span
@@ -61,30 +71,27 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 </span>
               </span>
             ) : (
-              <Link
+              <div
+                className={item.parent ? "shrink-0 lg:ml-8" : "shrink-0"}
                 key={item.name}
-                href={item.href}
-                className={`flex shrink-0 items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition lg:w-full ${
-                  pathname === item.href
-                    ? "border-accent/15 bg-accent/10 text-accent"
-                    : "border-transparent text-white/60 hover:border-white/10 hover:bg-white/[0.04] hover:text-white"
-                }`}
               >
-                <GridIcon />
-                {item.name}
-              </Link>
+                <Link
+                  href={item.href}
+                  className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition lg:w-full ${
+                    pathname === item.href
+                      ? "border-accent/15 bg-accent/10 text-accent"
+                      : "border-transparent text-white/60 hover:border-white/10 hover:bg-white/[0.04] hover:text-white"
+                  }`}
+                >
+                  <GridIcon />
+                  {item.name}
+                </Link>
+              </div>
             ),
           )}
         </nav>
 
         <div className="absolute bottom-7 left-6 right-6 hidden lg:block">
-          <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
-              API source
-            </p>
-            <p className="mt-2 text-sm text-white/80">portfolio_database</p>
-            <p className="mt-1 text-xs text-muted">Authenticated connection</p>
-          </div>
           <LogoutButton />
         </div>
       </aside>

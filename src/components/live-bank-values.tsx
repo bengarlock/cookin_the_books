@@ -3,15 +3,9 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { APP_BASE_PATH } from "@/lib/config";
-import type { BudgetItem } from "@/lib/budget-item-types";
-import {
-  amountForBudgetPeriod,
-  budgetPeriods,
-  monthlyAmountFromBudgetPeriod,
-  type BudgetPeriod,
-} from "@/lib/budget-periods";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
+import { getSavingsReservePosition } from "@/lib/savings-reserve";
 import type { BankValueSnapshot } from "@/lib/snapshot-types";
 
 type ConnectionState = "connecting" | "live" | "reconnecting" | "unavailable";
@@ -96,7 +90,6 @@ const accountSections: Array<{
 const budgetSettings = {
   totalBudget: 1600,
   budgetOffset: 0,
-  cashTransferToSavings: 0,
   charge: 0,
 };
 
@@ -228,27 +221,16 @@ function MetricCard({
 export function LiveBankValues({
   initialSnapshot,
   initialPendingTransactions,
-  initialBudgetItems = [],
   view = "overview",
 }: {
   initialSnapshot: BankValueSnapshot | null;
   initialPendingTransactions: PendingTransaction[];
-  initialBudgetItems?: BudgetItem[];
   view?: FinancialView;
 }) {
   const [snapshot, setSnapshot] = useState(initialSnapshot);
   const [pendingTransactions, setPendingTransactions] = useState(
     initialPendingTransactions,
   );
-  const [budgetItems, setBudgetItems] = useState(initialBudgetItems);
-  const [editingBudgetCell, setEditingBudgetCell] = useState<string | null>(
-    null,
-  );
-  const [budgetInputValue, setBudgetInputValue] = useState("");
-  const [savingBudgetItemId, setSavingBudgetItemId] = useState<number | null>(
-    null,
-  );
-  const [budgetError, setBudgetError] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [formError, setFormError] = useState("");
   const [registerError, setRegisterError] = useState("");
@@ -368,6 +350,7 @@ export function LiveBankValues({
 
     const chaseChecking = adjustedValue("chase_checking");
     const chaseSavings = adjustedValue("chase_savings");
+    const savingsReserve = getSavingsReservePosition(chaseSavings);
     const grossLiabilities =
       adjustedValue("chase_credit") +
       adjustedValue("citi_current") +
@@ -398,10 +381,8 @@ export function LiveBankValues({
       budgetDifference,
       remainingBudget,
       dailyBudget,
-      checkingAvailable:
-        chaseChecking -
-        budgetSettings.cashTransferToSavings -
-        budgetSettings.charge,
+      checkingAvailable: chaseChecking,
+      savingsReserve,
       netAssets: grossAssets - grossLiabilities,
       pendingByAccount,
       adjustedValue,
@@ -461,83 +442,6 @@ export function LiveBankValues({
       );
     } finally {
       setIsSaving(false);
-    }
-  }
-
-  function budgetCellKey(itemId: number, period: BudgetPeriod) {
-    return `${itemId}:${period}`;
-  }
-
-  function beginBudgetEdit(item: BudgetItem, period: BudgetPeriod) {
-    setEditingBudgetCell(budgetCellKey(item.id, period));
-    setBudgetInputValue(
-      amountForBudgetPeriod(Number(item.monthly_amount), period).toFixed(2),
-    );
-    setBudgetError("");
-  }
-
-  function updateBudgetInput(
-    itemId: number,
-    period: BudgetPeriod,
-    value: string,
-  ) {
-    setBudgetInputValue(value);
-    const amount = Number(value);
-    if (!Number.isFinite(amount) || amount < 0) return;
-
-    const monthlyAmount = monthlyAmountFromBudgetPeriod(amount, period);
-    setBudgetItems((current) =>
-      current.map((item) =>
-        item.id === itemId
-          ? { ...item, monthly_amount: monthlyAmount.toFixed(6) }
-          : item,
-      ),
-    );
-  }
-
-  async function saveBudgetItem(itemId: number) {
-    const item = budgetItems.find((candidate) => candidate.id === itemId);
-    const amount = Number(budgetInputValue);
-    if (!item || !Number.isFinite(amount) || amount < 0) {
-      setBudgetError("Enter a valid amount of zero or more.");
-      return;
-    }
-
-    setSavingBudgetItemId(itemId);
-    setBudgetError("");
-    try {
-      const response = await fetch(`${APP_BASE_PATH}/api/budget-items/${itemId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ monthly_amount: item.monthly_amount }),
-      });
-      const updated = (await response.json().catch(() => null)) as
-        | BudgetItem
-        | { message?: string; monthly_amount?: string[] }
-        | null;
-      if (!response.ok || !updated || !("id" in updated)) {
-        const message =
-          updated && "message" in updated
-            ? updated.message
-            : updated && "monthly_amount" in updated
-              ? updated.monthly_amount?.[0]
-              : undefined;
-        throw new Error(message || "Unable to save the budget amount.");
-      }
-      setBudgetItems((current) =>
-        current.map((candidate) =>
-          candidate.id === updated.id ? updated : candidate,
-        ),
-      );
-      setEditingBudgetCell(null);
-    } catch (error) {
-      setBudgetError(
-        error instanceof Error
-          ? error.message
-          : "Unable to save the budget amount.",
-      );
-    } finally {
-      setSavingBudgetItemId(null);
     }
   }
 
@@ -648,6 +552,27 @@ export function LiveBankValues({
                   </span>
                 ))}
               </div>
+            </div>
+          ) : null}
+
+          {calculations.savingsReserve.variance < 0 ? (
+            <div
+              className="rounded-2xl border border-amber-200/25 bg-amber-300/10 p-5"
+              role="alert"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-100">
+                Savings reserve shortfall
+              </p>
+              <p className="mt-2 text-sm leading-6 text-amber-50/80">
+                Chase Savings is{" "}
+                <span className="font-semibold text-amber-50">
+                  {formatCurrency(
+                    calculations.savingsReserve.restorationNeeded,
+                  )}
+                </span>{" "}
+                below the {formatCurrency(calculations.savingsReserve.target)}{" "}
+                reserve target.
+              </p>
             </div>
           ) : null}
 
@@ -1156,8 +1081,9 @@ export function LiveBankValues({
               value={formatCurrency(calculations.retirementCash)}
             />
             <SummaryRow
-              label="Cash transfer to savings"
-              value={formatCurrency(budgetSettings.cashTransferToSavings)}
+              label="Savings reserve variance"
+              value={formatCurrency(calculations.savingsReserve.variance)}
+              negative={calculations.savingsReserve.variance < 0}
             />
             <SummaryRow
               label="Checking available"
@@ -1172,109 +1098,6 @@ export function LiveBankValues({
             </div>
           </div>
 
-          <div className="surface overflow-hidden rounded-2xl">
-            <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
-                Recurring budget
-              </p>
-              <p className="mt-1 text-sm text-muted">
-                Edit any period. The other periods and totals recalculate
-                automatically using a four-week budgeting month.
-              </p>
-            </div>
-            {budgetError ? (
-              <p
-                className="border-b border-rose-300/15 bg-rose-500/10 px-5 py-3 text-sm text-rose-100"
-                role="alert"
-              >
-                {budgetError}
-              </p>
-            ) : null}
-            <div className="overflow-x-auto">
-              <div className="min-w-[920px]">
-                <div className="grid grid-cols-[minmax(180px,1fr)_repeat(4,minmax(160px,0.5fr))] border-b border-white/10 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-                  <span>Item</span>
-                  <span className="text-right">Weekly</span>
-                  <span className="text-right">Bi-Weekly</span>
-                  <span className="text-right">Monthly</span>
-                  <span className="text-right">Yearly</span>
-                </div>
-                {budgetItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="grid grid-cols-[minmax(180px,1fr)_repeat(4,minmax(160px,0.5fr))] items-center border-b border-white/[0.07] px-5 py-2.5"
-                  >
-                    <span className="text-sm font-medium text-white/80">
-                      {item.label}
-                    </span>
-                    {budgetPeriods.map((period) => {
-                      const cellKey = budgetCellKey(item.id, period);
-                      const editing = editingBudgetCell === cellKey;
-                      return (
-                        <div className="flex justify-end" key={period}>
-                          <div className="relative w-36">
-                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted">
-                              $
-                            </span>
-                            <input
-                              aria-label={`${item.label} ${period}`}
-                              className="h-9 w-full rounded-lg border border-transparent bg-transparent pl-7 pr-2 text-right font-mono text-sm text-white outline-none transition hover:border-white/10 hover:bg-white/[0.035] focus:border-accent/40 focus:bg-black/20 disabled:opacity-50"
-                              disabled={savingBudgetItemId === item.id}
-                              inputMode="decimal"
-                              onBlur={() => {
-                                if (editing) void saveBudgetItem(item.id);
-                              }}
-                              onChange={(event) =>
-                                updateBudgetInput(
-                                  item.id,
-                                  period,
-                                  event.target.value,
-                                )
-                              }
-                              onFocus={() => beginBudgetEdit(item, period)}
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter") {
-                                  event.currentTarget.blur();
-                                }
-                              }}
-                              type="text"
-                              value={
-                                editing
-                                  ? budgetInputValue
-                                  : amountForBudgetPeriod(
-                                      Number(item.monthly_amount),
-                                      period,
-                                    ).toFixed(2)
-                              }
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-                <div className="grid grid-cols-[minmax(180px,1fr)_repeat(4,minmax(160px,0.5fr))] items-center bg-white/[0.045] px-5 py-4">
-                  <span className="text-sm font-semibold text-white">Total</span>
-                  {budgetPeriods.map((period) => {
-                    const totalMonthly = budgetItems.reduce(
-                      (total, item) => total + Number(item.monthly_amount),
-                      0,
-                    );
-                    return (
-                      <span
-                        className="text-right font-mono text-sm font-semibold text-accent"
-                        key={period}
-                      >
-                        {formatCurrency(
-                          amountForBudgetPeriod(totalMonthly, period),
-                        )}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       ) : null}
     </section>
