@@ -1237,11 +1237,6 @@ export function LiveBankValues({
                                 if (event.key === "Enter") {
                                   event.currentTarget.blur();
                                 }
-                                if (event.key === "Escape") {
-                                  setBudgetItems(initialBudgetItems);
-                                  setEditingBudgetCell(null);
-                                  event.currentTarget.blur();
-                                }
                               }}
                               step="0.01"
                               type="number"
