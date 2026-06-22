@@ -1191,8 +1191,8 @@ export function LiveBankValues({
               </p>
             ) : null}
             <div className="overflow-x-auto">
-              <div className="min-w-[760px]">
-                <div className="grid grid-cols-[minmax(180px,1fr)_repeat(4,minmax(125px,0.5fr))] border-b border-white/10 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+              <div className="min-w-[920px]">
+                <div className="grid grid-cols-[minmax(180px,1fr)_repeat(4,minmax(160px,0.5fr))] border-b border-white/10 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted">
                   <span>Item</span>
                   <span className="text-right">Weekly</span>
                   <span className="text-right">Bi-Weekly</span>
@@ -1202,7 +1202,7 @@ export function LiveBankValues({
                 {budgetItems.map((item) => (
                   <div
                     key={item.id}
-                    className="grid grid-cols-[minmax(180px,1fr)_repeat(4,minmax(125px,0.5fr))] items-center border-b border-white/[0.07] px-5 py-2.5"
+                    className="grid grid-cols-[minmax(180px,1fr)_repeat(4,minmax(160px,0.5fr))] items-center border-b border-white/[0.07] px-5 py-2.5"
                   >
                     <span className="text-sm font-medium text-white/80">
                       {item.label}
@@ -1212,7 +1212,7 @@ export function LiveBankValues({
                       const editing = editingBudgetCell === cellKey;
                       return (
                         <div className="flex justify-end" key={period}>
-                          <div className="relative w-28">
+                          <div className="relative w-36">
                             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted">
                               $
                             </span>
@@ -1221,7 +1221,6 @@ export function LiveBankValues({
                               className="h-9 w-full rounded-lg border border-transparent bg-transparent pl-7 pr-2 text-right font-mono text-sm text-white outline-none transition hover:border-white/10 hover:bg-white/[0.035] focus:border-accent/40 focus:bg-black/20 disabled:opacity-50"
                               disabled={savingBudgetItemId === item.id}
                               inputMode="decimal"
-                              min="0"
                               onBlur={() => {
                                 if (editing) void saveBudgetItem(item.id);
                               }}
@@ -1238,8 +1237,7 @@ export function LiveBankValues({
                                   event.currentTarget.blur();
                                 }
                               }}
-                              step="0.01"
-                              type="number"
+                              type="text"
                               value={
                                 editing
                                   ? budgetInputValue
@@ -1255,7 +1253,7 @@ export function LiveBankValues({
                     })}
                   </div>
                 ))}
-                <div className="grid grid-cols-[minmax(180px,1fr)_repeat(4,minmax(125px,0.5fr))] items-center bg-white/[0.045] px-5 py-4">
+                <div className="grid grid-cols-[minmax(180px,1fr)_repeat(4,minmax(160px,0.5fr))] items-center bg-white/[0.045] px-5 py-4">
                   <span className="text-sm font-semibold text-white">Total</span>
                   {budgetPeriods.map((period) => {
                     const totalMonthly = budgetItems.reduce(
