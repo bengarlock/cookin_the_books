@@ -1091,10 +1091,6 @@ export function LiveBankValues({
               emphasized
               negative={calculations.checkingAvailable < 0}
             />
-            <SummaryRow
-              label="Charge"
-              value={formatCurrency(budgetSettings.charge)}
-            />
             </div>
           </div>
 
