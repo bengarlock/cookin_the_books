@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import {
   type ExpenseDateRange,
+  expenseDateRangePreset,
   formatExpenseDateRange,
   localDateString,
   parseLocalDate,
@@ -29,9 +30,13 @@ function calendarDays(month: Date) {
 export function DateRangePicker({
   range,
   onApply,
+  dialogLabel = "Select expense date range",
+  allTimeStart,
 }: {
   range: ExpenseDateRange;
   onApply: (range: ExpenseDateRange) => void;
+  dialogLabel?: string;
+  allTimeStart?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState(range);
@@ -97,7 +102,7 @@ export function DateRangePicker({
           }}
         >
           <div
-            aria-label="Select expense date range"
+            aria-label={dialogLabel}
             aria-modal="true"
             className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0b1714] p-5 shadow-2xl shadow-black/50"
             role="dialog"
@@ -193,6 +198,55 @@ export function DateRangePicker({
               <p className="mt-1 text-sm font-semibold text-accent">
                 {formatExpenseDateRange(draft)}
               </p>
+            </div>
+
+            <div
+              className={`mt-4 grid gap-2 ${
+                allTimeStart ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"
+              }`}
+            >
+              {[
+                { label: "Week", value: "week" as const },
+                { label: "Month", value: "month" as const },
+                { label: "YTD", value: "ytd" as const },
+              ].map((preset) => (
+                <button
+                  className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/65 transition hover:border-accent/25 hover:bg-accent/10 hover:text-accent"
+                  key={preset.value}
+                  onClick={() => {
+                    const nextRange = expenseDateRangePreset(preset.value);
+                    const end = parseLocalDate(nextRange.end);
+                    setDraft(nextRange);
+                    setVisibleMonth(
+                      new Date(end.getFullYear(), end.getMonth(), 1),
+                    );
+                    setSelectingEnd(false);
+                  }}
+                  type="button"
+                >
+                  {preset.label}
+                </button>
+              ))}
+              {allTimeStart ? (
+                <button
+                  className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/65 transition hover:border-accent/25 hover:bg-accent/10 hover:text-accent"
+                  onClick={() => {
+                    const nextRange = {
+                      start: allTimeStart,
+                      end: localDateString(new Date()),
+                    };
+                    const end = parseLocalDate(nextRange.end);
+                    setDraft(nextRange);
+                    setVisibleMonth(
+                      new Date(end.getFullYear(), end.getMonth(), 1),
+                    );
+                    setSelectingEnd(false);
+                  }}
+                  type="button"
+                >
+                  All Time
+                </button>
+              ) : null}
             </div>
 
             <div className="mt-5 flex justify-end gap-3">

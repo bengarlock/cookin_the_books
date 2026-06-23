@@ -30,6 +30,32 @@ export function defaultExpenseDateRange(currentDate = new Date()) {
   };
 }
 
+export function expenseDateRangePreset(
+  preset: "week" | "month" | "ytd",
+  currentDate = new Date(),
+) {
+  const end = new Date(
+    currentDate.getFullYear(),
+    currentDate.getMonth(),
+    currentDate.getDate(),
+  );
+  let start: Date;
+
+  if (preset === "week") {
+    start = new Date(end);
+    start.setDate(end.getDate() - 6);
+  } else if (preset === "month") {
+    start = new Date(end.getFullYear(), end.getMonth(), 1);
+  } else {
+    start = new Date(end.getFullYear(), 0, 1);
+  }
+
+  return {
+    start: localDateString(start),
+    end: localDateString(end),
+  };
+}
+
 export function formatExpenseDateRange(range: ExpenseDateRange) {
   const formatter = new Intl.DateTimeFormat("en-US", {
     month: "short",

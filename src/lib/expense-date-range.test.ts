@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   defaultExpenseDateRange,
+  expenseDateRangePreset,
   formatExpenseDateRange,
 } from "./expense-date-range";
 
@@ -34,5 +35,30 @@ describe("expense date ranges", () => {
         end: "2026-06-22",
       }),
     ).toBe("May 22, 2026 – Jun 22, 2026");
+  });
+
+  it("creates a rolling seven-day week preset", () => {
+    expect(
+      expenseDateRangePreset("week", new Date(2026, 5, 23)),
+    ).toEqual({
+      start: "2026-06-17",
+      end: "2026-06-23",
+    });
+  });
+
+  it("creates a month-to-date preset", () => {
+    expect(
+      expenseDateRangePreset("month", new Date(2026, 5, 23)),
+    ).toEqual({
+      start: "2026-06-01",
+      end: "2026-06-23",
+    });
+  });
+
+  it("creates a year-to-date preset", () => {
+    expect(expenseDateRangePreset("ytd", new Date(2026, 5, 23))).toEqual({
+      start: "2026-01-01",
+      end: "2026-06-23",
+    });
   });
 });

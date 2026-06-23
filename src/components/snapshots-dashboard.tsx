@@ -1,8 +1,18 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import {
+  FormEvent,
+  type MouseEvent as ReactMouseEvent,
+  useMemo,
+  useState,
+} from "react";
 
+import { DateRangePicker } from "@/components/date-range-picker";
 import { APP_BASE_PATH } from "@/lib/config";
+import {
+  defaultExpenseDateRange,
+  type ExpenseDateRange,
+} from "@/lib/expense-date-range";
 import type {
   BankValueSnapshot,
   SnapshotAccountBalance,
@@ -27,6 +37,10 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   year: "2-digit",
+});
+const shortDayFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
 });
 
 const accountDefinitions: Array<{
@@ -108,19 +122,26 @@ function Metric({
 
 function SnapshotTrendChart({
   snapshots,
+  showTrendLine,
 }: {
   snapshots: BankValueSnapshot[];
+  showTrendLine: boolean;
 }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const chart = useMemo(() => {
     const data = [...snapshots].reverse();
     if (!data.length) return null;
     const width = 960;
-    const height = 320;
-    const padding = { top: 24, right: 24, bottom: 44, left: 76 };
+    const height = 360;
+    const padding = { top: 28, right: 26, bottom: 54, left: 82 };
     const values = data.map((item) => Number(item.net_assets));
-    const minValue = Math.min(...values);
-    const maxValue = Math.max(...values);
-    const range = Math.max(maxValue - minValue, 1);
+    const rawMinValue = Math.min(...values);
+    const rawMaxValue = Math.max(...values);
+    const rawRange = Math.max(rawMaxValue - rawMinValue, 1);
+    const scalePadding = rawRange * 0.08;
+    const minValue = rawMinValue - scalePadding;
+    const maxValue = rawMaxValue + scalePadding;
+    const range = maxValue - minValue;
     const x = (index: number) =>
       padding.left +
       (index / Math.max(data.length - 1, 1)) *
@@ -147,6 +168,20 @@ function SnapshotTrendChart({
     const slope = slopeDenominator ? slopeNumerator / slopeDenominator : 0;
     const trendStart = meanY - slope * meanX;
     const trendEnd = meanY + slope * (count - 1 - meanX);
+    const tickCount = Math.min(5, data.length);
+    const xTickIndexes = Array.from(
+      { length: tickCount },
+      (_, index) =>
+        Math.round(
+          (index / Math.max(tickCount - 1, 1)) * (data.length - 1),
+        ),
+    );
+    const firstDate = new Date(`${data[0].snapshot_date}T12:00:00`);
+    const lastDate = new Date(
+      `${data[data.length - 1].snapshot_date}T12:00:00`,
+    );
+    const dateSpanDays =
+      Math.abs(lastDate.getTime() - firstDate.getTime()) / 86_400_000;
 
     return {
       data,
@@ -159,14 +194,66 @@ function SnapshotTrendChart({
       y,
       points,
       trendPoints: `${x(0)},${y(trendStart)} ${x(count - 1)},${y(trendEnd)}`,
+      xTickIndexes,
+      dateSpanDays,
     };
   }, [snapshots]);
 
   if (!chart) {
     return (
       <div className="grid h-72 place-items-center text-sm text-muted">
-        Snapshot history will appear here.
+        No snapshots fall within the selected date range.
       </div>
+    );
+  }
+
+  const activeChart = chart;
+  const hoveredSnapshot =
+    hoveredIndex === null ? null : activeChart.data[hoveredIndex] || null;
+  const hoveredX =
+    hoveredIndex === null ? null : activeChart.x(hoveredIndex);
+  const hoveredY = hoveredSnapshot
+    ? activeChart.y(Number(hoveredSnapshot.net_assets))
+    : null;
+  const tooltipWidth = 196;
+  const tooltipHeight = 68;
+  const tooltipX =
+    hoveredX === null
+      ? 0
+      : hoveredX + tooltipWidth + 18 >
+          activeChart.width - activeChart.padding.right
+        ? hoveredX - tooltipWidth - 14
+        : hoveredX + 14;
+  const tooltipY =
+    hoveredY === null
+      ? 0
+      : Math.min(
+          Math.max(
+            hoveredY - tooltipHeight / 2,
+            activeChart.padding.top,
+          ),
+          activeChart.height -
+            activeChart.padding.bottom -
+            tooltipHeight,
+        );
+
+  function handleChartHover(event: ReactMouseEvent<SVGSVGElement>) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const pointerX =
+      ((event.clientX - bounds.left) / bounds.width) * activeChart.width;
+    const plotStart = activeChart.padding.left;
+    const plotEnd = activeChart.width - activeChart.padding.right;
+
+    if (pointerX < plotStart || pointerX > plotEnd) {
+      setHoveredIndex(null);
+      return;
+    }
+
+    const plotProgress = (pointerX - plotStart) / (plotEnd - plotStart);
+    setHoveredIndex(
+      Math.round(
+        plotProgress * Math.max(activeChart.data.length - 1, 0),
+      ),
     );
   }
 
@@ -174,7 +261,9 @@ function SnapshotTrendChart({
     <div className="overflow-x-auto">
       <svg
         aria-label="Net assets over time"
-        className="min-w-[680px]"
+        className="min-w-[680px] cursor-crosshair"
+        onMouseLeave={() => setHoveredIndex(null)}
+        onMouseMove={handleChartHover}
         role="img"
         viewBox={`0 0 ${chart.width} ${chart.height}`}
       >
@@ -203,75 +292,155 @@ function SnapshotTrendChart({
             </g>
           );
         })}
-        <polyline
-          fill="none"
-          points={chart.trendPoints}
-          stroke="rgba(238,196,111,0.48)"
-          strokeDasharray="8 7"
-          strokeWidth="2"
+        <defs>
+          <linearGradient id="snapshot-area" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#56e2aa" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#56e2aa" stopOpacity="0.01" />
+          </linearGradient>
+        </defs>
+        <polygon
+          fill="url(#snapshot-area)"
+          points={`${chart.padding.left},${
+            chart.height - chart.padding.bottom
+          } ${chart.points} ${chart.width - chart.padding.right},${
+            chart.height - chart.padding.bottom
+          }`}
         />
+        {showTrendLine ? (
+          <polyline
+            fill="none"
+            points={chart.trendPoints}
+            stroke="rgba(240,201,120,0.72)"
+            strokeDasharray="9 8"
+            strokeWidth="2.5"
+          />
+        ) : null}
         <polyline
           fill="none"
           points={chart.points}
           stroke="#56e2aa"
           strokeLinejoin="round"
-          strokeWidth="3"
+          strokeWidth="2.75"
         />
-        {chart.data.map((snapshot, index) => (
-          <circle
-            fill={
-              snapshot.is_highpoint
-                ? "#f0c978"
-                : Number(snapshot.change) < 0
+        {chart.data.map((snapshot, index) => {
+          const showPoint =
+            chart.data.length <= 120 ||
+            snapshot.is_highpoint ||
+            index === chart.data.length - 1;
+          if (!showPoint) return null;
+          return (
+            <circle
+              fill={
+                snapshot.is_highpoint
+                  ? "#f0c978"
+                  : Number(snapshot.change) < 0
+                    ? "#fda4af"
+                    : "#56e2aa"
+              }
+              key={snapshot.id}
+              r={snapshot.is_highpoint ? 3.8 : 2.6}
+              stroke="#07100f"
+              strokeWidth="1.2"
+              cx={chart.x(index)}
+              cy={chart.y(Number(snapshot.net_assets))}
+            >
+              <title>
+                {formatDate(snapshot.snapshot_date)}:{" "}
+                {currencyFormatter.format(Number(snapshot.net_assets))} (
+                {currencyFormatter.format(Number(snapshot.change))})
+                {snapshot.is_highpoint ? " · Highpoint" : ""}
+              </title>
+            </circle>
+          );
+        })}
+        {chart.xTickIndexes.map((index) => {
+          const snapshot = chart.data[index];
+          return (
+            <text
+              fill="rgba(255,255,255,0.46)"
+              fontSize="11"
+              key={snapshot.id}
+              textAnchor={
+                index === 0
+                  ? "start"
+                  : index === chart.data.length - 1
+                    ? "end"
+                    : "middle"
+              }
+              x={chart.x(index)}
+              y={chart.height - 17}
+            >
+              {(chart.dateSpanDays <= 400
+                ? shortDayFormatter
+                : shortDateFormatter
+              ).format(new Date(`${snapshot.snapshot_date}T12:00:00`))}
+            </text>
+          );
+        })}
+        {hoveredSnapshot && hoveredX !== null && hoveredY !== null ? (
+          <g aria-hidden="true" pointerEvents="none">
+            <line
+              stroke="rgba(255,255,255,0.3)"
+              strokeDasharray="4 5"
+              strokeWidth="1"
+              x1={hoveredX}
+              x2={hoveredX}
+              y1={chart.padding.top}
+              y2={chart.height - chart.padding.bottom}
+            />
+            <circle
+              cx={hoveredX}
+              cy={hoveredY}
+              fill="#07100f"
+              r="6"
+              stroke="#56e2aa"
+              strokeWidth="3"
+            />
+            <rect
+              fill="#0b1714"
+              height={tooltipHeight}
+              rx="10"
+              stroke="rgba(86,226,170,0.35)"
+              width={tooltipWidth}
+              x={tooltipX}
+              y={tooltipY}
+            />
+            <text
+              fill="rgba(255,255,255,0.6)"
+              fontSize="11"
+              x={tooltipX + 13}
+              y={tooltipY + 20}
+            >
+              {formatDate(hoveredSnapshot.snapshot_date)}
+            </text>
+            <text
+              fill="#ffffff"
+              fontFamily="monospace"
+              fontSize="15"
+              fontWeight="600"
+              x={tooltipX + 13}
+              y={tooltipY + 42}
+            >
+              {currencyFormatter.format(
+                Number(hoveredSnapshot.net_assets),
+              )}
+            </text>
+            <text
+              fill={
+                Number(hoveredSnapshot.change) < 0
                   ? "#fda4af"
                   : "#56e2aa"
-            }
-            key={snapshot.id}
-            r={
-              snapshot.is_highpoint
-                ? chart.data.length > 90
-                  ? 2.8
-                  : 4.5
-                : chart.data.length > 90
-                  ? 1.8
-                  : 3.5
-            }
-            stroke="#07100f"
-            strokeWidth="1.5"
-            cx={chart.x(index)}
-            cy={chart.y(Number(snapshot.net_assets))}
-          >
-            <title>
-              {formatDate(snapshot.snapshot_date)}:{" "}
-              {currencyFormatter.format(Number(snapshot.net_assets))} (
-              {currencyFormatter.format(Number(snapshot.change))})
-              {snapshot.is_highpoint ? " · Highpoint" : ""}
-            </title>
-          </circle>
-        ))}
-        <text
-          fill="rgba(255,255,255,0.45)"
-          fontSize="11"
-          x={chart.padding.left}
-          y={chart.height - 14}
-        >
-          {shortDateFormatter.format(
-            new Date(`${chart.data[0].snapshot_date}T12:00:00`),
-          )}
-        </text>
-        <text
-          fill="rgba(255,255,255,0.45)"
-          fontSize="11"
-          textAnchor="end"
-          x={chart.width - chart.padding.right}
-          y={chart.height - 14}
-        >
-          {shortDateFormatter.format(
-            new Date(
-              `${chart.data[chart.data.length - 1].snapshot_date}T12:00:00`,
-            ),
-          )}
-        </text>
+              }
+              fontFamily="monospace"
+              fontSize="11"
+              x={tooltipX + 13}
+              y={tooltipY + 58}
+            >
+              Daily:{" "}
+              {currencyFormatter.format(Number(hoveredSnapshot.change))}
+            </text>
+          </g>
+        ) : null}
       </svg>
     </div>
   );
@@ -283,6 +452,10 @@ export function SnapshotsDashboard({
   initialSnapshots: BankValueSnapshot[];
 }) {
   const [snapshots, setSnapshots] = useState(initialSnapshots);
+  const [chartRange, setChartRange] = useState<ExpenseDateRange>(() =>
+    defaultExpenseDateRange(),
+  );
+  const [showTrendLine, setShowTrendLine] = useState(true);
   const todaySnapshot = snapshots.find(
     (snapshot) => snapshot.snapshot_date === localToday(),
   );
@@ -386,7 +559,46 @@ export function SnapshotsDashboard({
   }
 
   const current = snapshots[0];
+  const firstSnapshotDate = snapshots.reduce<string | undefined>(
+    (earliest, snapshot) =>
+      !earliest || snapshot.snapshot_date < earliest
+        ? snapshot.snapshot_date
+        : earliest,
+    undefined,
+  );
   const summaryChange = Number(current?.change || 0);
+  const chartSnapshots = useMemo(
+    () =>
+      snapshots.filter(
+        (snapshot) =>
+          snapshot.snapshot_date >= chartRange.start &&
+          snapshot.snapshot_date <= chartRange.end,
+      ),
+    [chartRange, snapshots],
+  );
+  const chartRangeChange = useMemo(() => {
+    if (chartSnapshots.length < 2) {
+      return { amount: 0, percentage: 0 };
+    }
+    const chronological = [...chartSnapshots].sort((left, right) =>
+      left.snapshot_date.localeCompare(right.snapshot_date),
+    );
+    const firstValue = Number(chronological[0].net_assets);
+    const lastValue = Number(
+      chronological[chronological.length - 1].net_assets,
+    );
+    const amount = lastValue - firstValue;
+    return {
+      amount,
+      percentage: firstValue ? (amount / firstValue) * 100 : 0,
+    };
+  }, [chartSnapshots]);
+  const chartRangeChangeLabel =
+    chartRangeChange.amount < 0
+      ? "Range loss"
+      : chartRangeChange.amount > 0
+        ? "Range gain"
+        : "Range change";
 
   return (
     <div className="mt-8 space-y-6">
@@ -446,36 +658,62 @@ export function SnapshotsDashboard({
       </section>
 
       <section className="surface overflow-hidden rounded-2xl">
-        <div className="flex flex-col gap-3 border-b border-white/10 bg-white/[0.035] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 border-b border-white/10 bg-white/[0.035] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-base font-semibold text-white">
               Net assets trend
             </h2>
-            <p className="mt-1 text-xs text-muted">
-              Mint tracks net assets, the dashed line shows growth, gold points
-              mark highpoints, and red points mark negative days.
-            </p>
           </div>
-          {!todaySnapshot ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <div
+              className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
+                chartRangeChange.amount < 0
+                  ? "border-rose-300/20 bg-rose-500/10 text-rose-300"
+                  : "border-accent/20 bg-accent/10 text-accent"
+              }`}
+            >
+              {chartRangeChangeLabel}:{" "}
+              <span className="font-mono">
+                {currencyFormatter.format(
+                  Math.abs(chartRangeChange.amount),
+                )}{" "}
+                ({Math.abs(chartRangeChange.percentage).toFixed(2)}%)
+              </span>
+            </div>
+            <DateRangePicker
+              allTimeStart={firstSnapshotDate}
+              dialogLabel="Select snapshot date range"
+              onApply={setChartRange}
+              range={chartRange}
+            />
             <button
-              className="rounded-xl bg-accent-strong px-4 py-2.5 text-sm font-semibold text-[#03120c] hover:bg-accent"
-              onClick={() => openEditor()}
+              aria-pressed={showTrendLine}
+              className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                showTrendLine
+                  ? "border-gold/30 bg-gold/10 text-gold"
+                  : "border-white/10 bg-black/15 text-white/55 hover:text-white/75"
+              }`}
+              onClick={() => setShowTrendLine((currentValue) => !currentValue)}
               type="button"
             >
-              Create today&apos;s snapshot
+              Trend line {showTrendLine ? "on" : "off"}
             </button>
-          ) : (
-            <button
-              className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-2.5 text-sm font-semibold text-accent hover:bg-accent/15"
-              onClick={() => openEditor(todaySnapshot)}
-              type="button"
-            >
-              Edit today&apos;s snapshot
-            </button>
-          )}
+            {!todaySnapshot ? (
+              <button
+                className="rounded-xl bg-accent-strong px-4 py-2.5 text-sm font-semibold text-[#03120c] hover:bg-accent"
+                onClick={() => openEditor()}
+                type="button"
+              >
+                Create today&apos;s snapshot
+              </button>
+            ) : null}
+          </div>
         </div>
         <div className="p-3 sm:p-5">
-          <SnapshotTrendChart snapshots={snapshots} />
+          <SnapshotTrendChart
+            showTrendLine={showTrendLine}
+            snapshots={chartSnapshots}
+          />
         </div>
       </section>
 
