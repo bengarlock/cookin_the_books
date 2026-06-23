@@ -4,9 +4,16 @@ import { FormEvent, useState } from "react";
 
 import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
+import { creditCardExpenditureAverages } from "@/lib/credit-card-averages";
 import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import {
+  defaultExpenseDateRange,
+  type ExpenseDateRange,
+  formatExpenseDateRange,
+} from "@/lib/expense-date-range";
 import type { ExpenseEntry } from "@/lib/expense-entry-types";
 import { validatePdfImportFiles } from "@/lib/pdf-import";
+import { DateRangePicker } from "@/components/date-range-picker";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -29,16 +36,6 @@ function todayString() {
     today.getFullYear(),
     String(today.getMonth() + 1).padStart(2, "0"),
     String(today.getDate()).padStart(2, "0"),
-  ].join("-");
-}
-
-function oneYearAgoString() {
-  const date = new Date();
-  date.setFullYear(date.getFullYear() - 1);
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
   ].join("-");
 }
 
@@ -70,7 +67,12 @@ export function ExpenseHistory({
     amount: "",
     note: "",
   });
-  const cutoff = oneYearAgoString();
+  const [dateRanges, setDateRanges] = useState<Record<number, ExpenseDateRange>>(
+    () =>
+      Object.fromEntries(
+        budgetItems.map((item) => [item.id, defaultExpenseDateRange()]),
+      ),
+  );
   const today = todayString();
 
   async function addEntry(
@@ -255,10 +257,14 @@ export function ExpenseHistory({
 
       <div className="grid gap-5 xl:grid-cols-2">
         {budgetItems.map((item) => {
+          const dateRange =
+            dateRanges[item.id] || defaultExpenseDateRange();
           const relevantEntries = entries
             .filter(
               (entry) =>
-                entry.budget_item === item.id && entry.incurred_on >= cutoff,
+                entry.budget_item === item.id &&
+                entry.incurred_on >= dateRange.start &&
+                entry.incurred_on <= dateRange.end,
             )
             .sort((left, right) =>
               right.incurred_on.localeCompare(left.incurred_on),
@@ -269,18 +275,33 @@ export function ExpenseHistory({
           const upcomingEntries = relevantEntries.filter(
             (entry) => entry.incurred_on > today,
           );
-          const itemCreditCardTransactions = creditCardTransactions.filter(
-            (entry) =>
-              item.key === "credit-card" &&
-              entry.budget_item === item.id &&
-              entry.transaction_date >= cutoff,
-          );
+          const itemCreditCardTransactions = creditCardTransactions
+            .filter(
+              (entry) =>
+                item.key === "credit-card" &&
+                entry.budget_item === item.id &&
+                entry.transaction_date >= dateRange.start &&
+                entry.transaction_date <= dateRange.end,
+            )
+            .sort(
+              (left, right) =>
+                right.transaction_date.localeCompare(left.transaction_date) ||
+                (right.posting_date || "").localeCompare(
+                  left.posting_date || "",
+                ) ||
+                right.id - left.id,
+            );
           const spendingTransactions = itemCreditCardTransactions.filter(
             (entry) =>
               entry.transaction_date <= today &&
               ["purchase", "fee", "interest"].includes(
                 entry.transaction_type,
               ),
+          );
+          const creditCardAverages = creditCardExpenditureAverages(
+            itemCreditCardTransactions,
+            dateRange.start,
+            dateRange.end,
           );
           const historyEntryCount =
             historicalEntries.length + itemCreditCardTransactions.length;
@@ -304,13 +325,14 @@ export function ExpenseHistory({
               className="surface overflow-hidden rounded-2xl"
               key={item.id}
             >
-              <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
+              <div className="flex flex-col gap-4 border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
+                <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-base font-semibold text-white">
                     {item.label}
                   </h2>
                   <p className="mt-1 text-xs text-muted">
-                    Past 12 months · {historyEntryCount}{" "}
+                    {formatExpenseDateRange(dateRange)} · {historyEntryCount}{" "}
                     {historyEntryCount === 1 ? "entry" : "entries"}
                     {upcomingEntries.length
                       ? ` · ${upcomingEntries.length} upcoming`
@@ -352,25 +374,76 @@ export function ExpenseHistory({
                     {openItemId === item.id ? "Cancel" : "Add entry"}
                   </button>
                 </div>
+                </div>
+                <DateRangePicker
+                  range={dateRange}
+                  onApply={(nextRange) =>
+                    setDateRanges((current) => ({
+                      ...current,
+                      [item.id]: nextRange,
+                    }))
+                  }
+                />
               </div>
 
-              <div className="grid grid-cols-2 border-b border-white/[0.07] bg-black/10">
+              <div
+                className={`grid border-b border-white/[0.07] bg-black/10 ${
+                  item.key === "credit-card"
+                    ? "grid-cols-2 lg:grid-cols-4"
+                    : "grid-cols-2"
+                }`}
+              >
                 <div className="border-r border-white/[0.07] px-4 py-3 sm:px-5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-                    12-month total
+                    {item.key === "credit-card"
+                      ? "Expenditure total"
+                      : "Range total"}
                   </p>
                   <p className="mt-1 font-mono text-lg font-semibold text-accent">
-                    {currencyFormatter.format(annualTotal)}
+                    {currencyFormatter.format(
+                      item.key === "credit-card"
+                        ? creditCardAverages.total
+                        : annualTotal,
+                    )}
                   </p>
                 </div>
-                <div className="px-4 py-3 sm:px-5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-                    Average entry
-                  </p>
-                  <p className="mt-1 font-mono text-lg font-semibold text-white">
-                    {currencyFormatter.format(average)}
-                  </p>
-                </div>
+                {item.key === "credit-card" ? (
+                  <>
+                    <div className="px-4 py-3 sm:px-5 lg:border-r lg:border-white/[0.07]">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                        Daily average
+                      </p>
+                      <p className="mt-1 font-mono text-lg font-semibold text-white">
+                        {currencyFormatter.format(creditCardAverages.daily)}
+                      </p>
+                    </div>
+                    <div className="border-r border-t border-white/[0.07] px-4 py-3 sm:px-5 lg:border-t-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                        Weekly average
+                      </p>
+                      <p className="mt-1 font-mono text-lg font-semibold text-white">
+                        {currencyFormatter.format(creditCardAverages.weekly)}
+                      </p>
+                    </div>
+                    <div className="border-t border-white/[0.07] px-4 py-3 sm:px-5 lg:border-t-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                        Monthly average
+                      </p>
+                      <p className="mt-1 font-mono text-lg font-semibold text-white">
+                        {currencyFormatter.format(creditCardAverages.monthly)}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="px-4 py-3 sm:px-5">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                      Average entry
+                    </p>
+                    <p className="mt-1 font-mono text-lg font-semibold text-white">
+                      {currencyFormatter.format(average)}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {openItemId === item.id ? (
