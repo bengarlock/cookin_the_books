@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { BudgetNavigation } from "@/components/budget-navigation";
 import { ExpenseHistory } from "@/components/expense-history";
 import { getBudgetItems } from "@/lib/budget-items";
+import { getCreditCardTransactions } from "@/lib/credit-card-transactions";
 import { getExpenseEntries } from "@/lib/expense-entries";
 
 export const metadata: Metadata = {
@@ -10,10 +11,12 @@ export const metadata: Metadata = {
 };
 
 export default async function ExpensesPage() {
-  const [budgetItems, expenseEntries] = await Promise.all([
-    getBudgetItems(),
-    getExpenseEntries(),
-  ]);
+  const [budgetItems, expenseEntries, creditCardTransactions] =
+    await Promise.all([
+      getBudgetItems(),
+      getExpenseEntries(),
+      getCreditCardTransactions(),
+    ]);
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -33,6 +36,7 @@ export default async function ExpensesPage() {
 
       <ExpenseHistory
         budgetItems={budgetItems}
+        initialCreditCardTransactions={creditCardTransactions}
         initialEntries={expenseEntries}
       />
     </div>

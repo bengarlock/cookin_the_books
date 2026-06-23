@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { AUTH_COOKIE_NAME } from "@/lib/auth";
+import { readPdfImportResponse } from "@/lib/pdf-import";
 import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
 export async function POST(
@@ -28,9 +29,10 @@ export async function POST(
         cache: "no-store",
       },
     );
-    const data = await response.json().catch(() => ({
-      message: "The power PDF import failed.",
-    }));
+    const data = await readPdfImportResponse(
+      response,
+      "The power PDF import failed.",
+    );
     return NextResponse.json(data, { status: response.status });
   } catch {
     return NextResponse.json(

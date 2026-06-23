@@ -4,7 +4,9 @@ import { FormEvent, useState } from "react";
 
 import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
+import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
 import type { ExpenseEntry } from "@/lib/expense-entry-types";
+import { validatePdfImportFiles } from "@/lib/pdf-import";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -42,12 +44,17 @@ function oneYearAgoString() {
 
 export function ExpenseHistory({
   budgetItems,
+  initialCreditCardTransactions,
   initialEntries,
 }: {
   budgetItems: BudgetItem[];
+  initialCreditCardTransactions: CreditCardTransaction[];
   initialEntries: ExpenseEntry[];
 }) {
   const [entries, setEntries] = useState(initialEntries);
+  const [creditCardTransactions, setCreditCardTransactions] = useState(
+    initialCreditCardTransactions,
+  );
   const [openItemId, setOpenItemId] = useState<number | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(
     null,
@@ -138,6 +145,13 @@ export function ExpenseHistory({
   }
 
   async function importExpensePdfs(item: BudgetItem, files: File[]) {
+    const validationError = validatePdfImportFiles(files);
+    if (validationError) {
+      setImportMessage("");
+      setError(validationError);
+      return;
+    }
+
     setImportingItemId(item.id);
     setError("");
     setImportMessage("");
@@ -146,7 +160,12 @@ export function ExpenseHistory({
       for (const file of files) {
         formData.append("files", file);
       }
-      const importKind = item.key === "power" ? "power" : "housing";
+      const importKind =
+        item.key === "power"
+          ? "power"
+          : item.key === "credit-card"
+            ? "credit-card"
+            : "housing";
       const response = await fetch(
         `${APP_BASE_PATH}/api/budget-items/${item.id}/import-${importKind}-pdf`,
         {
@@ -156,7 +175,7 @@ export function ExpenseHistory({
       );
       const result = (await response.json().catch(() => null)) as
         | {
-            created: ExpenseEntry[];
+            created: Array<ExpenseEntry | CreditCardTransaction>;
             created_count: number;
             duplicate_count: number;
             file_count: number;
@@ -171,11 +190,21 @@ export function ExpenseHistory({
             ? result.detail
             : result && "message" in result && result.message
               ? result.message
-              : "Unable to import the housing PDF.",
+              : `Unable to import the ${item.label.toLowerCase()} PDFs.`,
         );
       }
       if (result.created.length) {
-        setEntries((current) => [...result.created, ...current]);
+        if (item.key === "credit-card") {
+          setCreditCardTransactions((current) => [
+            ...(result.created as CreditCardTransaction[]),
+            ...current,
+          ]);
+        } else {
+          setEntries((current) => [
+            ...(result.created as ExpenseEntry[]),
+            ...current,
+          ]);
+        }
       }
       const createdText =
         result.created_count === 1
@@ -198,7 +227,7 @@ export function ExpenseHistory({
       setError(
         importError instanceof Error
           ? importError.message
-          : "Unable to import the housing PDF.",
+          : `Unable to import the ${item.label.toLowerCase()} PDFs.`,
       );
     } finally {
       setImportingItemId(null);
@@ -240,13 +269,34 @@ export function ExpenseHistory({
           const upcomingEntries = relevantEntries.filter(
             (entry) => entry.incurred_on > today,
           );
+          const itemCreditCardTransactions = creditCardTransactions.filter(
+            (entry) =>
+              item.key === "credit-card" &&
+              entry.budget_item === item.id &&
+              entry.transaction_date >= cutoff,
+          );
+          const spendingTransactions = itemCreditCardTransactions.filter(
+            (entry) =>
+              entry.transaction_date <= today &&
+              ["purchase", "fee", "interest"].includes(
+                entry.transaction_type,
+              ),
+          );
+          const historyEntryCount =
+            historicalEntries.length + itemCreditCardTransactions.length;
           const annualTotal = historicalEntries.reduce(
             (total, entry) => total + Number(entry.amount),
             0,
-          );
+          ) +
+            spendingTransactions.reduce(
+              (total, entry) => total + Number(entry.amount),
+              0,
+            );
+          const averageEntryCount =
+            historicalEntries.length + spendingTransactions.length;
           const average =
-            historicalEntries.length > 0
-              ? annualTotal / historicalEntries.length
+            averageEntryCount > 0
+              ? annualTotal / averageEntryCount
               : 0;
 
           return (
@@ -260,15 +310,15 @@ export function ExpenseHistory({
                     {item.label}
                   </h2>
                   <p className="mt-1 text-xs text-muted">
-                    Past 12 months · {historicalEntries.length}{" "}
-                    {historicalEntries.length === 1 ? "entry" : "entries"}
+                    Past 12 months · {historyEntryCount}{" "}
+                    {historyEntryCount === 1 ? "entry" : "entries"}
                     {upcomingEntries.length
                       ? ` · ${upcomingEntries.length} upcoming`
                       : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {item.key === "housing" || item.key === "power" ? (
+                  {["housing", "power", "credit-card"].includes(item.key) ? (
                     <label className="cursor-pointer rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-white/65 transition hover:border-accent/20 hover:text-accent">
                       {importingItemId === item.id
                         ? "Importing…"
@@ -398,8 +448,36 @@ export function ExpenseHistory({
                 </form>
               ) : null}
 
-              {relevantEntries.length ? (
+              {relevantEntries.length || itemCreditCardTransactions.length ? (
                 <div>
+                  {itemCreditCardTransactions.map((entry) => (
+                    <div
+                      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/[0.07] px-4 py-3.5 sm:px-5"
+                      key={`credit-card-${entry.id}`}
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-white/80">
+                          {entry.description}
+                        </p>
+                        <p className="mt-1 text-xs text-muted">
+                          {formatDate(entry.transaction_date)} · {entry.issuer}{" "}
+                          •••• {entry.account_last_four} ·{" "}
+                          <span className="capitalize">
+                            {entry.transaction_type}
+                          </span>
+                        </p>
+                      </div>
+                      <span
+                        className={`whitespace-nowrap font-mono text-sm font-semibold ${
+                          Number(entry.amount) < 0
+                            ? "text-accent"
+                            : "text-white"
+                        }`}
+                      >
+                        {currencyFormatter.format(Number(entry.amount))}
+                      </span>
+                    </div>
+                  ))}
                   {relevantEntries.map((entry) => (
                     <div
                       className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/[0.07] px-4 py-3.5 last:border-b-0 sm:px-5"
