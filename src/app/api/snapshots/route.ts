@@ -11,8 +11,12 @@ async function proxySnapshots(method: "GET" | "POST", request?: Request) {
   }
 
   try {
+    const query =
+      method === "GET" && request
+        ? new URL(request.url).search
+        : "";
     const response = await fetch(
-      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/bank-value-snapshots/`,
+      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/bank-value-snapshots/${query}`,
       {
         method,
         headers: {
@@ -38,8 +42,8 @@ async function proxySnapshots(method: "GET" | "POST", request?: Request) {
   }
 }
 
-export async function GET() {
-  return proxySnapshots("GET");
+export async function GET(request: Request) {
+  return proxySnapshots("GET", request);
 }
 
 export async function POST(request: Request) {

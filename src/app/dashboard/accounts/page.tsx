@@ -2,17 +2,13 @@ import type { Metadata } from "next";
 
 import { LiveBankValues } from "@/components/live-bank-values";
 import { getPendingTransactions } from "@/lib/pending-transactions";
-import { getLatestBankValueSnapshot } from "@/lib/snapshots";
 
 export const metadata: Metadata = {
   title: "Accounts",
 };
 
 export default async function AccountsPage() {
-  const [latestSnapshot, pendingTransactions] = await Promise.all([
-    getLatestBankValueSnapshot(),
-    getPendingTransactions(),
-  ]);
+  const pendingTransactions = await getPendingTransactions();
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -30,7 +26,6 @@ export default async function AccountsPage() {
       </section>
 
       <LiveBankValues
-        initialSnapshot={latestSnapshot}
         initialPendingTransactions={pendingTransactions}
         view="accounts"
       />

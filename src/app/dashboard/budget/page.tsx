@@ -5,15 +5,13 @@ import { LiveBankValues } from "@/components/live-bank-values";
 import { RecurringExpenses } from "@/components/recurring-expenses";
 import { getBudgetItems } from "@/lib/budget-items";
 import { getPendingTransactions } from "@/lib/pending-transactions";
-import { getLatestBankValueSnapshot } from "@/lib/snapshots";
 
 export const metadata: Metadata = {
   title: "Budget",
 };
 
 export default async function BudgetPage() {
-  const [latestSnapshot, pendingTransactions, budgetItems] = await Promise.all([
-    getLatestBankValueSnapshot(),
+  const [pendingTransactions, budgetItems] = await Promise.all([
     getPendingTransactions(),
     getBudgetItems(),
   ]);
@@ -35,7 +33,6 @@ export default async function BudgetPage() {
       </section>
 
       <LiveBankValues
-        initialSnapshot={latestSnapshot}
         initialPendingTransactions={pendingTransactions}
         view="budget"
       />

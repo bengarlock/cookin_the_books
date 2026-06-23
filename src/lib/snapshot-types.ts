@@ -46,7 +46,7 @@ export type BankValueSnapshot = {
   loss_since_highpoint_percentage: string;
   notes: string;
   metadata: Record<string, unknown>;
-  account_balances: SnapshotAccountBalance[];
+  account_balances?: SnapshotAccountBalance[];
   is_editable: boolean;
   created_at: string;
   updated_at: string;

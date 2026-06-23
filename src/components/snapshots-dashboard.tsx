@@ -3,16 +3,14 @@
 import {
   FormEvent,
   type MouseEvent as ReactMouseEvent,
+  useEffect,
   useMemo,
   useState,
 } from "react";
 
 import { DateRangePicker } from "@/components/date-range-picker";
 import { APP_BASE_PATH } from "@/lib/config";
-import {
-  defaultExpenseDateRange,
-  type ExpenseDateRange,
-} from "@/lib/expense-date-range";
+import { type ExpenseDateRange } from "@/lib/expense-date-range";
 import type {
   BankValueSnapshot,
   SnapshotAccountBalance,
@@ -447,15 +445,23 @@ function SnapshotTrendChart({
 }
 
 export function SnapshotsDashboard({
+  allTimeStart,
+  initialRange,
   initialSnapshots,
 }: {
+  allTimeStart?: string;
+  initialRange: ExpenseDateRange;
   initialSnapshots: BankValueSnapshot[];
 }) {
   const [snapshots, setSnapshots] = useState(initialSnapshots);
-  const [chartRange, setChartRange] = useState<ExpenseDateRange>(() =>
-    defaultExpenseDateRange(),
-  );
+  const [loadedRanges, setLoadedRanges] = useState<ExpenseDateRange[]>([
+    initialRange,
+  ]);
+  const [chartRange, setChartRange] =
+    useState<ExpenseDateRange>(initialRange);
   const [showTrendLine, setShowTrendLine] = useState(true);
+  const [isLoadingRange, setIsLoadingRange] = useState(false);
+  const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
   const todaySnapshot = snapshots.find(
     (snapshot) => snapshot.snapshot_date === localToday(),
   );
@@ -558,14 +564,120 @@ export function SnapshotsDashboard({
     }
   }
 
+  useEffect(() => {
+    const rangeAlreadyLoaded = loadedRanges.some(
+      (range) =>
+        range.start <= chartRange.start && range.end >= chartRange.end,
+    );
+    if (rangeAlreadyLoaded) return;
+
+    let disposed = false;
+    async function loadRange() {
+      setIsLoadingRange(true);
+      setError("");
+      const params = new URLSearchParams({
+        end_date: chartRange.end,
+        include_account_balances: "0",
+        start_date: chartRange.start,
+      });
+      try {
+        const response = await fetch(`${APP_BASE_PATH}/api/snapshots?${params}`);
+        const result = (await response.json().catch(() => null)) as
+          | BankValueSnapshot[]
+          | { detail?: string; message?: string }
+          | null;
+        if (!response.ok || !Array.isArray(result)) {
+          throw new Error(
+            result && "detail" in result && result.detail
+              ? result.detail
+              : result && "message" in result && result.message
+                ? result.message
+                : "Unable to load snapshots for the selected range.",
+          );
+        }
+        if (disposed) return;
+        setSnapshots((current) => {
+          const merged = new Map<number, BankValueSnapshot>();
+          for (const snapshot of current) merged.set(snapshot.id, snapshot);
+          for (const snapshot of result) {
+            merged.set(snapshot.id, {
+              ...snapshot,
+              account_balances:
+                merged.get(snapshot.id)?.account_balances ||
+                snapshot.account_balances,
+            });
+          }
+          return [...merged.values()].sort((left, right) =>
+            right.snapshot_date.localeCompare(left.snapshot_date),
+          );
+        });
+        setLoadedRanges((current) => [...current, chartRange]);
+      } catch (rangeError) {
+        if (disposed) return;
+        setError(
+          rangeError instanceof Error
+            ? rangeError.message
+            : "Unable to load snapshots for the selected range.",
+        );
+      } finally {
+        if (!disposed) setIsLoadingRange(false);
+      }
+    }
+
+    loadRange();
+    return () => {
+      disposed = true;
+    };
+  }, [chartRange, loadedRanges]);
+
+  useEffect(() => {
+    if (!selectedSnapshot || selectedSnapshot.account_balances?.length) return;
+
+    let disposed = false;
+    async function loadSnapshotDetail() {
+      setDetailLoadingId(selectedSnapshot.id);
+      try {
+        const response = await fetch(
+          `${APP_BASE_PATH}/api/snapshots/${selectedSnapshot.id}`,
+        );
+        const result = (await response.json().catch(() => null)) as
+          | BankValueSnapshot
+          | { detail?: string; message?: string }
+          | null;
+        if (!response.ok || !result || !("id" in result)) {
+          throw new Error("Unable to load snapshot detail.");
+        }
+        if (disposed) return;
+        setSnapshots((current) =>
+          current.map((snapshot) =>
+            snapshot.id === result.id ? result : snapshot,
+          ),
+        );
+      } catch {
+        if (!disposed) {
+          setError("Unable to load the selected snapshot detail.");
+        }
+      } finally {
+        if (!disposed) setDetailLoadingId(null);
+      }
+    }
+
+    loadSnapshotDetail();
+    return () => {
+      disposed = true;
+    };
+  }, [selectedSnapshot]);
+
   const current = snapshots[0];
-  const firstSnapshotDate = snapshots.reduce<string | undefined>(
-    (earliest, snapshot) =>
-      !earliest || snapshot.snapshot_date < earliest
-        ? snapshot.snapshot_date
-        : earliest,
-    undefined,
-  );
+  const firstSnapshotDate =
+    allTimeStart ||
+    snapshots.reduce<string | undefined>(
+      (earliest, snapshot) =>
+        !earliest || snapshot.snapshot_date < earliest
+          ? snapshot.snapshot_date
+          : earliest,
+      undefined,
+    );
   const summaryChange = Number(current?.change || 0);
   const chartSnapshots = useMemo(
     () =>
@@ -698,7 +810,8 @@ export function SnapshotsDashboard({
             </h2>
             <p className="mt-1 text-xs text-muted">
               Showing {chartSnapshots.length} snapshots in the selected chart
-              range. Newest records appear first.
+              range{isLoadingRange ? " · loading…" : ""}. Newest records
+              appear first.
             </p>
           </div>
           <div
@@ -945,7 +1058,12 @@ export function SnapshotsDashboard({
                 <div className="border-b border-white/[0.07] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-muted">
                   Account balance breakdown
                 </div>
-                {selectedSnapshot.account_balances.map(
+                {detailLoadingId === selectedSnapshot.id ? (
+                  <p className="px-5 py-6 text-sm text-muted">
+                    Loading account balances…
+                  </p>
+                ) : null}
+                {(selectedSnapshot.account_balances || []).map(
                   (balance: SnapshotAccountBalance) => (
                     <div
                       className="flex items-center justify-between gap-5 border-b border-white/[0.07] px-5 py-3 last:border-b-0"

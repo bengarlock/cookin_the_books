@@ -2,13 +2,13 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import { APP_BASE_PATH } from "@/lib/config";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import { getSavingsReservePosition } from "@/lib/savings-reserve";
 import type { BankValueSnapshot } from "@/lib/snapshot-types";
 
-type ConnectionState = "connecting" | "live" | "reconnecting" | "unavailable";
 type FinancialView = "overview" | "accounts" | "budget";
 
 const accounts: Array<{
@@ -263,15 +263,13 @@ function PaidActionButton({
 }
 
 export function LiveBankValues({
-  initialSnapshot,
   initialPendingTransactions,
   view = "overview",
 }: {
-  initialSnapshot: BankValueSnapshot | null;
   initialPendingTransactions: PendingTransaction[];
   view?: FinancialView;
 }) {
-  const [snapshot, setSnapshot] = useState(initialSnapshot);
+  const { connectionState, snapshot } = useLiveSnapshot();
   const [pendingTransactions, setPendingTransactions] = useState(
     initialPendingTransactions,
   );
@@ -291,82 +289,8 @@ export function LiveBankValues({
     account: "chase_checking" as keyof BankValueSnapshot,
     expected_post_date: nextBusinessDayString(),
   });
-  const [connectionState, setConnectionState] =
-    useState<ConnectionState>("connecting");
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const payCycle = getNextPayCycle(currentDate);
-
-  useEffect(() => {
-    let socket: WebSocket | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    let reconnectAttempts = 0;
-    let disposed = false;
-
-    async function connect() {
-      if (disposed) return;
-      setConnectionState(reconnectAttempts ? "reconnecting" : "connecting");
-
-      try {
-        const ticketResponse = await fetch(
-          `${APP_BASE_PATH}/api/snapshots/websocket-ticket`,
-          { method: "POST" },
-        );
-        const ticketData = (await ticketResponse.json().catch(() => null)) as {
-          url?: string;
-        } | null;
-
-        if (!ticketResponse.ok || !ticketData?.url) {
-          throw new Error("Unable to authorize WebSocket.");
-        }
-
-        socket = new WebSocket(ticketData.url);
-        socket.onopen = () => {
-          reconnectAttempts = 0;
-          setConnectionState("live");
-        };
-        socket.onmessage = (event) => {
-          const message = JSON.parse(event.data) as {
-            type?: string;
-            snapshot?: BankValueSnapshot | null;
-          };
-          if (
-            (message.type === "snapshot.initial" ||
-              message.type === "snapshot.updated") &&
-            message.snapshot
-          ) {
-            setSnapshot(message.snapshot);
-          }
-        };
-        socket.onerror = () => socket?.close();
-        socket.onclose = () => {
-          if (disposed) return;
-          reconnectAttempts += 1;
-          setConnectionState("reconnecting");
-          reconnectTimer = setTimeout(
-            connect,
-            Math.min(1000 * 2 ** (reconnectAttempts - 1), 30000),
-          );
-        };
-      } catch {
-        if (disposed) return;
-        reconnectAttempts += 1;
-        setConnectionState(
-          reconnectAttempts > 3 ? "unavailable" : "reconnecting",
-        );
-        reconnectTimer = setTimeout(
-          connect,
-          Math.min(1000 * 2 ** (reconnectAttempts - 1), 30000),
-        );
-      }
-    }
-
-    connect();
-    return () => {
-      disposed = true;
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      socket?.close();
-    };
-  }, []);
 
   useEffect(() => {
     const refreshDate = window.setInterval(

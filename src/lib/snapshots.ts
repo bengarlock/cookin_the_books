@@ -6,15 +6,41 @@ import { AUTH_COOKIE_NAME } from "@/lib/auth";
 import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 import type { BankValueSnapshot } from "@/lib/snapshot-types";
 
-export async function getBankValueSnapshots(): Promise<BankValueSnapshot[]> {
+export type SnapshotBounds = {
+  earliest_snapshot_date: string | null;
+  latest_snapshot_date: string | null;
+};
+
+type SnapshotListOptions = {
+  endDate?: string;
+  includeAccountBalances?: boolean;
+  limit?: number;
+  startDate?: string;
+};
+
+function snapshotSearchParams(options: SnapshotListOptions = {}) {
+  const params = new URLSearchParams();
+  if (options.startDate) params.set("start_date", options.startDate);
+  if (options.endDate) params.set("end_date", options.endDate);
+  if (options.limit) params.set("limit", String(options.limit));
+  if (options.includeAccountBalances === false) {
+    params.set("include_account_balances", "0");
+  }
+  return params.toString();
+}
+
+export async function getBankValueSnapshots(
+  options: SnapshotListOptions = {},
+): Promise<BankValueSnapshot[]> {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
   if (!token) {
     return [];
   }
 
   try {
+    const query = snapshotSearchParams(options);
     const response = await fetch(
-      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/bank-value-snapshots/`,
+      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/bank-value-snapshots/${query ? `?${query}` : ""}`,
       {
         headers: {
           Accept: "application/json",
@@ -35,6 +61,63 @@ export async function getBankValueSnapshots(): Promise<BankValueSnapshot[]> {
 }
 
 export async function getLatestBankValueSnapshot() {
-  const snapshots = await getBankValueSnapshots();
-  return snapshots[0] || null;
+  const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(
+      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/bank-value-snapshots/latest/`,
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Token ${token}`,
+        },
+        cache: "no-store",
+      },
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return (await response.json()) as BankValueSnapshot | null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getSnapshotBounds(): Promise<SnapshotBounds> {
+  const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
+  if (!token) {
+    return {
+      earliest_snapshot_date: null,
+      latest_snapshot_date: null,
+    };
+  }
+
+  try {
+    const response = await fetch(
+      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/bank-value-snapshots/bounds/`,
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Token ${token}`,
+        },
+        cache: "no-store",
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error("Unable to load snapshot bounds.");
+    }
+
+    return (await response.json()) as SnapshotBounds;
+  } catch {
+    return {
+      earliest_snapshot_date: null,
+      latest_snapshot_date: null,
+    };
+  }
 }
