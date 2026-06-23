@@ -218,6 +218,50 @@ function MetricCard({
   );
 }
 
+function PaidActionButton({
+  disabled,
+  label,
+  onClick,
+  state,
+}: {
+  disabled: boolean;
+  label: string;
+  onClick: () => void;
+  state: "idle" | "saving" | "paid";
+}) {
+  return (
+    <button
+      aria-label={label}
+      className="relative grid size-8 place-items-center rounded-lg border border-white/10 text-white/35 transition hover:border-accent/25 hover:bg-accent/10 hover:text-accent disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-transparent disabled:text-white/18"
+      disabled={disabled}
+      onClick={onClick}
+      title={label}
+      type="button"
+    >
+      <span className="font-mono text-sm font-semibold">$</span>
+      <svg
+        aria-hidden="true"
+        className={`absolute right-1.5 top-1.5 size-3 ${
+          state === "paid" ? "text-accent" : "text-current"
+        }`}
+        fill="none"
+        viewBox="0 0 16 16"
+      >
+        <path
+          d="m3.2 8.2 2.8 2.8 6.8-6.9"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2.2"
+        />
+      </svg>
+      <span className="sr-only">
+        {state === "paid" ? "Paid" : state === "saving" ? "Saving" : "Mark paid"}
+      </span>
+    </button>
+  );
+}
+
 export function LiveBankValues({
   initialSnapshot,
   initialPendingTransactions,
@@ -707,10 +751,11 @@ export function LiveBankValues({
                     <p className="text-xs text-muted">{section.description}</p>
                   </div>
                 </div>
-                <div className="hidden grid-cols-[minmax(0,1fr)_auto_auto] gap-6 border-b border-white/10 px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted sm:grid">
+                <div className="hidden grid-cols-[minmax(0,1fr)_2rem_8rem_8rem] gap-6 border-b border-white/10 px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted sm:grid">
                   <span>Account</span>
-                  <span>Posted</span>
-                  <span className="w-32 text-right">Adjusted</span>
+                  <span className="sr-only">Payment status</span>
+                  <span className="text-right">Posted</span>
+                  <span className="text-right">Adjusted</span>
                 </div>
                 {section.keys.map((accountKey) => {
                   const account = accounts.find(
@@ -735,29 +780,10 @@ export function LiveBankValues({
                 return (
                   <div
                     key="citi_card"
-                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 border-b border-white/[0.07] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5"
+                    className="grid grid-cols-[minmax(0,1fr)_2rem_8rem] items-center gap-x-5 border-b border-white/[0.07] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_2rem_8rem_8rem] sm:px-5"
                   >
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm text-white/75">Citi Card</span>
-                        <button
-                          className="rounded-md border border-accent/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-accent transition hover:bg-accent/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-white/35"
-                          disabled={citiSettled || adjusted <= 0 || !!payingAccount}
-                          onClick={() =>
-                            markLiabilityPaid({
-                              amount: adjusted,
-                              settledAccounts: ["citi_current", "citi_pending"],
-                            })
-                          }
-                          type="button"
-                        >
-                          {citiSettled
-                            ? "Paid"
-                            : payingAccount === "citi_current"
-                              ? "Saving…"
-                              : "Mark paid"}
-                        </button>
-                      </div>
+                      <span className="text-sm text-white/75">Citi Card</span>
                       <p className="mt-1 text-xs text-muted">
                         Current {formatCurrency(currentPosted)}
                         <span className="mx-1.5 text-white/20">·</span>
@@ -776,12 +802,35 @@ export function LiveBankValues({
                         ) : null}
                       </p>
                     </div>
-                    <span className="hidden whitespace-nowrap font-mono text-sm text-white/55 sm:block">
+                    <PaidActionButton
+                      disabled={citiSettled || adjusted <= 0 || !!payingAccount}
+                      label={
+                        citiSettled
+                          ? "Citi Card is paid pending clearance"
+                          : "Mark Citi Card paid"
+                      }
+                      onClick={() =>
+                        markLiabilityPaid({
+                          amount: adjusted,
+                          settledAccounts: ["citi_current", "citi_pending"],
+                        })
+                      }
+                      state={
+                        citiSettled
+                          ? "paid"
+                          : payingAccount === "citi_current"
+                            ? "saving"
+                            : "idle"
+                      }
+                    />
+                    <span className="hidden whitespace-nowrap text-right font-mono text-sm text-white/55 sm:block">
                       {formatCurrency(currentPosted + pendingPosted)}
                     </span>
-                    <span className="w-32 whitespace-nowrap text-right font-mono text-sm font-semibold text-white">
-                      {formatCurrency(adjusted)}
-                    </span>
+                    <div className="text-right">
+                      <p className="whitespace-nowrap font-mono text-sm font-semibold text-white">
+                        {formatCurrency(adjusted)}
+                      </p>
+                    </div>
                   </div>
                 );
                   }
@@ -801,14 +850,14 @@ export function LiveBankValues({
                   return (
                     <div
                       key={account.key}
-                      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 gap-y-1 border-b px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5 ${
+                      className={`grid grid-cols-[minmax(0,1fr)_2rem_8rem] items-center gap-x-5 gap-y-1 border-b px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_2rem_8rem_8rem] sm:px-5 ${
                         overdrawn
                           ? "border-rose-300/15 bg-rose-500/10"
                           : "border-white/[0.07]"
                       }`}
                     >
                       <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-2">
                           <span
                             className={`truncate text-sm ${
                               overdrawn
@@ -818,27 +867,6 @@ export function LiveBankValues({
                           >
                             {account.label}
                           </span>
-                          {compactLiability ? (
-                            <button
-                              className="rounded-md border border-accent/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-accent transition hover:bg-accent/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-white/35"
-                              disabled={
-                                liabilitySettled || adjusted <= 0 || !!payingAccount
-                              }
-                              onClick={() =>
-                                markLiabilityPaid({
-                                  amount: adjusted,
-                                  settledAccounts: [account.key],
-                                })
-                              }
-                              type="button"
-                            >
-                              {liabilitySettled
-                                ? "Paid"
-                                : payingAccount === account.key
-                                  ? "Saving…"
-                                  : "Mark paid"}
-                            </button>
-                          ) : null}
                         </div>
                         {compactLiability ? (
                           <p className="mt-1 text-xs text-muted">
@@ -865,26 +893,56 @@ export function LiveBankValues({
                           </p>
                         ) : null}
                       </div>
-                      <span className="hidden whitespace-nowrap font-mono text-sm text-white/55 sm:block">
+                      {compactLiability ? (
+                        <PaidActionButton
+                          disabled={
+                            liabilitySettled || adjusted <= 0 || !!payingAccount
+                          }
+                          label={
+                            liabilitySettled
+                              ? `${account.label} is paid pending clearance`
+                              : `Mark ${account.label} paid`
+                          }
+                          onClick={() =>
+                            markLiabilityPaid({
+                              amount: adjusted,
+                              settledAccounts: [account.key],
+                            })
+                          }
+                          state={
+                            liabilitySettled
+                              ? "paid"
+                              : payingAccount === account.key
+                                ? "saving"
+                                : "idle"
+                          }
+                        />
+                      ) : (
+                        <span aria-hidden="true" />
+                      )}
+                      <span className="hidden whitespace-nowrap text-right font-mono text-sm text-white/55 sm:block">
                         {formatCurrency(posted)}
                       </span>
-                      <span
-                        className={`w-32 whitespace-nowrap text-right font-mono text-sm font-semibold ${
-                          overdrawn ? "text-rose-300" : "text-white"
-                        }`}
-                      >
-                        {formatCurrency(adjusted)}
-                      </span>
+                      <div className="text-right">
+                        <p
+                          className={`whitespace-nowrap font-mono text-sm font-semibold ${
+                            overdrawn ? "text-rose-300" : "text-white"
+                          }`}
+                        >
+                          {formatCurrency(adjusted)}
+                        </p>
+                      </div>
                     </div>
                   );
                 })}
-                <div className="mt-auto grid grid-cols-[minmax(0,1fr)_auto] items-center gap-5 bg-white/[0.04] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5">
+                <div className="mt-auto grid grid-cols-[minmax(0,1fr)_8rem] items-center gap-5 bg-white/[0.04] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_2rem_8rem_8rem] sm:px-5">
                   <span className="text-sm font-semibold text-white">
                     Total {section.title.toLowerCase()}
                   </span>
-                  <span className="hidden sm:block" />
+                  <span aria-hidden="true" className="hidden sm:block" />
+                  <span aria-hidden="true" className="hidden sm:block" />
                   <span
-                    className={`w-32 whitespace-nowrap text-right font-mono text-sm font-semibold ${
+                    className={`whitespace-nowrap text-right font-mono text-sm font-semibold ${
                       section.title === "Liability accounts"
                         ? "text-rose-200"
                         : "text-accent"
@@ -930,7 +988,7 @@ export function LiveBankValues({
                 return (
                   <div
                     key={transaction.id}
-                    className={`grid gap-3 border-b border-white/[0.07] px-4 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:px-5 ${
+                    className={`grid gap-3 border-b border-white/[0.07] px-4 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_6.5rem_12rem] sm:items-center sm:px-5 ${
                       transaction.is_cleared ? "opacity-45" : ""
                     }`}
                   >
@@ -949,56 +1007,52 @@ export function LiveBankValues({
                         )}
                       </p>
                     </div>
-                    <span className="font-mono text-sm font-semibold text-white">
+                    <span className="whitespace-nowrap text-right font-mono text-sm font-semibold text-white">
                       {formatCurrency(transaction.amount)}
                     </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-start gap-2 sm:flex-nowrap sm:justify-end">
                       {transaction.is_cleared ? (
-                        <span className="text-xs font-medium text-accent">
+                        <span className="w-20 text-center text-xs font-medium text-accent">
                           Cleared
                         </span>
                       ) : (
                         <button
                           type="button"
                           onClick={() => markCleared(transaction)}
-                          className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-white/70 transition hover:border-accent/30 hover:text-accent"
+                          className="w-20 rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-white/70 transition hover:border-accent/30 hover:text-accent"
                         >
-                          Mark cleared
+                          Clear
                         </button>
                       )}
                       <button
                         type="button"
-                        onClick={() => setConfirmingDeleteId(transaction.id)}
-                        hidden={confirmingDeleteId === transaction.id}
-                        className="rounded-lg border border-rose-300/15 px-3 py-2 text-xs font-medium text-rose-200/80 transition hover:border-rose-300/35 hover:bg-rose-500/10 hover:text-rose-100"
+                        onBlur={() =>
+                          window.setTimeout(() => {
+                            setConfirmingDeleteId((current) =>
+                              current === transaction.id ? null : current,
+                            );
+                          }, 0)
+                        }
+                        onClick={() => {
+                          if (confirmingDeleteId === transaction.id) {
+                            deleteTransaction(transaction);
+                            return;
+                          }
+                          setConfirmingDeleteId(transaction.id);
+                        }}
+                        disabled={deletingId === transaction.id}
+                        className={`w-20 rounded-lg border px-3 py-2 text-xs font-medium transition disabled:opacity-50 ${
+                          confirmingDeleteId === transaction.id
+                            ? "border-rose-300/35 bg-rose-500/20 text-rose-100 hover:bg-rose-500/30"
+                            : "border-rose-300/15 text-rose-200/80 hover:border-rose-300/35 hover:bg-rose-500/10 hover:text-rose-100"
+                        }`}
                       >
-                        Delete
+                        {deletingId === transaction.id
+                          ? "Deleting…"
+                          : confirmingDeleteId === transaction.id
+                            ? "Confirm"
+                            : "Delete"}
                       </button>
-                      {confirmingDeleteId === transaction.id ? (
-                        <div className="flex items-center gap-2 rounded-lg border border-rose-300/20 bg-rose-500/10 p-1">
-                          <span className="px-2 text-xs text-rose-100">
-                            Delete?
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmingDeleteId(null)}
-                            disabled={deletingId === transaction.id}
-                            className="rounded-md px-2.5 py-1.5 text-xs font-medium text-white/65 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-50"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteTransaction(transaction)}
-                            disabled={deletingId === transaction.id}
-                            className="rounded-md bg-rose-500/20 px-2.5 py-1.5 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/30 disabled:opacity-50"
-                          >
-                            {deletingId === transaction.id
-                              ? "Deleting…"
-                              : "Confirm delete"}
-                          </button>
-                        </div>
-                      ) : null}
                     </div>
                   </div>
                 );

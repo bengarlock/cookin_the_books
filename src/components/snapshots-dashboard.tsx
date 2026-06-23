@@ -645,7 +645,7 @@ export function SnapshotsDashboard({
           </div>
           <div className="flex flex-wrap items-center gap-2 xl:justify-end">
             <div
-              className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
+              className={`rounded-lg border px-4 py-3 text-xs font-semibold ${
                 chartRangeChange.amount < 0
                   ? "border-rose-300/20 bg-rose-500/10 text-rose-300"
                   : "border-accent/20 bg-accent/10 text-accent"
