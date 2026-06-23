@@ -219,9 +219,23 @@ function SnapshotTrendChart({
         />
         {chart.data.map((snapshot, index) => (
           <circle
-            fill={Number(snapshot.change) < 0 ? "#fda4af" : "#56e2aa"}
+            fill={
+              snapshot.is_highpoint
+                ? "#f0c978"
+                : Number(snapshot.change) < 0
+                  ? "#fda4af"
+                  : "#56e2aa"
+            }
             key={snapshot.id}
-            r={chart.data.length > 90 ? 1.8 : 3.5}
+            r={
+              snapshot.is_highpoint
+                ? chart.data.length > 90
+                  ? 2.8
+                  : 4.5
+                : chart.data.length > 90
+                  ? 1.8
+                  : 3.5
+            }
             stroke="#07100f"
             strokeWidth="1.5"
             cx={chart.x(index)}
@@ -231,6 +245,7 @@ function SnapshotTrendChart({
               {formatDate(snapshot.snapshot_date)}:{" "}
               {currencyFormatter.format(Number(snapshot.net_assets))} (
               {currencyFormatter.format(Number(snapshot.change))})
+              {snapshot.is_highpoint ? " · Highpoint" : ""}
             </title>
           </circle>
         ))}
@@ -392,7 +407,7 @@ export function SnapshotsDashboard({
         </p>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Metric
           featured
           label="Current net assets"
@@ -410,6 +425,21 @@ export function SnapshotsDashboard({
           value={`${Number(current?.change_percentage || 0).toFixed(2)}%`}
         />
         <Metric
+          label="Highpoint watermark"
+          value={currencyFormatter.format(
+            Number(current?.last_highpoint_net_assets || 0),
+          )}
+        />
+        <Metric
+          label="Loss since highpoint"
+          negative={Number(current?.loss_since_highpoint || 0) > 0}
+          value={`${currencyFormatter.format(
+            Number(current?.loss_since_highpoint || 0),
+          )} (${Number(
+            current?.loss_since_highpoint_percentage || 0,
+          ).toFixed(2)}%)`}
+        />
+        <Metric
           label="Snapshot date"
           value={current ? formatDate(current.snapshot_date) : "No snapshot"}
         />
@@ -422,8 +452,8 @@ export function SnapshotsDashboard({
               Net assets trend
             </h2>
             <p className="mt-1 text-xs text-muted">
-              Mint tracks net assets, gold shows the growth trend, and red
-              points mark negative days.
+              Mint tracks net assets, the dashed line shows growth, gold points
+              mark highpoints, and red points mark negative days.
             </p>
           </div>
           {!todaySnapshot ? (
@@ -460,7 +490,7 @@ export function SnapshotsDashboard({
             </p>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left">
+            <table className="w-full min-w-[900px] text-left">
               <thead className="border-b border-white/10 text-[10px] uppercase tracking-[0.13em] text-muted">
                 <tr>
                   <th className="px-5 py-3 font-semibold">Date</th>
@@ -468,6 +498,9 @@ export function SnapshotsDashboard({
                     Net assets
                   </th>
                   <th className="px-5 py-3 text-right font-semibold">Change</th>
+                  <th className="px-5 py-3 text-right font-semibold">
+                    Highpoint
+                  </th>
                   <th className="px-5 py-3 font-semibold">Notes</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
                 </tr>
@@ -497,6 +530,20 @@ export function SnapshotsDashboard({
                       }`}
                     >
                       {currencyFormatter.format(Number(snapshot.change))}
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      {snapshot.is_highpoint ? (
+                        <span className="rounded-full border border-gold/25 bg-gold/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-gold">
+                          Highpoint
+                        </span>
+                      ) : (
+                        <span className="font-mono text-sm text-rose-300">
+                          -
+                          {currencyFormatter.format(
+                            Number(snapshot.loss_since_highpoint),
+                          )}
+                        </span>
+                      )}
                     </td>
                     <td className="max-w-64 truncate px-5 py-3.5 text-sm text-muted">
                       {snapshot.notes || "—"}
@@ -542,15 +589,22 @@ export function SnapshotsDashboard({
                 </p>
               </div>
               {!isCreating && selectedSnapshot ? (
-                <span
-                  className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] ${
-                    selectedSnapshot.is_editable
-                      ? "border-accent/20 bg-accent/10 text-accent"
-                      : "border-white/10 bg-white/[0.04] text-white/45"
-                  }`}
-                >
-                  {selectedSnapshot.is_editable ? "Editable" : "Locked"}
-                </span>
+                <div className="flex flex-wrap justify-end gap-2">
+                  {selectedSnapshot.is_highpoint ? (
+                    <span className="rounded-full border border-gold/25 bg-gold/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-gold">
+                      Highpoint
+                    </span>
+                  ) : null}
+                  <span
+                    className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] ${
+                      selectedSnapshot.is_editable
+                        ? "border-accent/20 bg-accent/10 text-accent"
+                        : "border-white/10 bg-white/[0.04] text-white/45"
+                    }`}
+                  >
+                    {selectedSnapshot.is_editable ? "Editable" : "Locked"}
+                  </span>
+                </div>
               ) : null}
             </div>
           </div>
@@ -625,6 +679,43 @@ export function SnapshotsDashboard({
                     }`}
                   >
                     {currencyFormatter.format(Number(selectedSnapshot.change))}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 border-b border-white/[0.07] bg-black/10">
+                <div className="border-r border-white/[0.07] px-5 py-4">
+                  <p className="text-[10px] uppercase tracking-[0.13em] text-muted">
+                    Last highpoint
+                  </p>
+                  <p className="mt-2 font-mono text-lg font-semibold text-gold">
+                    {currencyFormatter.format(
+                      Number(selectedSnapshot.last_highpoint_net_assets),
+                    )}
+                  </p>
+                  <p className="mt-1 text-xs text-muted">
+                    {formatDate(selectedSnapshot.last_highpoint_date)}
+                  </p>
+                </div>
+                <div className="px-5 py-4">
+                  <p className="text-[10px] uppercase tracking-[0.13em] text-muted">
+                    Loss since highpoint
+                  </p>
+                  <p
+                    className={`mt-2 font-mono text-lg font-semibold ${
+                      Number(selectedSnapshot.loss_since_highpoint) > 0
+                        ? "text-rose-300"
+                        : "text-accent"
+                    }`}
+                  >
+                    {currencyFormatter.format(
+                      Number(selectedSnapshot.loss_since_highpoint),
+                    )}
+                  </p>
+                  <p className="mt-1 text-xs text-muted">
+                    {Number(
+                      selectedSnapshot.loss_since_highpoint_percentage,
+                    ).toFixed(2)}
+                    % below watermark
                   </p>
                 </div>
               </div>

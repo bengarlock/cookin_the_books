@@ -38,6 +38,12 @@ export type BankValueSnapshot = {
   net_assets: string;
   change: string;
   change_percentage: string;
+  is_highpoint: boolean;
+  last_highpoint_snapshot_id: number;
+  last_highpoint_date: string;
+  last_highpoint_net_assets: string;
+  loss_since_highpoint: string;
+  loss_since_highpoint_percentage: string;
   notes: string;
   metadata: Record<string, unknown>;
   account_balances: SnapshotAccountBalance[];
