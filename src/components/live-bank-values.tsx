@@ -235,6 +235,8 @@ export function LiveBankValues({
   const [formError, setFormError] = useState("");
   const [registerError, setRegisterError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [payingAccount, setPayingAccount] =
+    useState<keyof BankValueSnapshot | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(
     null,
   );
@@ -333,8 +335,12 @@ export function LiveBankValues({
 
   const calculations = useMemo(() => {
     const pendingByAccount = new Map<keyof BankValueSnapshot, number>();
+    const settledAccounts = new Set<keyof BankValueSnapshot>();
     for (const transaction of pendingTransactions) {
       if (transaction.is_cleared) continue;
+      for (const account of transaction.settled_accounts || []) {
+        settledAccounts.add(account);
+      }
       pendingByAccount.set(
         transaction.account,
         (pendingByAccount.get(transaction.account) || 0) +
@@ -344,6 +350,7 @@ export function LiveBankValues({
 
     const adjustedValue = (key: keyof BankValueSnapshot) => {
       const posted = valueFromSnapshot(snapshot, key);
+      if (settledAccounts.has(key)) return 0;
       const pending = pendingByAccount.get(key) || 0;
       return liabilityAccounts.has(key) ? posted + pending : posted - pending;
     };
@@ -385,6 +392,7 @@ export function LiveBankValues({
       savingsReserve,
       netAssets: grossAssets - grossLiabilities,
       pendingByAccount,
+      settledAccounts,
       adjustedValue,
       overdrawnAccounts: accounts
         .filter(
@@ -442,6 +450,54 @@ export function LiveBankValues({
       );
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function markLiabilityPaid({
+    amount,
+    settledAccounts,
+  }: {
+    amount: number;
+    settledAccounts: Array<keyof BankValueSnapshot>;
+  }) {
+    const roundedAmount = Math.max(0, amount);
+    if (roundedAmount <= 0 || !settledAccounts.length) return;
+
+    setRegisterError("");
+    setPayingAccount(settledAccounts[0]);
+
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/pending-transactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          account: "chase_checking",
+          note: "Credit Card Payment",
+          amount: roundedAmount.toFixed(2),
+          expected_post_date: nextBusinessDayString(),
+          settled_accounts: settledAccounts,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | PendingTransaction
+        | { message?: string; detail?: string; [key: string]: unknown }
+        | null;
+      if (!response.ok || !data || !("id" in data)) {
+        throw new Error(
+          (data && "message" in data && data.message) ||
+            (data && "detail" in data && data.detail) ||
+            "Unable to mark the liability account paid.",
+        );
+      }
+      setPendingTransactions((current) => [data as PendingTransaction, ...current]);
+    } catch (error) {
+      setRegisterError(
+        error instanceof Error
+          ? error.message
+          : "Unable to mark the liability account paid.",
+      );
+    } finally {
+      setPayingAccount(null);
     }
   }
 
@@ -636,16 +692,13 @@ export function LiveBankValues({
             </p>
           </div>
 
-          <div className="grid gap-5 xl:grid-cols-2">
-            {accountSections.map((section) => (
-              <section
-                key={section.title}
-                className={`surface overflow-hidden rounded-2xl ${
-                  section.title === "Investments & retirement"
-                    ? "xl:col-span-2"
-                    : ""
-                }`}
-              >
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.85fr)]">
+            <div className="grid gap-5">
+              {accountSections.map((section) => (
+                <section
+                  key={section.title}
+                  className="surface flex flex-col overflow-hidden rounded-2xl"
+                >
                 <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
                   <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
                     <h3 className="text-xs font-semibold uppercase tracking-[0.17em] text-gold">
@@ -675,6 +728,9 @@ export function LiveBankValues({
                 const adjusted =
                   calculations.adjustedValue("citi_current") +
                   calculations.adjustedValue("citi_pending");
+                const citiSettled =
+                  calculations.settledAccounts.has("citi_current") ||
+                  calculations.settledAccounts.has("citi_pending");
 
                 return (
                   <div
@@ -682,7 +738,26 @@ export function LiveBankValues({
                     className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 border-b border-white/[0.07] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5"
                   >
                     <div className="min-w-0">
-                      <span className="text-sm text-white/75">Citi Card</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-white/75">Citi Card</span>
+                        <button
+                          className="rounded-md border border-accent/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-accent transition hover:bg-accent/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-white/35"
+                          disabled={citiSettled || adjusted <= 0 || !!payingAccount}
+                          onClick={() =>
+                            markLiabilityPaid({
+                              amount: adjusted,
+                              settledAccounts: ["citi_current", "citi_pending"],
+                            })
+                          }
+                          type="button"
+                        >
+                          {citiSettled
+                            ? "Paid"
+                            : payingAccount === "citi_current"
+                              ? "Saving…"
+                              : "Mark paid"}
+                        </button>
+                      </div>
                       <p className="mt-1 text-xs text-muted">
                         Current {formatCurrency(currentPosted)}
                         <span className="mx-1.5 text-white/20">·</span>
@@ -691,6 +766,12 @@ export function LiveBankValues({
                           <span className="text-amber-100/70">
                             {" "}
                             · {formatCurrency(currentManual + pendingManual)} manual
+                          </span>
+                        ) : null}
+                        {citiSettled ? (
+                          <span className="text-accent">
+                            {" "}
+                            · Paid pending clearance
                           </span>
                         ) : null}
                       </p>
@@ -714,6 +795,9 @@ export function LiveBankValues({
                   const compactLiability =
                     account.key === "chase_credit" ||
                     account.key === "barclays_card";
+                  const liabilitySettled = calculations.settledAccounts.has(
+                    account.key,
+                  );
                   return (
                     <div
                       key={account.key}
@@ -724,7 +808,7 @@ export function LiveBankValues({
                       }`}
                     >
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span
                             className={`truncate text-sm ${
                               overdrawn
@@ -734,6 +818,27 @@ export function LiveBankValues({
                           >
                             {account.label}
                           </span>
+                          {compactLiability ? (
+                            <button
+                              className="rounded-md border border-accent/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-accent transition hover:bg-accent/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-white/35"
+                              disabled={
+                                liabilitySettled || adjusted <= 0 || !!payingAccount
+                              }
+                              onClick={() =>
+                                markLiabilityPaid({
+                                  amount: adjusted,
+                                  settledAccounts: [account.key],
+                                })
+                              }
+                              type="button"
+                            >
+                              {liabilitySettled
+                                ? "Paid"
+                                : payingAccount === account.key
+                                  ? "Saving…"
+                                  : "Mark paid"}
+                            </button>
+                          ) : null}
                         </div>
                         {compactLiability ? (
                           <p className="mt-1 text-xs text-muted">
@@ -747,6 +852,12 @@ export function LiveBankValues({
                             >
                               {formatCurrency(pending)}
                             </span>
+                            {liabilitySettled ? (
+                              <span className="text-accent">
+                                {" "}
+                                · Paid pending clearance
+                              </span>
+                            ) : null}
                           </p>
                         ) : pending > 0 ? (
                           <p className="mt-1 text-xs text-amber-100/70">
@@ -767,7 +878,7 @@ export function LiveBankValues({
                     </div>
                   );
                 })}
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-5 bg-white/[0.04] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5">
+                <div className="mt-auto grid grid-cols-[minmax(0,1fr)_auto] items-center gap-5 bg-white/[0.04] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5">
                   <span className="text-sm font-semibold text-white">
                     Total {section.title.toLowerCase()}
                   </span>
@@ -788,147 +899,31 @@ export function LiveBankValues({
                     )}
                   </span>
                 </div>
-              </section>
-            ))}
-          </div>
+                </section>
+              ))}
+            </div>
 
-          <div className="surface overflow-hidden rounded-2xl">
-            <div className="p-4 sm:p-5">
-              <button
-                type="button"
-                onClick={() => setFormOpen((open) => !open)}
-                className="w-full rounded-xl bg-accent-strong px-4 py-2.5 text-sm font-semibold text-[#03120c] transition hover:bg-accent"
-              >
-                {formOpen ? "Cancel pending transaction" : "Add pending transaction"}
-              </button>
-
-              {formOpen ? (
-                <form
-                  onSubmit={addPendingTransaction}
-                  className="mt-5 grid gap-4 sm:grid-cols-2"
-                >
-                  <label className="sm:col-span-2">
-                    <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
-                      Note
-                    </span>
-                    <input
-                      value={transactionForm.note}
-                      onChange={(event) =>
-                        setTransactionForm((current) => ({
-                          ...current,
-                          note: event.target.value,
-                        }))
-                      }
-                      className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-accent/50"
-                      placeholder="What is this transaction for?"
-                      maxLength={255}
-                      required
-                    />
-                  </label>
-                  <label>
-                    <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
-                      Amount
-                    </span>
-                    <input
-                      value={transactionForm.amount}
-                      onChange={(event) =>
-                        setTransactionForm((current) => ({
-                          ...current,
-                          amount: event.target.value,
-                        }))
-                      }
-                      className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 font-mono text-sm text-white outline-none focus:border-accent/50"
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      placeholder="0.00"
-                      required
-                    />
-                  </label>
-                  <label>
-                    <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
-                      Account
-                    </span>
-                    <select
-                      value={transactionForm.account}
-                      onChange={(event) =>
-                        setTransactionForm((current) => ({
-                          ...current,
-                          account: event.target.value as keyof BankValueSnapshot,
-                        }))
-                      }
-                      className="h-11 w-full rounded-xl border border-white/10 bg-[#0b1714] px-3 text-sm text-white outline-none focus:border-accent/50"
-                    >
-                      {accounts.map((account) => (
-                        <option key={account.key} value={account.key}>
-                          {account.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
-                      Expected post date
-                    </span>
-                    <input
-                      value={transactionForm.expected_post_date}
-                      onChange={(event) =>
-                        setTransactionForm((current) => ({
-                          ...current,
-                          expected_post_date: event.target.value,
-                        }))
-                      }
-                      className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-accent/50"
-                      type="date"
-                      required
-                    />
-                  </label>
-                  <div className="flex items-end">
-                    <button
-                      type="submit"
-                      disabled={isSaving}
-                      className="h-11 w-full rounded-xl border border-accent/25 bg-accent/10 px-4 text-sm font-semibold text-accent transition hover:bg-accent/15 disabled:opacity-50"
-                    >
-                      {isSaving ? "Saving…" : "Save transaction"}
-                    </button>
-                  </div>
-                  {formError ? (
-                    <p
-                      role="alert"
-                      className="sm:col-span-2 rounded-xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
-                    >
-                      {formError}
-                    </p>
-                  ) : null}
-                  <p className="sm:col-span-2 text-xs leading-5 text-muted">
-                    Enter outgoing amounts as positive values. Cash and investment
-                    balances are reduced; credit-card balances are increased.
+            <div>
+              <div className="surface overflow-hidden rounded-2xl">
+                <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
+                    Pending transaction register
                   </p>
-                </form>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="surface overflow-hidden rounded-2xl">
-            <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
-                Pending transaction register
-              </p>
-              <p className="mt-1 text-sm text-muted">
-                Mark a transaction cleared once it appears in the posted bank
-                balance.
-              </p>
-            </div>
-            {registerError ? (
-              <p
-                className="border-b border-rose-300/15 bg-rose-500/10 px-5 py-3 text-sm text-rose-100"
-                role="alert"
-              >
-                {registerError}
-              </p>
-            ) : null}
-            {pendingTransactions.length ? (
-              pendingTransactions.map((transaction) => {
+                  <p className="mt-1 text-sm text-muted">
+                    Mark a transaction cleared once it appears in the posted
+                    bank balance.
+                  </p>
+                </div>
+                {registerError ? (
+                  <p
+                    className="border-b border-rose-300/15 bg-rose-500/10 px-5 py-3 text-sm text-rose-100"
+                    role="alert"
+                  >
+                    {registerError}
+                  </p>
+                ) : null}
+                {pendingTransactions.length ? (
+                  pendingTransactions.map((transaction) => {
                 const account = accounts.find(
                   (item) => item.key === transaction.account,
                 );
@@ -1007,12 +1002,130 @@ export function LiveBankValues({
                     </div>
                   </div>
                 );
-              })
-            ) : (
-              <p className="px-5 py-8 text-center text-sm text-muted">
-                No pending transactions.
-              </p>
-            )}
+                  })
+                ) : (
+                  <p className="px-5 py-8 text-center text-sm text-muted">
+                    No pending transactions.
+                  </p>
+                )}
+                <div className="border-t border-white/10 bg-white/[0.03] p-4 sm:p-5">
+                  <button
+                    type="button"
+                    onClick={() => setFormOpen((open) => !open)}
+                    className="ml-auto block rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent transition hover:bg-accent/15"
+                  >
+                    {formOpen ? "Cancel" : "Add pending transaction"}
+                  </button>
+
+                  {formOpen ? (
+                    <form
+                      onSubmit={addPendingTransaction}
+                      className="mt-5 grid gap-4 sm:grid-cols-2"
+                    >
+                      <label className="sm:col-span-2">
+                        <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
+                          Note
+                        </span>
+                        <input
+                          value={transactionForm.note}
+                          onChange={(event) =>
+                            setTransactionForm((current) => ({
+                              ...current,
+                              note: event.target.value,
+                            }))
+                          }
+                          className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-accent/50"
+                          placeholder="What is this transaction for?"
+                          maxLength={255}
+                          required
+                        />
+                      </label>
+                      <label>
+                        <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
+                          Amount
+                        </span>
+                        <input
+                          value={transactionForm.amount}
+                          onChange={(event) =>
+                            setTransactionForm((current) => ({
+                              ...current,
+                              amount: event.target.value,
+                            }))
+                          }
+                          className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 font-mono text-sm text-white outline-none focus:border-accent/50"
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          placeholder="0.00"
+                          required
+                        />
+                      </label>
+                      <label>
+                        <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
+                          Account
+                        </span>
+                        <select
+                          value={transactionForm.account}
+                          onChange={(event) =>
+                            setTransactionForm((current) => ({
+                              ...current,
+                              account: event.target
+                                .value as keyof BankValueSnapshot,
+                            }))
+                          }
+                          className="h-11 w-full rounded-xl border border-white/10 bg-[#0b1714] px-3 text-sm text-white outline-none focus:border-accent/50"
+                        >
+                          {accounts.map((account) => (
+                            <option key={account.key} value={account.key}>
+                              {account.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
+                          Expected post date
+                        </span>
+                        <input
+                          value={transactionForm.expected_post_date}
+                          onChange={(event) =>
+                            setTransactionForm((current) => ({
+                              ...current,
+                              expected_post_date: event.target.value,
+                            }))
+                          }
+                          className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-accent/50"
+                          type="date"
+                          required
+                        />
+                      </label>
+                      <div className="flex items-end">
+                        <button
+                          type="submit"
+                          disabled={isSaving}
+                          className="h-11 w-full rounded-xl border border-accent/25 bg-accent/10 px-4 text-sm font-semibold text-accent transition hover:bg-accent/15 disabled:opacity-50"
+                        >
+                          {isSaving ? "Saving…" : "Save transaction"}
+                        </button>
+                      </div>
+                      {formError ? (
+                        <p
+                          role="alert"
+                          className="sm:col-span-2 rounded-xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
+                        >
+                          {formError}
+                        </p>
+                      ) : null}
+                      <p className="sm:col-span-2 text-xs leading-5 text-muted">
+                        Enter outgoing amounts as positive values. Cash and
+                        investment balances are reduced; credit-card balances
+                        are increased.
+                      </p>
+                    </form>
+                  ) : null}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}

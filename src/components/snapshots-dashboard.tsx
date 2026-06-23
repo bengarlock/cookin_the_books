@@ -619,52 +619,31 @@ export function SnapshotsDashboard({
         </p>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <Metric
-          featured
-          label="Current net assets"
-          negative={Number(current?.net_assets || 0) < 0}
-          value={currencyFormatter.format(Number(current?.net_assets || 0))}
-        />
-        <Metric
-          label="Daily change"
-          negative={summaryChange < 0}
-          value={currencyFormatter.format(summaryChange)}
-        />
-        <Metric
-          label="Percentage change"
-          negative={Number(current?.change_percentage || 0) < 0}
-          value={`${Number(current?.change_percentage || 0).toFixed(2)}%`}
-        />
-        <Metric
-          label="Highpoint watermark"
-          value={currencyFormatter.format(
-            Number(current?.last_highpoint_net_assets || 0),
-          )}
-        />
-        <Metric
-          label="Loss since highpoint"
-          negative={Number(current?.loss_since_highpoint || 0) > 0}
-          value={`${currencyFormatter.format(
-            Number(current?.loss_since_highpoint || 0),
-          )} (${Number(
-            current?.loss_since_highpoint_percentage || 0,
-          ).toFixed(2)}%)`}
-        />
-        <Metric
-          label="Snapshot date"
-          value={current ? formatDate(current.snapshot_date) : "No snapshot"}
-        />
-      </section>
-
       <section className="surface overflow-hidden rounded-2xl">
-        <div className="flex flex-col gap-4 border-b border-white/10 bg-white/[0.035] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
+        <div className="grid gap-4 border-b border-white/10 bg-white/[0.035] px-5 py-4 xl:grid-cols-[1fr_auto_1fr] xl:items-center">
+          <div className="min-w-0">
             <h2 className="text-base font-semibold text-white">
               Net assets trend
             </h2>
+            <p className="mt-1 text-xs text-muted">
+              The selected range controls both the chart and snapshot history.
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex justify-start xl:justify-center">
+            <div className="rounded-2xl border border-accent/20 bg-accent/[0.07] p-2 shadow-lg shadow-accent/5">
+              <p className="mb-1 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-accent/80">
+                Snapshot date range
+              </p>
+              <DateRangePicker
+                allTimeStart={firstSnapshotDate}
+                dialogLabel="Select snapshot date range"
+                onApply={setChartRange}
+                range={chartRange}
+                triggerClassName="inline-flex min-w-[280px] items-center justify-center gap-2 rounded-xl border border-accent/30 bg-[#061811] px-4 py-3 text-center text-sm font-semibold text-accent transition hover:border-accent/60 hover:bg-accent/10"
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
             <div
               className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
                 chartRangeChange.amount < 0
@@ -680,12 +659,6 @@ export function SnapshotsDashboard({
                 ({Math.abs(chartRangeChange.percentage).toFixed(2)}%)
               </span>
             </div>
-            <DateRangePicker
-              allTimeStart={firstSnapshotDate}
-              dialogLabel="Select snapshot date range"
-              onApply={setChartRange}
-              range={chartRange}
-            />
             <button
               aria-pressed={showTrendLine}
               className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
@@ -724,27 +697,39 @@ export function SnapshotsDashboard({
               Snapshot history
             </h2>
             <p className="mt-1 text-xs text-muted">
-              Newest records appear first. Historical records are permanent.
+              Showing {chartSnapshots.length} snapshots in the selected chart
+              range. Newest records appear first.
             </p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left">
-              <thead className="border-b border-white/10 text-[10px] uppercase tracking-[0.13em] text-muted">
+          <div
+            className="overflow-y-auto overflow-x-hidden"
+            style={{ maxHeight: "min(72vh, 760px)" }}
+          >
+            <table className="w-full table-fixed text-left">
+              <colgroup>
+                <col className="w-[17%]" />
+                <col className="w-[22%]" />
+                <col className="w-[20%]" />
+                <col className="w-[18%]" />
+                <col className="w-[23%]" />
+              </colgroup>
+              <thead className="sticky top-0 z-10 border-b border-white/10 bg-[#07130f] text-[9px] uppercase tracking-[0.11em] text-muted">
                 <tr>
-                  <th className="px-5 py-3 font-semibold">Date</th>
-                  <th className="px-5 py-3 text-right font-semibold">
+                  <th className="px-3 py-2.5 font-semibold">Date</th>
+                  <th className="px-3 py-2.5 text-right font-semibold">
                     Net assets
                   </th>
-                  <th className="px-5 py-3 text-right font-semibold">Change</th>
-                  <th className="px-5 py-3 text-right font-semibold">
+                  <th className="px-3 py-2.5 text-right font-semibold">
+                    Change
+                  </th>
+                  <th className="px-3 py-2.5 text-right font-semibold">
                     Highpoint
                   </th>
-                  <th className="px-5 py-3 font-semibold">Notes</th>
-                  <th className="px-5 py-3 font-semibold">Status</th>
+                  <th className="px-3 py-2.5 font-semibold">Notes</th>
                 </tr>
               </thead>
               <tbody>
-                {snapshots.map((snapshot) => (
+                {chartSnapshots.map((snapshot) => (
                   <tr
                     className={`cursor-pointer border-b border-white/[0.07] transition hover:bg-white/[0.035] ${
                       snapshot.id === selectedSnapshot?.id
@@ -754,14 +739,14 @@ export function SnapshotsDashboard({
                     key={snapshot.id}
                     onClick={() => selectSnapshot(snapshot)}
                   >
-                    <td className="px-5 py-3.5 text-sm text-white/80">
+                    <td className="truncate px-3 py-2.5 text-[11px] text-white/80">
                       {formatDate(snapshot.snapshot_date)}
                     </td>
-                    <td className="px-5 py-3.5 text-right font-mono text-sm font-semibold text-white">
+                    <td className="truncate px-3 py-2.5 text-right font-mono text-[11px] font-semibold text-white">
                       {currencyFormatter.format(Number(snapshot.net_assets))}
                     </td>
                     <td
-                      className={`px-5 py-3.5 text-right font-mono text-sm ${
+                      className={`truncate px-3 py-2.5 text-right font-mono text-[11px] ${
                         Number(snapshot.change) < 0
                           ? "text-rose-300"
                           : "text-accent"
@@ -769,13 +754,13 @@ export function SnapshotsDashboard({
                     >
                       {currencyFormatter.format(Number(snapshot.change))}
                     </td>
-                    <td className="px-5 py-3.5 text-right">
+                    <td className="truncate px-3 py-2.5 text-right">
                       {snapshot.is_highpoint ? (
-                        <span className="rounded-full border border-gold/25 bg-gold/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-gold">
+                        <span className="rounded-full border border-gold/25 bg-gold/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-gold">
                           Highpoint
                         </span>
                       ) : (
-                        <span className="font-mono text-sm text-rose-300">
+                        <span className="font-mono text-[11px] text-rose-300">
                           -
                           {currencyFormatter.format(
                             Number(snapshot.loss_since_highpoint),
@@ -783,27 +768,16 @@ export function SnapshotsDashboard({
                         </span>
                       )}
                     </td>
-                    <td className="max-w-64 truncate px-5 py-3.5 text-sm text-muted">
+                    <td className="truncate px-3 py-2.5 text-[11px] text-muted">
                       {snapshot.notes || "—"}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span
-                        className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] ${
-                          snapshot.is_editable
-                            ? "border-accent/20 bg-accent/10 text-accent"
-                            : "border-white/10 bg-white/[0.04] text-white/45"
-                        }`}
-                      >
-                        {snapshot.is_editable ? "Editable" : "Locked"}
-                      </span>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {!snapshots.length ? (
+            {!chartSnapshots.length ? (
               <p className="px-5 py-10 text-center text-sm text-muted">
-                No snapshots have been recorded yet.
+                No snapshots fall within the selected date range.
               </p>
             ) : null}
           </div>
@@ -995,6 +969,44 @@ export function SnapshotsDashboard({
           )}
         </section>
       </div>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <Metric
+          featured
+          label="Current net assets"
+          negative={Number(current?.net_assets || 0) < 0}
+          value={currencyFormatter.format(Number(current?.net_assets || 0))}
+        />
+        <Metric
+          label="Daily change"
+          negative={summaryChange < 0}
+          value={currencyFormatter.format(summaryChange)}
+        />
+        <Metric
+          label="Percentage change"
+          negative={Number(current?.change_percentage || 0) < 0}
+          value={`${Number(current?.change_percentage || 0).toFixed(2)}%`}
+        />
+        <Metric
+          label="Highpoint watermark"
+          value={currencyFormatter.format(
+            Number(current?.last_highpoint_net_assets || 0),
+          )}
+        />
+        <Metric
+          label="Loss since highpoint"
+          negative={Number(current?.loss_since_highpoint || 0) > 0}
+          value={`${currencyFormatter.format(
+            Number(current?.loss_since_highpoint || 0),
+          )} (${Number(
+            current?.loss_since_highpoint_percentage || 0,
+          ).toFixed(2)}%)`}
+        />
+        <Metric
+          label="Snapshot date"
+          value={current ? formatDate(current.snapshot_date) : "No snapshot"}
+        />
+      </section>
     </div>
   );
 }

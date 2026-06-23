@@ -32,11 +32,13 @@ export function DateRangePicker({
   onApply,
   dialogLabel = "Select expense date range",
   allTimeStart,
+  triggerClassName,
 }: {
   range: ExpenseDateRange;
   onApply: (range: ExpenseDateRange) => void;
   dialogLabel?: string;
   allTimeStart?: string;
+  triggerClassName?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState(range);
@@ -73,7 +75,10 @@ export function DateRangePicker({
   return (
     <>
       <button
-        className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/15 px-3 py-2 text-left text-xs font-medium text-white/70 transition hover:border-accent/25 hover:text-accent"
+        className={
+          triggerClassName ||
+          "inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/15 px-3 py-2 text-left text-xs font-medium text-white/70 transition hover:border-accent/25 hover:text-accent"
+        }
         onClick={openPicker}
         type="button"
       >

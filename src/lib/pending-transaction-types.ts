@@ -5,6 +5,7 @@ export type PendingTransaction = {
   account: keyof BankValueSnapshot;
   note: string;
   amount: string;
+  settled_accounts: Array<keyof BankValueSnapshot>;
   expected_post_date: string;
   is_cleared: boolean;
   cleared_at: string | null;
