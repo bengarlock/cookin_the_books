@@ -20,7 +20,7 @@ const navigation: Array<{
     href: "/dashboard/budget/expenses",
     parent: "/dashboard/budget",
   },
-  { name: "Snapshots", href: "/dashboard/snapshots", disabled: true },
+  { name: "Snapshots", href: "/dashboard/snapshots" },
   { name: "Automations", href: "/dashboard/automations", disabled: true },
 ];
 

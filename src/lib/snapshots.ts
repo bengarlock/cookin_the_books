@@ -6,10 +6,10 @@ import { AUTH_COOKIE_NAME } from "@/lib/auth";
 import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 import type { BankValueSnapshot } from "@/lib/snapshot-types";
 
-export async function getLatestBankValueSnapshot() {
+export async function getBankValueSnapshots(): Promise<BankValueSnapshot[]> {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
   if (!token) {
-    return null;
+    return [];
   }
 
   try {
@@ -25,12 +25,16 @@ export async function getLatestBankValueSnapshot() {
     );
 
     if (!response.ok) {
-      return null;
+      return [];
     }
 
-    const snapshots = (await response.json()) as BankValueSnapshot[];
-    return snapshots[0] || null;
+    return (await response.json()) as BankValueSnapshot[];
   } catch {
-    return null;
+    return [];
   }
+}
+
+export async function getLatestBankValueSnapshot() {
+  const snapshots = await getBankValueSnapshots();
+  return snapshots[0] || null;
 }

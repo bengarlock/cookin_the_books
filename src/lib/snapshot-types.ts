@@ -1,3 +1,25 @@
+export type SnapshotAccountKey =
+  | "chase_checking"
+  | "chase_savings"
+  | "chase_credit"
+  | "citi_current"
+  | "citi_pending"
+  | "barclays_card"
+  | "etrade"
+  | "betterment_general"
+  | "betterment_safety"
+  | "betterment_retirement"
+  | "fidelity_retirement";
+
+export type SnapshotAccountBalance = {
+  id: number;
+  account: number | null;
+  account_key: SnapshotAccountKey;
+  account_name: string;
+  balance: string;
+  metadata: Record<string, unknown>;
+};
+
 export type BankValueSnapshot = {
   id: number;
   chase_checking: string;
@@ -13,5 +35,13 @@ export type BankValueSnapshot = {
   fidelity_retirement: string;
   source_updated_at: string;
   snapshot_date: string;
+  net_assets: string;
+  change: string;
+  change_percentage: string;
+  notes: string;
+  metadata: Record<string, unknown>;
+  account_balances: SnapshotAccountBalance[];
+  is_editable: boolean;
   created_at: string;
+  updated_at: string;
 };

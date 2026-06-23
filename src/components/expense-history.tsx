@@ -60,6 +60,9 @@ export function ExpenseHistory({
   const [savingItemId, setSavingItemId] = useState<number | null>(null);
   const [importingItemId, setImportingItemId] = useState<number | null>(null);
   const [expandedEntryId, setExpandedEntryId] = useState<number | null>(null);
+  const [expandedTransactionItems, setExpandedTransactionItems] = useState<
+    Record<number, boolean>
+  >({});
   const [importMessage, setImportMessage] = useState("");
   const [error, setError] = useState("");
   const [entryForm, setEntryForm] = useState({
@@ -523,34 +526,74 @@ export function ExpenseHistory({
 
               {relevantEntries.length || itemCreditCardTransactions.length ? (
                 <div>
-                  {itemCreditCardTransactions.map((entry) => (
-                    <div
-                      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/[0.07] px-4 py-3.5 sm:px-5"
-                      key={`credit-card-${entry.id}`}
+                  {item.key === "credit-card" ? (
+                    <button
+                      aria-expanded={Boolean(expandedTransactionItems[item.id])}
+                      className="flex w-full items-center justify-between border-b border-white/[0.07] bg-white/[0.025] px-4 py-3.5 text-left transition hover:bg-white/[0.045] sm:px-5"
+                      onClick={() =>
+                        setExpandedTransactionItems((current) => ({
+                          ...current,
+                          [item.id]: !current[item.id],
+                        }))
+                      }
+                      type="button"
                     >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm text-white/80">
-                          {entry.description}
+                      <div>
+                        <p className="text-sm font-semibold text-white/85">
+                          Transactions
                         </p>
-                        <p className="mt-1 text-xs text-muted">
-                          {formatDate(entry.transaction_date)} · {entry.issuer}{" "}
-                          •••• {entry.account_last_four} ·{" "}
-                          <span className="capitalize">
-                            {entry.transaction_type}
-                          </span>
+                        <p className="mt-0.5 text-xs text-muted">
+                          {itemCreditCardTransactions.length} in selected range
                         </p>
                       </div>
-                      <span
-                        className={`whitespace-nowrap font-mono text-sm font-semibold ${
-                          Number(entry.amount) < 0
-                            ? "text-accent"
-                            : "text-white"
+                      <svg
+                        aria-hidden="true"
+                        className={`size-4 text-muted transition-transform ${
+                          expandedTransactionItems[item.id] ? "rotate-180" : ""
                         }`}
+                        fill="none"
+                        viewBox="0 0 24 24"
                       >
-                        {currencyFormatter.format(Number(entry.amount))}
-                      </span>
-                    </div>
-                  ))}
+                        <path
+                          d="m6 9 6 6 6-6"
+                          stroke="currentColor"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                        />
+                      </svg>
+                    </button>
+                  ) : null}
+                  {expandedTransactionItems[item.id]
+                    ? itemCreditCardTransactions.map((entry) => (
+                        <div
+                          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/[0.07] px-4 py-3.5 sm:px-5"
+                          key={`credit-card-${entry.id}`}
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm text-white/80">
+                              {entry.description}
+                            </p>
+                            <p className="mt-1 text-xs text-muted">
+                              {formatDate(entry.transaction_date)} ·{" "}
+                              {entry.issuer} •••• {entry.account_last_four} ·{" "}
+                              <span className="capitalize">
+                                {entry.transaction_type}
+                              </span>
+                            </p>
+                          </div>
+                          <span
+                            className={`whitespace-nowrap font-mono text-sm font-semibold ${
+                              Number(entry.amount) < 0
+                                ? "text-accent"
+                                : "text-white"
+                            }`}
+                          >
+                            {currencyFormatter.format(Number(entry.amount))}
+                          </span>
+                        </div>
+                      ))
+                    : null}
                   {relevantEntries.map((entry) => (
                     <div
                       className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/[0.07] px-4 py-3.5 last:border-b-0 sm:px-5"

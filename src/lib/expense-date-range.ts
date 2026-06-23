@@ -22,16 +22,7 @@ export function defaultExpenseDateRange(currentDate = new Date()) {
     currentDate.getMonth(),
     currentDate.getDate(),
   );
-  const previousMonthLastDay = new Date(
-    end.getFullYear(),
-    end.getMonth(),
-    0,
-  ).getDate();
-  const start = new Date(
-    end.getFullYear(),
-    end.getMonth() - 1,
-    Math.min(end.getDate(), previousMonthLastDay),
-  );
+  const start = new Date(end.getFullYear(), 0, 1);
 
   return {
     start: localDateString(start),
