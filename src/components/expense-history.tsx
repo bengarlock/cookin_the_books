@@ -6,6 +6,7 @@ import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
 import { creditCardExpenditureAverages } from "@/lib/credit-card-averages";
 import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import { expenseEntryAverages } from "@/lib/expense-averages";
 import {
   defaultExpenseDateRange,
   type ExpenseDateRange,
@@ -320,22 +321,22 @@ export function ExpenseHistory({
             dateRange.start,
             dateRange.end,
           );
+          const entryAverages = expenseEntryAverages(
+            relevantEntries,
+            dateRange.start,
+            dateRange.end,
+            today,
+          );
+          const expenseAverages =
+            item.key === "credit-card" ? creditCardAverages : entryAverages;
           const historyEntryCount =
             historicalEntries.length + itemCreditCardTransactions.length;
-          const annualTotal = historicalEntries.reduce(
-            (total, entry) => total + Number(entry.amount),
-            0,
-          ) +
+          const rangeTotal =
+            entryAverages.total +
             spendingTransactions.reduce(
               (total, entry) => total + Number(entry.amount),
               0,
             );
-          const averageEntryCount =
-            historicalEntries.length + spendingTransactions.length;
-          const average =
-            averageEntryCount > 0
-              ? annualTotal / averageEntryCount
-              : 0;
 
           return (
             <article
@@ -408,11 +409,7 @@ export function ExpenseHistory({
               </div>
 
               <div
-                className={`grid border-b border-white/[0.07] bg-black/10 ${
-                  item.key === "credit-card"
-                    ? "grid-cols-2 lg:grid-cols-4"
-                    : "grid-cols-2"
-                }`}
+                className="grid grid-cols-2 border-b border-white/[0.07] bg-black/10 lg:grid-cols-4"
               >
                 <div className="border-r border-white/[0.07] px-4 py-3 sm:px-5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
@@ -424,47 +421,34 @@ export function ExpenseHistory({
                     {currencyFormatter.format(
                       item.key === "credit-card"
                         ? creditCardAverages.total
-                        : annualTotal,
+                        : rangeTotal,
                     )}
                   </p>
                 </div>
-                {item.key === "credit-card" ? (
-                  <>
-                    <div className="px-4 py-3 sm:px-5 lg:border-r lg:border-white/[0.07]">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-                        Daily average
-                      </p>
-                      <p className="mt-1 font-mono text-lg font-semibold text-white">
-                        {currencyFormatter.format(creditCardAverages.daily)}
-                      </p>
-                    </div>
-                    <div className="border-r border-t border-white/[0.07] px-4 py-3 sm:px-5 lg:border-t-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-                        Weekly average
-                      </p>
-                      <p className="mt-1 font-mono text-lg font-semibold text-white">
-                        {currencyFormatter.format(creditCardAverages.weekly)}
-                      </p>
-                    </div>
-                    <div className="border-t border-white/[0.07] px-4 py-3 sm:px-5 lg:border-t-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-                        Monthly average
-                      </p>
-                      <p className="mt-1 font-mono text-lg font-semibold text-white">
-                        {currencyFormatter.format(creditCardAverages.monthly)}
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <div className="px-4 py-3 sm:px-5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-                      Average entry
-                    </p>
-                    <p className="mt-1 font-mono text-lg font-semibold text-white">
-                      {currencyFormatter.format(average)}
-                    </p>
-                  </div>
-                )}
+                <div className="px-4 py-3 sm:px-5 lg:border-r lg:border-white/[0.07]">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                    Daily average
+                  </p>
+                  <p className="mt-1 font-mono text-lg font-semibold text-white">
+                    {currencyFormatter.format(expenseAverages.daily)}
+                  </p>
+                </div>
+                <div className="border-r border-t border-white/[0.07] px-4 py-3 sm:px-5 lg:border-t-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                    Weekly average
+                  </p>
+                  <p className="mt-1 font-mono text-lg font-semibold text-white">
+                    {currencyFormatter.format(expenseAverages.weekly)}
+                  </p>
+                </div>
+                <div className="border-t border-white/[0.07] px-4 py-3 sm:px-5 lg:border-t-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                    Monthly average
+                  </p>
+                  <p className="mt-1 font-mono text-lg font-semibold text-white">
+                    {currencyFormatter.format(expenseAverages.monthly)}
+                  </p>
+                </div>
               </div>
 
               {openItemId === item.id ? (
