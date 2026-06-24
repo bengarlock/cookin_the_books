@@ -112,6 +112,33 @@ function formatUpdatedAt(value?: string) {
   }).format(new Date(value));
 }
 
+function formatSnapshotDate(value?: string) {
+  if (!value) return "No snapshot date";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(`${value}T12:00:00`));
+}
+
+function getSnapshotFreshness(
+  value: string | undefined,
+  currentDate: Date,
+): "fresh" | "stale" | "expired" {
+  if (!value) return "expired";
+  const updatedAt = new Date(value);
+  const ageInHours =
+    (currentDate.getTime() - updatedAt.getTime()) / (1000 * 60 * 60);
+
+  if (!Number.isFinite(ageInHours) || ageInHours >= 48) {
+    return "expired";
+  }
+  if (ageInHours >= 24) {
+    return "stale";
+  }
+  return "fresh";
+}
+
 function valueFromSnapshot(
   snapshot: BankValueSnapshot | null,
   key: keyof BankValueSnapshot,
@@ -526,13 +553,39 @@ export function LiveBankValues({
         : connectionState === "reconnecting"
           ? "Reconnecting"
           : "Live updates unavailable";
+  const snapshotFreshness = getSnapshotFreshness(
+    snapshot?.source_updated_at,
+    currentDate,
+  );
+  const freshnessClasses = {
+    fresh: "border-accent/30 bg-accent/10 text-accent hover:border-accent/50 hover:bg-accent/15",
+    stale:
+      "border-amber-200/35 bg-amber-200/10 text-amber-100 hover:border-amber-200/55 hover:bg-amber-200/15",
+    expired:
+      "border-rose-300/35 bg-rose-500/10 text-rose-200 hover:border-rose-300/55 hover:bg-rose-500/15",
+  };
+  const freshnessLabels = {
+    fresh: "Accounts refreshed in the last 24 hours.",
+    stale: "Accounts have not refreshed in 24–48 hours.",
+    expired: "Accounts have not refreshed in at least 48 hours.",
+  };
 
   return (
     <section className="mt-8">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted">
-          Snapshot updated {formatUpdatedAt(snapshot?.source_updated_at)}
-        </p>
+        {view === "overview" ? (
+          <button
+            className={`w-fit rounded-full border px-3 py-1.5 text-left text-sm font-medium transition ${freshnessClasses[snapshotFreshness]}`}
+            title={freshnessLabels[snapshotFreshness]}
+            type="button"
+          >
+            Snapshot updated {formatUpdatedAt(snapshot?.source_updated_at)}
+          </button>
+        ) : (
+          <p className="text-sm text-muted">
+            Snapshot updated {formatUpdatedAt(snapshot?.source_updated_at)}
+          </p>
+        )}
         <div
           className={`flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
             connectionState === "live"
@@ -636,15 +689,25 @@ export function LiveBankValues({
               description="Current and pending credit-card balances."
               negative={calculations.grossLiabilities > 0}
             />
-            <div className="sm:col-span-2">
-              <MetricCard
-                label="Net assets"
-                value={formatCurrency(calculations.netAssets)}
-                description="Gross assets after subtracting current liabilities."
-                featured
-                negative={calculations.netAssets < 0}
-              />
-            </div>
+            <MetricCard
+              label="Last snapshot"
+              value={formatCurrency(snapshot?.change)}
+              description={`${formatSnapshotDate(
+                snapshot?.snapshot_date,
+              )} · Since last highpoint: ${formatCurrency(
+                snapshot?.loss_since_highpoint,
+              )} (${Number(
+                snapshot?.loss_since_highpoint_percentage || 0,
+              ).toFixed(2)}%).`}
+              negative={Number(snapshot?.change || 0) < 0}
+            />
+            <MetricCard
+              label="Net assets"
+              value={formatCurrency(calculations.netAssets)}
+              description="Gross assets after subtracting current liabilities."
+              featured
+              negative={calculations.netAssets < 0}
+            />
           </div>
         </div>
       ) : null}

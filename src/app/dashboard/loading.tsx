@@ -8,7 +8,7 @@ function SkeletonBlock({ className = "" }: { className?: string }) {
 
 export default function DashboardLoading() {
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="w-full space-y-6">
       <section className="border-b border-white/10 pb-8">
         <SkeletonBlock className="h-3 w-32 rounded-full" />
         <SkeletonBlock className="mt-4 h-10 w-full max-w-xl" />

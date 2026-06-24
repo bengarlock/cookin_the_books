@@ -12,7 +12,10 @@ import {
   formatExpenseDateRange,
 } from "@/lib/expense-date-range";
 import type { ExpenseEntry } from "@/lib/expense-entry-types";
-import { validatePdfImportFiles } from "@/lib/pdf-import";
+import {
+  validateCreditCardImportFiles,
+  validatePdfImportFiles,
+} from "@/lib/pdf-import";
 import { DateRangePicker } from "@/components/date-range-picker";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -149,8 +152,11 @@ export function ExpenseHistory({
     }
   }
 
-  async function importExpensePdfs(item: BudgetItem, files: File[]) {
-    const validationError = validatePdfImportFiles(files);
+  async function importExpenseFiles(item: BudgetItem, files: File[]) {
+    const validationError =
+      item.key === "credit-card"
+        ? validateCreditCardImportFiles(files)
+        : validatePdfImportFiles(files);
     if (validationError) {
       setImportMessage("");
       setError(validationError);
@@ -171,8 +177,12 @@ export function ExpenseHistory({
           : item.key === "credit-card"
             ? "credit-card"
             : "housing";
+      const importPath =
+        item.key === "credit-card"
+          ? `import-${importKind}`
+          : `import-${importKind}-pdf`;
       const response = await fetch(
-        `${APP_BASE_PATH}/api/budget-items/${item.id}/import-${importKind}-pdf`,
+        `${APP_BASE_PATH}/api/budget-items/${item.id}/${importPath}`,
         {
           method: "POST",
           body: formData,
@@ -195,7 +205,7 @@ export function ExpenseHistory({
             ? result.detail
             : result && "message" in result && result.message
               ? result.message
-              : `Unable to import the ${item.label.toLowerCase()} PDFs.`,
+              : `Unable to import the ${item.label.toLowerCase()} files.`,
         );
       }
       if (result.created.length) {
@@ -213,8 +223,12 @@ export function ExpenseHistory({
       }
       const createdText =
         result.created_count === 1
-          ? "Imported 1 expense."
-          : `Imported ${result.created_count} expenses.`;
+          ? item.key === "credit-card"
+            ? "Imported 1 transaction."
+            : "Imported 1 expense."
+          : item.key === "credit-card"
+            ? `Imported ${result.created_count} transactions.`
+            : `Imported ${result.created_count} expenses.`;
       const duplicateText = result.duplicate_count
         ? ` ${result.duplicate_count} duplicate ${
             result.duplicate_count === 1 ? "was" : "were"
@@ -232,7 +246,7 @@ export function ExpenseHistory({
       setError(
         importError instanceof Error
           ? importError.message
-          : `Unable to import the ${item.label.toLowerCase()} PDFs.`,
+          : `Unable to import the ${item.label.toLowerCase()} files.`,
       );
     } finally {
       setImportingItemId(null);
@@ -347,16 +361,20 @@ export function ExpenseHistory({
                     <label className="cursor-pointer rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-white/65 transition hover:border-accent/20 hover:text-accent">
                       {importingItemId === item.id
                         ? "Importing…"
-                        : "Import PDFs"}
+                        : "Import"}
                       <input
-                        accept="application/pdf,.pdf"
+                        accept={
+                          item.key === "credit-card"
+                            ? "application/pdf,.pdf,text/csv,.csv"
+                            : "application/pdf,.pdf"
+                        }
                         className="sr-only"
                         disabled={importingItemId === item.id}
                         multiple
                         onChange={(event) => {
                           const files = Array.from(event.target.files || []);
                           if (files.length) {
-                            void importExpensePdfs(item, files);
+                            void importExpenseFiles(item, files);
                           }
                           event.target.value = "";
                         }}

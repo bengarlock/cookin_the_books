@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  MAX_CSV_FILE_BYTES,
   MAX_PDF_BATCH_BYTES,
   MAX_PDF_FILE_BYTES,
   PDF_BATCH_TOO_LARGE_MESSAGE,
   readPdfImportResponse,
+  validateCreditCardImportFiles,
   validatePdfImportFiles,
 } from "./pdf-import";
 
@@ -41,5 +43,35 @@ describe("PDF import validation", () => {
     await expect(
       readPdfImportResponse(response, "The import failed."),
     ).resolves.toEqual({ detail: PDF_BATCH_TOO_LARGE_MESSAGE });
+  });
+});
+
+describe("credit-card import validation", () => {
+  it("accepts CSV exports alongside PDF statements", () => {
+    expect(
+      validateCreditCardImportFiles([
+        { name: "since-jun-03.csv", size: 1024, type: "text/csv" },
+      ]),
+    ).toBeNull();
+  });
+
+  it("rejects unsupported file types", () => {
+    expect(
+      validateCreditCardImportFiles([
+        { name: "transactions.txt", size: 1024, type: "text/plain" },
+      ]),
+    ).toBe("transactions.txt must be a PDF or CSV file.");
+  });
+
+  it("rejects CSV files over the CSV size limit", () => {
+    expect(
+      validateCreditCardImportFiles([
+        {
+          name: "large.csv",
+          size: MAX_CSV_FILE_BYTES + 1,
+          type: "text/csv",
+        },
+      ]),
+    ).toBe("large.csv is larger than the 2 MB CSV limit.");
   });
 });

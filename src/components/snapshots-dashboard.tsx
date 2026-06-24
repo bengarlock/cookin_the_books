@@ -5,6 +5,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -462,6 +463,8 @@ export function SnapshotsDashboard({
   const [showTrendLine, setShowTrendLine] = useState(true);
   const [isLoadingRange, setIsLoadingRange] = useState(false);
   const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
+  const [historyScrollEnabled, setHistoryScrollEnabled] = useState(false);
+  const historyTileRef = useRef<HTMLElement | null>(null);
   const todaySnapshot = snapshots.find(
     (snapshot) => snapshot.snapshot_date === localToday(),
   );
@@ -668,6 +671,25 @@ export function SnapshotsDashboard({
     };
   }, [selectedSnapshot]);
 
+  useEffect(() => {
+    function disableHistoryScrollOnOutsideClick(event: MouseEvent) {
+      if (
+        historyTileRef.current &&
+        !historyTileRef.current.contains(event.target as Node)
+      ) {
+        setHistoryScrollEnabled(false);
+      }
+    }
+
+    document.addEventListener("mousedown", disableHistoryScrollOnOutsideClick);
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        disableHistoryScrollOnOutsideClick,
+      );
+    };
+  }, []);
+
   const current = snapshots[0];
   const firstSnapshotDate =
     allTimeStart ||
@@ -803,19 +825,42 @@ export function SnapshotsDashboard({
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
-        <section className="surface overflow-hidden rounded-2xl">
+        <section
+          className={`surface overflow-hidden rounded-2xl transition ${
+            historyScrollEnabled ? "ring-1 ring-accent/25" : ""
+          }`}
+          onClick={() => setHistoryScrollEnabled(true)}
+          onFocus={() => setHistoryScrollEnabled(true)}
+          ref={historyTileRef}
+          tabIndex={0}
+        >
           <div className="border-b border-white/10 bg-white/[0.035] px-5 py-4">
-            <h2 className="text-base font-semibold text-white">
-              Snapshot history
-            </h2>
-            <p className="mt-1 text-xs text-muted">
-              Showing {chartSnapshots.length} snapshots in the selected chart
-              range{isLoadingRange ? " · loading…" : ""}. Newest records
-              appear first.
-            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-white">
+                  Snapshot history
+                </h2>
+                <p className="mt-1 text-xs text-muted">
+                  Showing {chartSnapshots.length} snapshots in the selected
+                  chart range{isLoadingRange ? " · loading…" : ""}. Newest
+                  records appear first.
+                </p>
+              </div>
+              <span
+                className={`w-fit rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] ${
+                  historyScrollEnabled
+                    ? "border-accent/20 bg-accent/10 text-accent"
+                    : "border-white/10 bg-white/[0.04] text-white/45"
+                }`}
+              >
+                {historyScrollEnabled ? "Scroll enabled" : "Click to scroll"}
+              </span>
+            </div>
           </div>
           <div
-            className="overflow-y-auto overflow-x-hidden"
+            className={`overflow-x-hidden ${
+              historyScrollEnabled ? "overflow-y-auto" : "overflow-y-hidden"
+            }`}
             style={{ maxHeight: "min(72vh, 760px)" }}
           >
             <table className="w-full table-fixed text-left">

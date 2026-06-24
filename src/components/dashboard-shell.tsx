@@ -108,7 +108,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">{children}</main>
+        <main className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+          <div className="mx-auto w-full max-w-7xl">{children}</div>
+        </main>
       </div>
     </div>
   );

@@ -19,7 +19,7 @@ export default async function ExpensesPage() {
     ]);
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className="w-full">
       <section className="border-b border-white/10 pb-8">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gold">
           Budget

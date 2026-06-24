@@ -49,7 +49,7 @@ export default async function DashboardPage() {
   const pendingTransactions = await getPendingTransactions();
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className="w-full">
       <section className="flex flex-col gap-5 border-b border-white/10 pb-8 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gold">
