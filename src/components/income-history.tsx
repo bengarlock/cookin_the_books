@@ -293,26 +293,26 @@ export function IncomeHistory({
         <div className="grid grid-cols-2 border-b border-white/[0.07] bg-black/10 lg:grid-cols-4">
           <div className="border-r border-white/[0.07] px-5 py-4">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-              Net income
-            </p>
-            <p className="mt-1 font-mono text-xl font-semibold text-accent">
-              {money(totalNet)}
-            </p>
-          </div>
-          <div className="px-5 py-4 lg:border-r lg:border-white/[0.07]">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
               Gross income
             </p>
             <p className="mt-1 font-mono text-xl font-semibold text-white">
               {money(totalGross)}
             </p>
           </div>
-          <div className="border-r border-t border-white/[0.07] px-5 py-4 lg:border-t-0">
+          <div className="px-5 py-4 lg:border-r lg:border-white/[0.07]">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
               Taxes withheld
             </p>
             <p className="mt-1 font-mono text-xl font-semibold text-rose-200">
               {money(totalTaxes)}
+            </p>
+          </div>
+          <div className="border-r border-t border-white/[0.07] px-5 py-4 lg:border-t-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+              Net income
+            </p>
+            <p className="mt-1 font-mono text-xl font-semibold text-accent">
+              {money(totalNet)}
             </p>
           </div>
           <div className="border-t border-white/[0.07] px-5 py-4 lg:border-t-0">
@@ -413,8 +413,8 @@ export function IncomeHistory({
           <div className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-white/[0.07] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted sm:grid-cols-[1fr_140px_140px_120px]">
             <span>Statement</span>
             <span className="text-right">Gross</span>
-            <span className="text-right">Net</span>
             <span className="hidden text-right sm:block">Taxes</span>
+            <span className="text-right">Net</span>
           </div>
           {filteredEntries.length ? (
             filteredEntries.map((entry) => {
@@ -441,11 +441,11 @@ export function IncomeHistory({
                   <p className="self-center text-right font-mono text-sm text-white/75">
                     {money(entry.gross_pay)}
                   </p>
-                  <p className="self-center text-right font-mono text-sm font-semibold text-accent">
-                    {money(entry.net_pay)}
-                  </p>
                   <p className="hidden self-center text-right font-mono text-sm text-rose-200 sm:block">
                     {money(taxes)}
+                  </p>
+                  <p className="self-center text-right font-mono text-sm font-semibold text-accent">
+                    {money(entry.net_pay)}
                   </p>
                 </div>
               );

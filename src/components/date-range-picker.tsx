@@ -27,6 +27,13 @@ function calendarDays(month: Date) {
   });
 }
 
+function yearRange(year: number) {
+  return {
+    start: `${year}-01-01`,
+    end: `${year}-12-31`,
+  };
+}
+
 export function DateRangePicker({
   range,
   onApply,
@@ -230,6 +237,24 @@ export function DateRangePicker({
                   type="button"
                 >
                   {preset.label}
+                </button>
+              ))}
+              {[2025, 2024, 2023].map((year) => (
+                <button
+                  className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/65 transition hover:border-accent/25 hover:bg-accent/10 hover:text-accent"
+                  key={year}
+                  onClick={() => {
+                    const nextRange = yearRange(year);
+                    const end = parseLocalDate(nextRange.end);
+                    setDraft(nextRange);
+                    setVisibleMonth(
+                      new Date(end.getFullYear(), end.getMonth(), 1),
+                    );
+                    setSelectingEnd(false);
+                  }}
+                  type="button"
+                >
+                  {year}
                 </button>
               ))}
               {allTimeStart ? (
