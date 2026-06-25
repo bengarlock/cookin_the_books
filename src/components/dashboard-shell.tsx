@@ -16,6 +16,11 @@ const navigation: Array<{
   { name: "Accounts", href: "/dashboard/accounts" },
   { name: "Budget", href: "/dashboard/budget" },
   {
+    name: "Income",
+    href: "/dashboard/budget/income",
+    parent: "/dashboard/budget",
+  },
+  {
     name: "Expenses",
     href: "/dashboard/budget/expenses",
     parent: "/dashboard/budget",

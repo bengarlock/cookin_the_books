@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const budgetLinks = [
   { href: "/dashboard/budget", label: "Plan" },
+  { href: "/dashboard/budget/income", label: "Income" },
   { href: "/dashboard/budget/expenses", label: "Expenses" },
 ];
 

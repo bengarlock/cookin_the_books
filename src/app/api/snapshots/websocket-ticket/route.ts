@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { AUTH_COOKIE_NAME } from "@/lib/auth";
+import { jsonResponseWithAuthHandling } from "@/lib/auth-responses";
+import { isBackendInvalidTokenResponse } from "@/lib/auth-invalidation";
 import {
   getPortfolioApiBaseUrl,
   getPortfolioWebSocketBaseUrl,
@@ -32,6 +34,10 @@ export async function POST() {
     );
 
     const data = (await response.json().catch(() => null)) as TicketResponse | null;
+    if (isBackendInvalidTokenResponse(response.status)) {
+      return jsonResponseWithAuthHandling(data, response.status);
+    }
+
     if (!response.ok || !data?.ticket || !data.websocket_path) {
       return NextResponse.json(
         { message: "Unable to authorize the live snapshot connection." },

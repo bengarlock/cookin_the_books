@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { AUTH_COOKIE_NAME } from "@/lib/auth";
+import { portfolioApiJsonResponse } from "@/lib/auth-responses";
 import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
 export async function PATCH(
@@ -29,10 +30,9 @@ export async function PATCH(
         cache: "no-store",
       },
     );
-    const data = await response.json().catch(() => ({
+    return portfolioApiJsonResponse(response, {
       message: "The pending transaction update failed.",
-    }));
-    return NextResponse.json(data, { status: response.status });
+    });
   } catch {
     return NextResponse.json(
       { message: "The portfolio API is currently unavailable." },
@@ -69,10 +69,9 @@ export async function DELETE(
       return new NextResponse(null, { status: 204 });
     }
 
-    const data = await response.json().catch(() => ({
+    return portfolioApiJsonResponse(response, {
       message: "The pending transaction deletion failed.",
-    }));
-    return NextResponse.json(data, { status: response.status });
+    });
   } catch {
     return NextResponse.json(
       { message: "The portfolio API is currently unavailable." },

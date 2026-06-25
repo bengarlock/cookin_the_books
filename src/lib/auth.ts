@@ -14,6 +14,7 @@ export const AUTH_COOKIE_MAX_AGE = Number(
 
 type VerificationResult = {
   authenticated: boolean;
+  invalidToken?: boolean;
 };
 
 export const verifyPortfolioSession = cache(
@@ -37,14 +38,20 @@ export const verifyPortfolioSession = cache(
       );
 
       if (!response.ok) {
-        return { authenticated: false };
+        return {
+          authenticated: false,
+          invalidToken: response.status === 401,
+        };
       }
 
       const data = (await response.json().catch(() => null)) as {
         valid?: boolean;
       } | null;
 
-      return { authenticated: data?.valid === true };
+      return {
+        authenticated: data?.valid === true,
+        invalidToken: data?.valid === false,
+      };
     } catch {
       return { authenticated: false };
     }

@@ -1,6 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import { APP_BASE_PATH } from "@/lib/config";
@@ -112,15 +118,6 @@ function formatUpdatedAt(value?: string) {
   }).format(new Date(value));
 }
 
-function formatSnapshotDate(value?: string) {
-  if (!value) return "No snapshot date";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(`${value}T12:00:00`));
-}
-
 function getSnapshotFreshness(
   value: string | undefined,
   currentDate: Date,
@@ -218,7 +215,7 @@ function MetricCard({
 }: {
   label: string;
   value: string;
-  description: string;
+  description: ReactNode;
   featured?: boolean;
   negative?: boolean;
 }) {
@@ -692,13 +689,20 @@ export function LiveBankValues({
             <MetricCard
               label="Last snapshot"
               value={formatCurrency(snapshot?.change)}
-              description={`${formatSnapshotDate(
-                snapshot?.snapshot_date,
-              )} · Since last highpoint: ${formatCurrency(
-                snapshot?.loss_since_highpoint,
-              )} (${Number(
-                snapshot?.loss_since_highpoint_percentage || 0,
-              ).toFixed(2)}%).`}
+              description={
+                <>
+                  <span>
+                    Since last highpoint:{" "}
+                    {formatCurrency(
+                      -Math.abs(Number(snapshot?.loss_since_highpoint || 0)),
+                    )}{" "}
+                    ({(-Math.abs(
+                      Number(snapshot?.loss_since_highpoint_percentage || 0),
+                    )).toFixed(2)}
+                    %)
+                  </span>
+                </>
+              }
               negative={Number(snapshot?.change || 0) < 0}
             />
             <MetricCard

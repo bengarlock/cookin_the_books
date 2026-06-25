@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { AUTH_COOKIE_NAME } from "@/lib/auth";
+import { portfolioApiJsonResponse } from "@/lib/auth-responses";
 import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
 async function proxyRequest(method: "GET" | "POST", request?: Request) {
@@ -24,10 +25,9 @@ async function proxyRequest(method: "GET" | "POST", request?: Request) {
     },
   );
 
-  const data = await response.json().catch(() => ({
+  return portfolioApiJsonResponse(response, {
     message: "The pending transaction request failed.",
-  }));
-  return NextResponse.json(data, { status: response.status });
+  });
 }
 
 export async function GET() {

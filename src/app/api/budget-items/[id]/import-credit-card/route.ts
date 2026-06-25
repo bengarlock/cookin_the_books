@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { AUTH_COOKIE_NAME } from "@/lib/auth";
+import { jsonResponseWithAuthHandling } from "@/lib/auth-responses";
 import { readImportResponse } from "@/lib/pdf-import";
 import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
@@ -32,7 +33,7 @@ export async function POST(
       response,
       "The credit-card import failed.",
     );
-    return NextResponse.json(data, { status: response.status });
+    return jsonResponseWithAuthHandling(data, response.status);
   } catch {
     return NextResponse.json(
       { message: "The portfolio API is currently unavailable." },

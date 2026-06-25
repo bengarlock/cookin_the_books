@@ -16,17 +16,21 @@ function withoutBasePath(pathname: string) {
   return pathname;
 }
 
+function loginRedirect(request: NextRequest, pathname: string) {
+  const loginUrl = request.nextUrl.clone();
+  loginUrl.pathname = "/login";
+  loginUrl.searchParams.set("next", pathname);
+  return NextResponse.redirect(loginUrl);
+}
+
 export function proxy(request: NextRequest) {
   const pathname = withoutBasePath(request.nextUrl.pathname);
   const isProtectedRoute =
     pathname === "/dashboard" || pathname.startsWith("/dashboard/");
-  const hasToken = Boolean(request.cookies.get(AUTH_COOKIE_NAME)?.value);
+  const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
 
-  if (isProtectedRoute && !hasToken) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+  if (isProtectedRoute && !token) {
+    return loginRedirect(request, pathname);
   }
 
   return NextResponse.next();

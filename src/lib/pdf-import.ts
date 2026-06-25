@@ -1,4 +1,4 @@
-export const MAX_PDF_IMPORT_FILES = 25;
+export const MAX_PDF_IMPORT_FILES = 100;
 export const MAX_PDF_FILE_BYTES = 10 * 1024 * 1024;
 export const MAX_PDF_BATCH_BYTES = 30 * 1024 * 1024;
 

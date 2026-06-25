@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { AUTH_COOKIE_NAME } from "@/lib/auth";
+import { portfolioApiJsonResponse } from "@/lib/auth-responses";
 import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
 async function proxySnapshots(method: "GET" | "POST", request?: Request) {
@@ -30,10 +31,9 @@ async function proxySnapshots(method: "GET" | "POST", request?: Request) {
         cache: "no-store",
       },
     );
-    const data = await response.json().catch(() => ({
+    return portfolioApiJsonResponse(response, {
       message: "The snapshot request failed.",
-    }));
-    return NextResponse.json(data, { status: response.status });
+    });
   } catch {
     return NextResponse.json(
       { message: "The portfolio API is currently unavailable." },
