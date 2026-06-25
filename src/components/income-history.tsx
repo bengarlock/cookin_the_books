@@ -40,15 +40,27 @@ function money(value: string | number | null | undefined) {
   return currencyFormatter.format(Number(value || 0));
 }
 
-function breakdownEntries(breakdown: Record<string, string> | undefined) {
+function breakdownEntries(
+  breakdown: Record<string, string> | undefined,
+  {
+    excludeLabels = [],
+    onlyNegative = false,
+  }: { excludeLabels?: string[]; onlyNegative?: boolean } = {},
+) {
+  const excluded = new Set(excludeLabels.map((label) => label.toLowerCase()));
   return Object.entries(breakdown || {})
+    .filter(([label]) => !excluded.has(label.toLowerCase()))
+    .filter(([, value]) => !onlyNegative || Number(value) < 0)
     .map(([label, value]) => [label, Math.abs(Number(value))] as const)
     .filter(([, value]) => value > 0)
     .sort(([leftLabel], [rightLabel]) => leftLabel.localeCompare(rightLabel));
 }
 
-function sumBreakdown(breakdown: Record<string, string> | undefined) {
-  return breakdownEntries(breakdown).reduce(
+function sumBreakdown(
+  breakdown: Record<string, string> | undefined,
+  options?: { excludeLabels?: string[]; onlyNegative?: boolean },
+) {
+  return breakdownEntries(breakdown, options).reduce(
     (total, [, value]) => total + value,
     0,
   );
@@ -172,14 +184,14 @@ export function IncomeHistory({
     0,
   );
   const totalTaxes = filteredEntries.reduce((total, entry) => {
-    return total + sumBreakdown(entry.breakdown?.taxes);
+    return total + sumBreakdown(entry.breakdown?.taxes, { onlyNegative: true });
   }, 0);
-  const totalDeductions = filteredEntries.reduce((total, entry) => {
-    return total + sumBreakdown(entry.breakdown?.deductions);
-  }, 0);
+  const totalDeductions = totalGross - totalTaxes - totalNet;
   const taxBreakdown = filteredEntries.reduce<Record<string, number>>(
     (breakdown, entry) => {
-      for (const [label, value] of breakdownEntries(entry.breakdown?.taxes)) {
+      for (const [label, value] of breakdownEntries(entry.breakdown?.taxes, {
+        onlyNegative: true,
+      })) {
         breakdown[label] = (breakdown[label] || 0) + value;
       }
       return breakdown;
@@ -191,10 +203,30 @@ export function IncomeHistory({
   );
   const deductionBreakdown = filteredEntries.reduce<Record<string, number>>(
     (breakdown, entry) => {
-      for (const [label, value] of breakdownEntries(
-        entry.breakdown?.deductions,
-      )) {
+      const knownDeductions = breakdownEntries(entry.breakdown?.deductions, {
+        excludeLabels: ["Cell"],
+        onlyNegative: true,
+      });
+      const knownTotal = knownDeductions.reduce(
+        (total, [, value]) => total + value,
+        0,
+      );
+      const entryTaxes = sumBreakdown(entry.breakdown?.taxes, {
+        onlyNegative: true,
+      });
+      const reconciledTotal =
+        Number(entry.gross_pay) - entryTaxes - Number(entry.net_pay);
+      const adjustment = reconciledTotal - knownTotal;
+
+      for (const [label, value] of knownDeductions) {
         breakdown[label] = (breakdown[label] || 0) + value;
+      }
+      if (Math.abs(adjustment) >= 0.01) {
+        const label =
+          adjustment > 0
+            ? "Uncategorized payroll adjustment"
+            : "Payroll credit / reimbursement";
+        breakdown[label] = (breakdown[label] || 0) + adjustment;
       }
       return breakdown;
     },
@@ -219,8 +251,6 @@ export function IncomeHistory({
         ],
       ] as MoneyBreakdownEntry[])
     : [];
-  const reconciliationDifference =
-    totalGross - totalTaxes - totalDeductions - totalNet;
   const averageNet = filteredEntries.length
     ? totalNet / filteredEntries.length
     : 0;
@@ -482,17 +512,6 @@ export function IncomeHistory({
             </p>
           </div>
         </div>
-        {Math.abs(reconciliationDifference) >= 0.01 ? (
-          <p className="border-b border-white/[0.07] bg-amber-500/10 px-5 py-3 text-xs text-amber-100">
-            Gross minus taxes and deductions differs from net income by{" "}
-            <span className="font-mono font-semibold">
-              {money(reconciliationDifference)}
-            </span>
-            . This usually means the statement has another withholding or
-            adjustment category that is not being imported yet.
-          </p>
-        ) : null}
-
         {formOpen ? (
           <form
             className="grid gap-3 border-b border-white/[0.07] bg-black/10 p-5 sm:grid-cols-3"
@@ -587,18 +606,35 @@ export function IncomeHistory({
           </div>
           {filteredEntries.length ? (
             filteredEntries.map((entry) => {
-              const taxEntries = breakdownEntries(entry.breakdown?.taxes);
+              const taxEntries = breakdownEntries(entry.breakdown?.taxes, {
+                onlyNegative: true,
+              });
               const taxes = taxEntries.reduce(
                 (total, [, value]) => total + value,
                 0,
               );
-              const deductionEntries = breakdownEntries(
+              const knownDeductionEntries = breakdownEntries(
                 entry.breakdown?.deductions,
+                { excludeLabels: ["Cell"], onlyNegative: true },
               );
-              const deductions = deductionEntries.reduce(
+              const knownDeductions = knownDeductionEntries.reduce(
                 (total, [, value]) => total + value,
                 0,
               );
+              const deductions =
+                Number(entry.gross_pay) - taxes - Number(entry.net_pay);
+              const deductionAdjustment = deductions - knownDeductions;
+              const deductionEntries: MoneyBreakdownEntry[] = [
+                ...knownDeductionEntries,
+              ];
+              if (Math.abs(deductionAdjustment) >= 0.01) {
+                deductionEntries.push([
+                  deductionAdjustment > 0
+                    ? "Uncategorized payroll adjustment"
+                    : "Payroll credit / reimbursement",
+                  deductionAdjustment,
+                ]);
+              }
               return (
                 <div
                   className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-white/[0.05] px-5 py-4 last:border-b-0 sm:grid-cols-[1fr_120px_120px_120px_120px]"
