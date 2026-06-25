@@ -687,7 +687,7 @@ export function LiveBankValues({
               negative={calculations.grossLiabilities > 0}
             />
             <MetricCard
-              label="Last snapshot"
+              label="Snapshot"
               value={formatCurrency(snapshot?.change)}
               description={
                 <>

@@ -40,6 +40,93 @@ function money(value: string | number | null | undefined) {
   return currencyFormatter.format(Number(value || 0));
 }
 
+function breakdownEntries(breakdown: Record<string, string> | undefined) {
+  return Object.entries(breakdown || {})
+    .map(([label, value]) => [label, Math.abs(Number(value))] as const)
+    .filter(([, value]) => value > 0)
+    .sort(([leftLabel], [rightLabel]) => leftLabel.localeCompare(rightLabel));
+}
+
+function sumBreakdown(breakdown: Record<string, string> | undefined) {
+  return breakdownEntries(breakdown).reduce(
+    (total, [, value]) => total + value,
+    0,
+  );
+}
+
+type MoneyBreakdownEntry = readonly [
+  label: string,
+  value: number,
+  formatter?: (value: number) => string,
+];
+
+function MoneyHoverCard({
+  entries,
+  label,
+  total,
+  className = "",
+  valueClassName = "",
+}: {
+  entries: MoneyBreakdownEntry[];
+  label: string;
+  total: number;
+  className?: string;
+  valueClassName?: string;
+}) {
+  if (!entries.length) {
+    return <span className={className}>{money(total)}</span>;
+  }
+
+  return (
+    <span className={`group relative inline-flex justify-end ${className}`}>
+      <button
+        aria-label={`Show ${label.toLowerCase()} breakdown`}
+        className={`rounded-md border border-transparent px-1 text-right font-mono text-inherit underline decoration-white/20 underline-offset-4 outline-none transition hover:border-current/20 hover:bg-white/5 focus:border-current/30 focus:bg-white/5 ${valueClassName}`}
+        type="button"
+      >
+        {money(total)}
+      </button>
+      <span className="pointer-events-none absolute right-0 top-full z-30 mt-2 hidden w-72 rounded-xl border border-white/15 bg-[#081811] p-3 text-left text-current shadow-2xl shadow-black/40 group-hover:block group-focus-within:block">
+        <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.18em] opacity-70">
+          {label} breakdown
+        </span>
+        <span className="block space-y-1">
+          {entries.map(([label, value, formatter]) => (
+            <span
+              className="flex items-center justify-between gap-4 text-xs opacity-85"
+              key={label}
+            >
+              <span className="truncate">{label}</span>
+              <span className="font-mono text-current">
+                {formatter ? formatter(value) : money(value)}
+              </span>
+            </span>
+          ))}
+        </span>
+        <span className="mt-2 flex items-center justify-between border-t border-white/10 pt-2 text-xs font-semibold">
+          <span>Total</span>
+          <span className="font-mono text-current">{money(total)}</span>
+        </span>
+      </span>
+    </span>
+  );
+}
+
+function statementEntries(
+  entries: IncomeEntry[],
+  valueSelector: (entry: IncomeEntry) => number,
+) {
+  return entries
+    .map((entry) => {
+      const advice = entry.advice_number ? ` · ${entry.advice_number}` : "";
+      return [
+        `${formatDate(entry.pay_date)}${advice}`,
+        valueSelector(entry),
+      ] as MoneyBreakdownEntry;
+    })
+    .filter(([, value]) => Math.abs(value) > 0);
+}
+
 export function IncomeHistory({
   initialEntries,
 }: {
@@ -85,12 +172,55 @@ export function IncomeHistory({
     0,
   );
   const totalTaxes = filteredEntries.reduce((total, entry) => {
-    const taxes = Object.values(entry.breakdown?.taxes || {});
-    return (
-      total +
-      taxes.reduce((taxTotal, value) => taxTotal + Math.abs(Number(value)), 0)
-    );
+    return total + sumBreakdown(entry.breakdown?.taxes);
   }, 0);
+  const totalDeductions = filteredEntries.reduce((total, entry) => {
+    return total + sumBreakdown(entry.breakdown?.deductions);
+  }, 0);
+  const taxBreakdown = filteredEntries.reduce<Record<string, number>>(
+    (breakdown, entry) => {
+      for (const [label, value] of breakdownEntries(entry.breakdown?.taxes)) {
+        breakdown[label] = (breakdown[label] || 0) + value;
+      }
+      return breakdown;
+    },
+    {},
+  );
+  const taxBreakdownEntries = Object.entries(taxBreakdown).sort(
+    ([leftLabel], [rightLabel]) => leftLabel.localeCompare(rightLabel),
+  );
+  const deductionBreakdown = filteredEntries.reduce<Record<string, number>>(
+    (breakdown, entry) => {
+      for (const [label, value] of breakdownEntries(
+        entry.breakdown?.deductions,
+      )) {
+        breakdown[label] = (breakdown[label] || 0) + value;
+      }
+      return breakdown;
+    },
+    {},
+  );
+  const deductionBreakdownEntries = Object.entries(deductionBreakdown).sort(
+    ([leftLabel], [rightLabel]) => leftLabel.localeCompare(rightLabel),
+  );
+  const grossStatementEntries = statementEntries(filteredEntries, (entry) =>
+    Number(entry.gross_pay),
+  );
+  const netStatementEntries = statementEntries(filteredEntries, (entry) =>
+    Number(entry.net_pay),
+  );
+  const averageNetEntries = filteredEntries.length
+    ? ([
+        ["Net income", totalNet],
+        [
+          "Pay statements",
+          filteredEntries.length,
+          (value: number) => `${value} statement${value === 1 ? "" : "s"}`,
+        ],
+      ] as MoneyBreakdownEntry[])
+    : [];
+  const reconciliationDifference =
+    totalGross - totalTaxes - totalDeductions - totalNet;
   const averageNet = filteredEntries.length
     ? totalNet / filteredEntries.length
     : 0;
@@ -244,7 +374,7 @@ export function IncomeHistory({
         </p>
       ) : null}
 
-      <section className="surface overflow-hidden rounded-2xl">
+      <section className="surface rounded-2xl">
         <div className="flex flex-col gap-4 border-b border-white/10 bg-white/[0.045] px-5 py-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold">
@@ -290,40 +420,78 @@ export function IncomeHistory({
           <DateRangePicker range={dateRange} onApply={setDateRange} />
         </div>
 
-        <div className="grid grid-cols-2 border-b border-white/[0.07] bg-black/10 lg:grid-cols-4">
+        <div className="grid grid-cols-2 border-b border-white/[0.07] bg-black/10 lg:grid-cols-5">
           <div className="border-r border-white/[0.07] px-5 py-4">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
               Gross income
             </p>
-            <p className="mt-1 font-mono text-xl font-semibold text-white">
-              {money(totalGross)}
+            <p className="mt-1 text-xl font-semibold text-white">
+              <MoneyHoverCard
+                entries={grossStatementEntries}
+                label="Gross income"
+                total={totalGross}
+              />
             </p>
           </div>
           <div className="px-5 py-4 lg:border-r lg:border-white/[0.07]">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
               Taxes withheld
             </p>
-            <p className="mt-1 font-mono text-xl font-semibold text-rose-200">
-              {money(totalTaxes)}
+            <p className="mt-1 text-xl font-semibold text-rose-200">
+              <MoneyHoverCard
+                entries={taxBreakdownEntries}
+                label="Taxes withheld"
+                total={totalTaxes}
+              />
             </p>
           </div>
           <div className="border-r border-t border-white/[0.07] px-5 py-4 lg:border-t-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-              Net income
+              Deductions withheld
             </p>
-            <p className="mt-1 font-mono text-xl font-semibold text-accent">
-              {money(totalNet)}
+            <p className="mt-1 text-xl font-semibold text-amber-100">
+              <MoneyHoverCard
+                entries={deductionBreakdownEntries}
+                label="Deductions withheld"
+                total={totalDeductions}
+              />
             </p>
           </div>
-          <div className="border-t border-white/[0.07] px-5 py-4 lg:border-t-0">
+          <div className="border-t border-white/[0.07] px-5 py-4 lg:border-r lg:border-t-0 lg:border-white/[0.07]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+              Net income
+            </p>
+            <p className="mt-1 text-xl font-semibold text-accent">
+              <MoneyHoverCard
+                entries={netStatementEntries}
+                label="Net income"
+                total={totalNet}
+              />
+            </p>
+          </div>
+          <div className="col-span-2 border-t border-white/[0.07] px-5 py-4 lg:col-span-1 lg:border-t-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
               Avg net pay
             </p>
-            <p className="mt-1 font-mono text-xl font-semibold text-white">
-              {money(averageNet)}
+            <p className="mt-1 text-xl font-semibold text-white">
+              <MoneyHoverCard
+                entries={averageNetEntries}
+                label="Average net pay"
+                total={averageNet}
+              />
             </p>
           </div>
         </div>
+        {Math.abs(reconciliationDifference) >= 0.01 ? (
+          <p className="border-b border-white/[0.07] bg-amber-500/10 px-5 py-3 text-xs text-amber-100">
+            Gross minus taxes and deductions differs from net income by{" "}
+            <span className="font-mono font-semibold">
+              {money(reconciliationDifference)}
+            </span>
+            . This usually means the statement has another withholding or
+            adjustment category that is not being imported yet.
+          </p>
+        ) : null}
 
         {formOpen ? (
           <form
@@ -410,21 +578,30 @@ export function IncomeHistory({
         ) : null}
 
         <div>
-          <div className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-white/[0.07] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted sm:grid-cols-[1fr_140px_140px_120px]">
+          <div className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-white/[0.07] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted sm:grid-cols-[1fr_120px_120px_120px_120px]">
             <span>Statement</span>
             <span className="text-right">Gross</span>
             <span className="hidden text-right sm:block">Taxes</span>
+            <span className="hidden text-right sm:block">Deductions</span>
             <span className="text-right">Net</span>
           </div>
           {filteredEntries.length ? (
             filteredEntries.map((entry) => {
-              const taxes = Object.values(entry.breakdown?.taxes || {}).reduce(
-                (total, value) => total + Math.abs(Number(value)),
+              const taxEntries = breakdownEntries(entry.breakdown?.taxes);
+              const taxes = taxEntries.reduce(
+                (total, [, value]) => total + value,
+                0,
+              );
+              const deductionEntries = breakdownEntries(
+                entry.breakdown?.deductions,
+              );
+              const deductions = deductionEntries.reduce(
+                (total, [, value]) => total + value,
                 0,
               );
               return (
                 <div
-                  className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-white/[0.05] px-5 py-4 last:border-b-0 sm:grid-cols-[1fr_140px_140px_120px]"
+                  className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-white/[0.05] px-5 py-4 last:border-b-0 sm:grid-cols-[1fr_120px_120px_120px_120px]"
                   key={entry.id}
                 >
                   <div>
@@ -438,14 +615,46 @@ export function IncomeHistory({
                         : ""}
                     </p>
                   </div>
-                  <p className="self-center text-right font-mono text-sm text-white/75">
-                    {money(entry.gross_pay)}
+                  <p className="self-center text-right text-sm text-white/75">
+                    <MoneyHoverCard
+                      className="w-full"
+                      entries={[
+                        [
+                          `${formatDate(entry.period_start)} - ${formatDate(
+                            entry.period_end,
+                          )}`,
+                          Number(entry.gross_pay),
+                        ],
+                      ]}
+                      label="Gross income"
+                      total={Number(entry.gross_pay)}
+                    />
                   </p>
-                  <p className="hidden self-center text-right font-mono text-sm text-rose-200 sm:block">
-                    {money(taxes)}
+                  <p className="hidden self-center text-right text-sm text-rose-200 sm:block">
+                    <MoneyHoverCard
+                      className="w-full"
+                      entries={taxEntries}
+                      label="Taxes withheld"
+                      total={taxes}
+                    />
                   </p>
-                  <p className="self-center text-right font-mono text-sm font-semibold text-accent">
-                    {money(entry.net_pay)}
+                  <p className="hidden self-center text-right text-sm text-amber-100 sm:block">
+                    <MoneyHoverCard
+                      className="w-full"
+                      entries={deductionEntries}
+                      label="Deductions withheld"
+                      total={deductions}
+                    />
+                  </p>
+                  <p className="self-center text-right text-sm font-semibold text-accent">
+                    <MoneyHoverCard
+                      className="w-full"
+                      entries={[
+                        ["Direct deposit / net pay", Number(entry.net_pay)],
+                      ]}
+                      label="Net income"
+                      total={Number(entry.net_pay)}
+                    />
                   </p>
                 </div>
               );
