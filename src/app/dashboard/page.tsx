@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { LiveBankValues } from "@/components/live-bank-values";
+import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
 import { getPendingTransactions } from "@/lib/pending-transactions";
 
 export const metadata: Metadata = {
@@ -46,7 +47,10 @@ const toneStyles = {
 };
 
 export default async function DashboardPage() {
-  const pendingTransactions = await getPendingTransactions();
+  const [budgetPlanSettings, pendingTransactions] = await Promise.all([
+    getBudgetPlanSettings(),
+    getPendingTransactions(),
+  ]);
 
   return (
     <div className="w-full">
@@ -66,6 +70,7 @@ export default async function DashboardPage() {
       </section>
 
       <LiveBankValues
+        initialBudgetPlanSettings={budgetPlanSettings}
         initialPendingTransactions={pendingTransactions}
         view="overview"
       />

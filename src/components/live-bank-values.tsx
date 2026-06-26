@@ -11,6 +11,7 @@ import {
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import { APP_BASE_PATH } from "@/lib/config";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
+import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import { getSavingsReservePosition } from "@/lib/savings-reserve";
 import type { BankValueSnapshot } from "@/lib/snapshot-types";
@@ -95,7 +96,6 @@ const accountSections: Array<{
 
 const budgetSettings = {
   totalBudget: 1600,
-  budgetOffset: 0,
   charge: 0,
 };
 
@@ -206,6 +206,102 @@ function SummaryRow({
   );
 }
 
+function EditableBudgetOffsetRow({
+  value,
+  draftValue,
+  isEditing,
+  isSaving,
+  error,
+  onBeginEdit,
+  onCancel,
+  onChangeDraft,
+  onSubmit,
+}: {
+  value: number;
+  draftValue: string;
+  isEditing: boolean;
+  isSaving: boolean;
+  error: string;
+  onBeginEdit: () => void;
+  onCancel: () => void;
+  onChangeDraft: (value: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  if (isEditing) {
+    return (
+      <form
+        className="border-b border-white/[0.07] bg-white/[0.025] px-4 py-4 last:border-b-0 sm:px-5"
+        onSubmit={onSubmit}
+      >
+        <div className="grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_auto_auto] sm:items-end">
+          <label className="min-w-0">
+            <span className="mb-2 block text-sm font-medium text-white/70">
+              Budget offset
+            </span>
+            <input
+              autoFocus
+              className="h-10 w-full rounded-xl border border-white/10 bg-black/20 px-3 font-mono text-sm text-white outline-none transition focus:border-accent/50"
+              inputMode="decimal"
+              onChange={(event) => onChangeDraft(event.target.value)}
+              placeholder="0.00"
+              type="text"
+              value={draftValue}
+            />
+          </label>
+          <button
+            className="h-10 rounded-xl border border-accent/25 bg-accent/10 px-4 text-sm font-semibold text-accent transition hover:bg-accent/15"
+            disabled={isSaving}
+            type="submit"
+          >
+            {isSaving ? "Saving..." : "Apply"}
+          </button>
+          <button
+            className="h-10 rounded-xl border border-white/10 px-4 text-sm font-semibold text-white/70 transition hover:border-white/20 hover:bg-white/[0.04] hover:text-white"
+            disabled={isSaving}
+            onClick={onCancel}
+            type="button"
+          >
+            Cancel
+          </button>
+        </div>
+        <p className="mt-2 text-xs leading-5 text-muted">
+          Use a positive offset to add money back, or a negative offset to
+          remove costs covered elsewhere.
+        </p>
+        {error ? (
+          <p
+            className="mt-3 rounded-xl border border-rose-300/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-100"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : null}
+      </form>
+    );
+  }
+
+  return (
+    <button
+      className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-5 border-b border-white/[0.07] px-4 py-3.5 text-left transition hover:bg-white/[0.04] focus:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent/30 last:border-b-0 sm:px-5"
+      onClick={onBeginEdit}
+      type="button"
+    >
+      <span className="min-w-0 text-sm text-white/70">Budget offset</span>
+      <span
+        className={`whitespace-nowrap font-mono text-sm underline decoration-white/20 underline-offset-4 sm:text-base ${
+          value < 0
+            ? "font-semibold text-rose-300"
+            : value > 0
+              ? "font-semibold text-accent"
+              : "text-white/90"
+        }`}
+      >
+        {formatCurrency(value)}
+      </span>
+    </button>
+  );
+}
+
 function MetricCard({
   label,
   value,
@@ -287,9 +383,11 @@ function PaidActionButton({
 }
 
 export function LiveBankValues({
+  initialBudgetPlanSettings,
   initialPendingTransactions,
   view = "overview",
 }: {
+  initialBudgetPlanSettings: BudgetPlanSettings;
   initialPendingTransactions: PendingTransaction[];
   view?: FinancialView;
 }) {
@@ -314,6 +412,16 @@ export function LiveBankValues({
     expected_post_date: nextBusinessDayString(),
   });
   const [currentDate, setCurrentDate] = useState(() => new Date());
+  const initialBudgetOffset = Number(initialBudgetPlanSettings.budget_offset);
+  const [budgetOffset, setBudgetOffset] = useState(
+    Number.isFinite(initialBudgetOffset) ? initialBudgetOffset : 0,
+  );
+  const [budgetOffsetDraft, setBudgetOffsetDraft] = useState(
+    (Number.isFinite(initialBudgetOffset) ? initialBudgetOffset : 0).toFixed(2),
+  );
+  const [isBudgetOffsetEditing, setIsBudgetOffsetEditing] = useState(false);
+  const [budgetOffsetError, setBudgetOffsetError] = useState("");
+  const [isBudgetOffsetSaving, setIsBudgetOffsetSaving] = useState(false);
   const payCycle = getNextPayCycle(currentDate);
 
   useEffect(() => {
@@ -366,7 +474,7 @@ export function LiveBankValues({
       adjustedValue("fidelity_retirement");
     const grossAssets = nonRetirementCash + retirementCash;
     const budgetDifference = budgetSettings.totalBudget - grossLiabilities;
-    const remainingBudget = budgetDifference + budgetSettings.budgetOffset;
+    const remainingBudget = budgetDifference + budgetOffset;
     const dailyBudget =
       payCycle.daysRemaining > 0
         ? remainingBudget / payCycle.daysRemaining
@@ -397,7 +505,66 @@ export function LiveBankValues({
           adjustedBalance: adjustedValue(account.key),
         })),
     };
-  }, [payCycle.daysRemaining, pendingTransactions, snapshot]);
+  }, [budgetOffset, payCycle.daysRemaining, pendingTransactions, snapshot]);
+
+  function beginBudgetOffsetEdit() {
+    setBudgetOffsetDraft(budgetOffset.toFixed(2));
+    setBudgetOffsetError("");
+    setIsBudgetOffsetEditing(true);
+  }
+
+  function cancelBudgetOffsetEdit() {
+    setBudgetOffsetDraft(budgetOffset.toFixed(2));
+    setBudgetOffsetError("");
+    setIsBudgetOffsetEditing(false);
+  }
+
+  async function saveBudgetOffset(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedDraft = budgetOffsetDraft.replace(/[$,\s]/g, "");
+    const nextValue = Number(normalizedDraft);
+
+    if (!Number.isFinite(nextValue)) {
+      setBudgetOffsetError("Enter a valid positive or negative dollar amount.");
+      return;
+    }
+
+    setIsBudgetOffsetSaving(true);
+    setBudgetOffsetError("");
+
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/budget-plan-settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ budget_offset: nextValue.toFixed(2) }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | BudgetPlanSettings
+        | { message?: string; detail?: string; [key: string]: unknown }
+        | null;
+      if (!response.ok || !data || !("budget_offset" in data)) {
+        throw new Error(
+          (data && "message" in data && data.message) ||
+            (data && "detail" in data && data.detail) ||
+            "Unable to save the budget offset.",
+        );
+      }
+
+      const savedValue = Number(data.budget_offset);
+      const normalizedSavedValue = Number.isFinite(savedValue) ? savedValue : 0;
+      setBudgetOffset(normalizedSavedValue);
+      setBudgetOffsetDraft(normalizedSavedValue.toFixed(2));
+      setIsBudgetOffsetEditing(false);
+    } catch (error) {
+      setBudgetOffsetError(
+        error instanceof Error
+          ? error.message
+          : "Unable to save the budget offset.",
+      );
+    } finally {
+      setIsBudgetOffsetSaving(false);
+    }
+  }
 
   async function addPendingTransaction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -646,6 +813,24 @@ export function LiveBankValues({
                 </span>{" "}
                 below the {formatCurrency(calculations.savingsReserve.target)}{" "}
                 reserve target.
+              </p>
+            </div>
+          ) : null}
+
+          {budgetOffset !== 0 ? (
+            <div
+              className="rounded-2xl border border-accent/25 bg-accent/10 p-5"
+              role="status"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+                Budget offset enabled
+              </p>
+              <p className="mt-2 text-sm leading-6 text-accent/85">
+                Remaining budget is adjusted by{" "}
+                <span className="font-semibold text-accent">
+                  {formatCurrency(budgetOffset)}
+                </span>
+                .
               </p>
             </div>
           ) : null}
@@ -1206,9 +1391,16 @@ export function LiveBankValues({
               value={formatCurrency(calculations.budgetDifference)}
               negative={calculations.budgetDifference < 0}
             />
-            <SummaryRow
-              label="Budget offset"
-              value={formatCurrency(budgetSettings.budgetOffset)}
+            <EditableBudgetOffsetRow
+              draftValue={budgetOffsetDraft}
+              error={budgetOffsetError}
+              isEditing={isBudgetOffsetEditing}
+              isSaving={isBudgetOffsetSaving}
+              onBeginEdit={beginBudgetOffsetEdit}
+              onCancel={cancelBudgetOffsetEdit}
+              onChangeDraft={setBudgetOffsetDraft}
+              onSubmit={saveBudgetOffset}
+              value={budgetOffset}
             />
             <SummaryRow
               label="Remaining budget"
