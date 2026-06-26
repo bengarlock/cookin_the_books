@@ -5,7 +5,6 @@ import { AuthInvalidationBoundary } from "@/components/auth-invalidation-boundar
 import { DashboardShell } from "@/components/dashboard-shell";
 import { LiveSnapshotProvider } from "@/components/live-snapshot-provider";
 import { verifyPortfolioSession } from "@/lib/auth";
-import { APP_BASE_PATH } from "@/lib/config";
 import { getLatestBankValueSnapshot } from "@/lib/snapshots";
 
 export default async function DashboardLayout({
@@ -20,9 +19,7 @@ export default async function DashboardLayout({
 
   if (!session.authenticated) {
     if (session.invalidToken) {
-      redirect(
-        `${APP_BASE_PATH}/api/auth/logout?next=${encodeURIComponent(`${APP_BASE_PATH}/login`)}`,
-      );
+      redirect(`/api/auth/logout?next=${encodeURIComponent("/login")}`);
     }
 
     redirect("/login");

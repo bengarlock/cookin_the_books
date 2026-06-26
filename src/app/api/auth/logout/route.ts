@@ -14,9 +14,23 @@ function clearAuthCookie(response: NextResponse) {
   return response;
 }
 
+function redirectPathWithBasePath(path: string | null) {
+  const nextPath = path || "/login";
+
+  if (!nextPath.startsWith("/")) {
+    return `${APP_BASE_PATH}/login`;
+  }
+
+  if (nextPath === APP_BASE_PATH || nextPath.startsWith(`${APP_BASE_PATH}/`)) {
+    return nextPath;
+  }
+
+  return `${APP_BASE_PATH}${nextPath}`;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const next = url.searchParams.get("next") || `${APP_BASE_PATH}/login`;
+  const next = redirectPathWithBasePath(url.searchParams.get("next"));
   const response = NextResponse.redirect(new URL(next, url));
   return clearAuthCookie(response);
 }

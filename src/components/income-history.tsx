@@ -477,12 +477,12 @@ export function IncomeHistory({
           </div>
           <div className="border-r border-t border-white/[0.07] px-5 py-4 lg:border-t-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-              Deductions withheld
+              Deductions
             </p>
             <p className="mt-1 text-xl font-semibold text-amber-100">
               <MoneyHoverCard
                 entries={deductionBreakdownEntries}
-                label="Deductions withheld"
+                label="Deductions"
                 total={totalDeductions}
               />
             </p>
