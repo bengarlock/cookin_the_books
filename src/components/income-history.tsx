@@ -130,9 +130,8 @@ function statementEntries(
 ) {
   return entries
     .map((entry) => {
-      const advice = entry.advice_number ? ` · ${entry.advice_number}` : "";
       return [
-        `${formatDate(entry.pay_date)}${advice}`,
+        formatDate(entry.pay_date),
         valueSelector(entry),
       ] as MoneyBreakdownEntry;
     })
@@ -337,11 +336,13 @@ export function IncomeHistory({
       );
       const result = (await response.json().catch(() => null)) as
         | {
-            created: IncomeEntry[];
-            created_count: number;
-            duplicate_count: number;
-            error_count: number;
-            errors: Array<{ file: string; detail: string }>;
+          created: IncomeEntry[];
+          updated: IncomeEntry[];
+          created_count: number;
+          updated_count: number;
+          duplicate_count: number;
+          error_count: number;
+          errors: Array<{ file: string; detail: string }>;
           }
         | { detail?: string; message?: string }
         | null;
@@ -354,17 +355,36 @@ export function IncomeHistory({
               : "Unable to import income statements.",
         );
       }
-      if (result.created.length) {
-        setEntries((current) => [...result.created, ...current]);
+      const changedEntries = [
+        ...result.created,
+        ...(result.updated || []),
+      ];
+      if (changedEntries.length) {
+        setEntries((current) => {
+          const changedById = new Map(
+            changedEntries.map((entry) => [entry.id, entry]),
+          );
+          const merged = current.map((entry) => changedById.get(entry.id) || entry);
+          const currentIds = new Set(current.map((entry) => entry.id));
+          const newEntries = changedEntries.filter(
+            (entry) => !currentIds.has(entry.id),
+          );
+          return [...newEntries, ...merged];
+        });
       }
       const createdText =
         result.created_count === 1
           ? "Imported 1 income statement."
           : `Imported ${result.created_count} income statements.`;
+      const updatedText = result.updated_count
+        ? ` ${result.updated_count} existing ${
+            result.updated_count === 1 ? "statement was" : "statements were"
+          } updated.`
+        : "";
       const duplicateText = result.duplicate_count
         ? ` ${result.duplicate_count} duplicate ${
             result.duplicate_count === 1 ? "was" : "were"
-          } skipped.`
+          } matched.`
         : "";
       const errorText = result.error_count
         ? ` ${result.error_count} ${
@@ -373,7 +393,7 @@ export function IncomeHistory({
             .map((item) => `${item.file} (${item.detail})`)
             .join("; ")}`
         : "";
-      setImportMessage(`${createdText}${duplicateText}${errorText}`);
+      setImportMessage(`${createdText}${updatedText}${duplicateText}${errorText}`);
     } catch (importError) {
       setError(
         importError instanceof Error
@@ -646,9 +666,20 @@ export function IncomeHistory({
                       Paid {formatDate(entry.pay_date)} · Period{" "}
                       {formatDate(entry.period_start)} -{" "}
                       {formatDate(entry.period_end)}
-                      {entry.advice_number
-                        ? ` · Advice ${entry.advice_number}`
-                        : ""}
+                      {entry.statement_pdf_url ? (
+                        <>
+                          {" "}
+                          ·{" "}
+                          <a
+                            className="font-medium text-accent/80 underline decoration-accent/30 underline-offset-4 hover:text-accent"
+                            href={entry.statement_pdf_url}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            PDF
+                          </a>
+                        </>
+                      ) : null}
                     </p>
                   </div>
                   <p className="self-center text-right text-sm text-white/75">

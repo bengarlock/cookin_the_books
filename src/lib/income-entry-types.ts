@@ -20,6 +20,7 @@ export type IncomeEntry = {
   advice_number: string;
   source_type: string;
   source_identifier: string;
+  statement_pdf_url: string;
   breakdown: IncomeEntryBreakdown;
   created_at: string;
   updated_at: string;
