@@ -5,6 +5,8 @@ import { LiveBankValues } from "@/components/live-bank-values";
 import { RecurringExpenses } from "@/components/recurring-expenses";
 import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
 import { getBudgetItems } from "@/lib/budget-items";
+import { getCreditCardTransactions } from "@/lib/credit-card-transactions";
+import { getExpenseEntries } from "@/lib/expense-entries";
 import { getPendingTransactions } from "@/lib/pending-transactions";
 
 export const metadata: Metadata = {
@@ -12,10 +14,18 @@ export const metadata: Metadata = {
 };
 
 export default async function BudgetPage() {
-  const [budgetPlanSettings, pendingTransactions, budgetItems] = await Promise.all([
+  const [
+    budgetPlanSettings,
+    pendingTransactions,
+    budgetItems,
+    expenseEntries,
+    creditCardTransactions,
+  ] = await Promise.all([
     getBudgetPlanSettings(),
     getPendingTransactions(),
     getBudgetItems(),
+    getExpenseEntries(),
+    getCreditCardTransactions(),
   ]);
 
   return (
@@ -29,7 +39,11 @@ export default async function BudgetPage() {
         initialPendingTransactions={pendingTransactions}
         view="budget"
       />
-      <RecurringExpenses initialItems={budgetItems} />
+      <RecurringExpenses
+        budgetItems={budgetItems}
+        creditCardTransactions={creditCardTransactions}
+        expenseEntries={expenseEntries}
+      />
     </div>
   );
 }

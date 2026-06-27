@@ -12,6 +12,7 @@ import type {
 import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
 import { extractApiErrorDetail, extractApiErrorMessage } from "@/lib/api-error-message";
 import { APP_BASE_PATH } from "@/lib/config";
+import { formatAutomationRunMessage } from "@/lib/format-automation-run-message";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -329,11 +330,10 @@ export function AutomationsDashboard({
         throw new Error(detail ? `${message} (${detail})` : message);
       }
       setRunMessage(
-        result.created_count === 0
-          ? "No new expenses were created."
-          : result.created_count === 1
-            ? "Created 1 expense from matching transactions."
-            : `Created ${result.created_count} expenses from matching transactions.`,
+        formatAutomationRunMessage({
+          created_count: result.created_count,
+          skipped_duplicate_count: result.skipped_duplicate_count ?? 0,
+        }),
       );
     } catch (runError) {
       setError(

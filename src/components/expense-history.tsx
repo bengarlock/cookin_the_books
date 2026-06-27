@@ -6,7 +6,11 @@ import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
 import { creditCardExpenditureAverages } from "@/lib/credit-card-averages";
 import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
-import { expenseEntryAverages, effectiveExpenseAmount, scaleExpenseAverages } from "@/lib/expense-averages";
+import {
+  budgetItemExpenseAverages,
+  effectiveExpenseAmount,
+  scaleExpenseAverages,
+} from "@/lib/expense-averages";
 import {
   defaultExpenseDateRange,
   mergeExpenseDateRange,
@@ -67,6 +71,9 @@ export function ExpenseHistory({
   const [updatingSharedItemId, setUpdatingSharedItemId] = useState<number | null>(
     null,
   );
+  const [updatingExcludeEntryId, setUpdatingExcludeEntryId] = useState<
+    number | null
+  >(null);
   const [importingItemId, setImportingItemId] = useState<number | null>(null);
   const [expandedEntryId, setExpandedEntryId] = useState<number | null>(null);
   const [expandedTransactionItems, setExpandedTransactionItems] = useState<
@@ -78,6 +85,7 @@ export function ExpenseHistory({
     incurredOn: todayString(),
     amount: "",
     note: "",
+    excludeFromCreditCard: false,
   });
   const [dateRanges, setDateRanges] = useState<Record<number, ExpenseDateRange>>(
     () =>
@@ -109,6 +117,7 @@ export function ExpenseHistory({
           incurred_on: entryForm.incurredOn,
           amount: amount.toFixed(2),
           note: entryForm.note.trim(),
+          exclude_from_credit_card: entryForm.excludeFromCreditCard,
         }),
       });
       const created = (await response.json().catch(() => null)) as
@@ -123,7 +132,12 @@ export function ExpenseHistory({
         );
       }
       setEntries((current) => [created, ...current]);
-      setEntryForm({ incurredOn: todayString(), amount: "", note: "" });
+      setEntryForm({
+        incurredOn: todayString(),
+        amount: "",
+        note: "",
+        excludeFromCreditCard: false,
+      });
       setOpenItemId(null);
     } catch (saveError) {
       setError(
@@ -172,6 +186,50 @@ export function ExpenseHistory({
       );
     } finally {
       setUpdatingSharedItemId(null);
+    }
+  }
+
+  async function toggleExcludeFromCreditCard(
+    entry: ExpenseEntry,
+    excludeFromCreditCard: boolean,
+  ) {
+    setUpdatingExcludeEntryId(entry.id);
+    setError("");
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/expense-entries/${entry.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            exclude_from_credit_card: excludeFromCreditCard,
+          }),
+        },
+      );
+      const updated = (await response.json().catch(() => null)) as
+        | ExpenseEntry
+        | { message?: string }
+        | null;
+      if (!response.ok || !updated || !("id" in updated)) {
+        throw new Error(
+          updated && "message" in updated && updated.message
+            ? updated.message
+            : "Unable to update the expense entry.",
+        );
+      }
+      setEntries((current) =>
+        current.map((candidate) =>
+          candidate.id === entry.id ? updated : candidate,
+        ),
+      );
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error
+          ? updateError.message
+          : "Unable to update the expense entry.",
+      );
+    } finally {
+      setUpdatingExcludeEntryId(null);
     }
   }
 
@@ -379,13 +437,6 @@ export function ExpenseHistory({
                 ) ||
                 right.id - left.id,
             );
-          const spendingTransactions = itemCreditCardTransactions.filter(
-            (entry) =>
-              entry.transaction_date <= today &&
-              ["purchase", "fee", "interest"].includes(
-                entry.transaction_type,
-              ),
-          );
           const creditCardAverages = scaleExpenseAverages(
             creditCardExpenditureAverages(
               itemCreditCardTransactions,
@@ -394,23 +445,21 @@ export function ExpenseHistory({
             ),
             item.is_shared_cost,
           );
-          const entryAverages = expenseEntryAverages(
-            relevantEntries,
-            dateRange.start,
-            dateRange.end,
+          const expenseAverages = budgetItemExpenseAverages(
+            item,
+            entries,
+            creditCardTransactions,
+            dateRange,
             today,
-            item.is_shared_cost,
+            items,
           );
-          const expenseAverages =
-            item.key === "credit-card" ? creditCardAverages : entryAverages;
           const historyEntryCount =
             historicalEntries.length + itemCreditCardTransactions.length;
-          const rangeTotal =
-            entryAverages.total +
-            spendingTransactions.reduce(
+          const rangeTotal = relevantEntries
+            .filter((entry) => entry.incurred_on <= today)
+            .reduce(
               (total, entry) =>
-                total +
-                effectiveExpenseAmount(entry.amount, item.is_shared_cost),
+                total + effectiveExpenseAmount(entry.amount, item.is_shared_cost),
               0,
             );
 
@@ -607,6 +656,33 @@ export function ExpenseHistory({
                       value={entryForm.note}
                     />
                   </label>
+                  {item.key !== "credit-card" ? (
+                    <label
+                      className="flex items-start gap-3 rounded-lg border border-white/10 bg-black/15 px-3 py-3 sm:col-span-2"
+                      title="Deduct this expense from the credit card total so it is not double counted"
+                    >
+                      <input
+                        checked={entryForm.excludeFromCreditCard}
+                        className="mt-0.5 size-4 rounded border-white/20 bg-black/20 text-accent focus:ring-accent/40"
+                        onChange={(event) =>
+                          setEntryForm((current) => ({
+                            ...current,
+                            excludeFromCreditCard: event.target.checked,
+                          }))
+                        }
+                        type="checkbox"
+                      />
+                      <span>
+                        <span className="block text-sm text-white/80">
+                          Exclude from credit card
+                        </span>
+                        <span className="mt-0.5 block text-xs text-muted">
+                          Use when this expense was paid on a credit card and
+                          should be deducted from the card total.
+                        </span>
+                      </span>
+                    </label>
+                  ) : null}
                   <button
                     className="h-10 rounded-lg bg-accent-strong px-4 text-sm font-semibold text-[#03120c] transition hover:bg-accent disabled:opacity-50 sm:col-span-2"
                     disabled={savingItemId === item.id}
@@ -719,6 +795,26 @@ export function ExpenseHistory({
                               </span>
                             ) : null}
                           </p>
+                        ) : null}
+                        {item.key !== "credit-card" ? (
+                          <label
+                            className="mt-2 flex items-center gap-2 text-xs text-white/65"
+                            title="Deduct this expense from the credit card total so it is not double counted"
+                          >
+                            <input
+                              checked={entry.exclude_from_credit_card ?? false}
+                              className="size-3.5 rounded border-white/20 bg-black/20 text-accent focus:ring-accent/40 disabled:opacity-50"
+                              disabled={updatingExcludeEntryId === entry.id}
+                              onChange={(event) =>
+                                void toggleExcludeFromCreditCard(
+                                  entry,
+                                  event.target.checked,
+                                )
+                              }
+                              type="checkbox"
+                            />
+                            <span>Exclude from credit card</span>
+                          </label>
                         ) : null}
                       </div>
                       <div className="flex items-center gap-3">

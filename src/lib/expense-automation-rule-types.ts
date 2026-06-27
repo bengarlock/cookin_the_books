@@ -31,4 +31,5 @@ export type ExpenseAutomationRunResult = {
     updated_at: string;
   }>;
   created_count: number;
+  skipped_duplicate_count: number;
 };

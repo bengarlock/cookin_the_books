@@ -4,6 +4,7 @@ export type ExpenseEntry = {
   incurred_on: string;
   amount: string;
   note: string;
+  exclude_from_credit_card: boolean;
   source_type: string;
   source_identifier: string;
   utility_detail: UtilityBillDetail | null;
