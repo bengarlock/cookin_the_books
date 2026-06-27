@@ -10,6 +10,7 @@ import type {
   ExpenseAutomationRunResult,
 } from "@/lib/expense-automation-rule-types";
 import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import { extractApiErrorDetail, extractApiErrorMessage } from "@/lib/api-error-message";
 import { APP_BASE_PATH } from "@/lib/config";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -41,7 +42,6 @@ const emptyRuleForm = {
   match_value: "",
   target_budget_item: "",
   note_template: "",
-  is_shared_cost: false,
 };
 
 function ruleToForm(rule: ExpenseAutomationRule) {
@@ -52,7 +52,6 @@ function ruleToForm(rule: ExpenseAutomationRule) {
     match_value: rule.match_value,
     target_budget_item: String(rule.target_budget_item),
     note_template: rule.note_template,
-    is_shared_cost: rule.is_shared_cost,
   };
 }
 
@@ -140,7 +139,6 @@ export function AutomationsDashboard({
       match_value: form.match_value.trim(),
       target_budget_item: Number(form.target_budget_item) || 0,
       note_template: form.note_template,
-      is_shared_cost: form.is_shared_cost,
       created_at: "",
       updated_at: "",
     };
@@ -190,7 +188,6 @@ export function AutomationsDashboard({
       match_value: form.match_value.trim(),
       target_budget_item: targetBudgetItem,
       note_template: form.note_template.trim(),
-      is_shared_cost: form.is_shared_cost,
     };
 
     setSavingForm(true);
@@ -323,13 +320,13 @@ export function AutomationsDashboard({
       );
       const result = (await response.json().catch(() => null)) as
         | ExpenseAutomationRunResult
-        | { message?: string }
+        | { message?: string; detail?: string }
         | null;
       if (!response.ok || !result || !("created_count" in result)) {
-        throw new Error(
-          (result && "message" in result && result.message) ||
-            "Unable to run automation rules.",
-        );
+        const fallback = "Unable to run automation rules.";
+        const message = extractApiErrorMessage(result, fallback);
+        const detail = extractApiErrorDetail(result);
+        throw new Error(detail ? `${message} (${detail})` : message);
       }
       setRunMessage(
         result.created_count === 0
@@ -520,22 +517,6 @@ export function AutomationsDashboard({
                 value={form.note_template}
               />
             </label>
-            <label className="flex items-center gap-2 sm:col-span-2">
-              <input
-                checked={form.is_shared_cost}
-                className="size-4 rounded border-white/20 bg-black/20 text-accent focus:ring-accent/40"
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    is_shared_cost: event.target.checked,
-                  }))
-                }
-                type="checkbox"
-              />
-              <span className="text-sm text-white/75">
-                Mark created expenses as shared cost
-              </span>
-            </label>
           </div>
           {previewMatches.length ? (
             <div className="border-t border-white/10 px-4 py-4 sm:px-5">
@@ -628,9 +609,6 @@ export function AutomationsDashboard({
                 <p className="mt-1 text-sm text-muted">
                   {ruleSummary(rule, budgetItemsById)}
                 </p>
-                {rule.is_shared_cost ? (
-                  <p className="mt-1 text-xs text-white/45">Shared cost</p>
-                ) : null}
               </div>
               <label className="flex items-center gap-2 text-xs text-white/60">
                 <input

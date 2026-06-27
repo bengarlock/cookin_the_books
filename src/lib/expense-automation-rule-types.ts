@@ -14,7 +14,6 @@ export type ExpenseAutomationRule = {
   match_value: string;
   target_budget_item: number;
   note_template: string;
-  is_shared_cost: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -26,7 +25,6 @@ export type ExpenseAutomationRunResult = {
     incurred_on: string;
     amount: string;
     note: string;
-    is_shared_cost: boolean;
     source_type: string;
     source_identifier: string;
     created_at: string;

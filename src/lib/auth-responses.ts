@@ -2,6 +2,7 @@ import "server-only";
 
 import { NextResponse } from "next/server";
 
+import { extractApiErrorMessage } from "@/lib/api-error-message";
 import { AUTH_COOKIE_NAME } from "@/lib/auth";
 import {
   AUTH_INVALIDATED_HEADER,
@@ -60,6 +61,39 @@ export async function portfolioApiJsonResponse(
   response: Response,
   fallbackPayload: JsonPayload,
 ) {
-  const data = (await response.json().catch(() => fallbackPayload)) as JsonPayload;
+  const fallbackMessage =
+    typeof fallbackPayload === "object" &&
+    fallbackPayload !== null &&
+    !Array.isArray(fallbackPayload) &&
+    "message" in fallbackPayload &&
+    typeof fallbackPayload.message === "string"
+      ? fallbackPayload.message
+      : "Request failed.";
+
+  const rawBody = await response.text();
+  let data: JsonPayload;
+
+  if (rawBody.trim()) {
+    try {
+      data = JSON.parse(rawBody) as JsonPayload;
+    } catch {
+      data = {
+        message: `${fallbackMessage} ${rawBody.slice(0, 500).trim()}`.trim(),
+        detail: rawBody.slice(0, 2000),
+      };
+    }
+  } else {
+    data = fallbackPayload;
+  }
+
+  if (!response.ok) {
+    const message = extractApiErrorMessage(data, fallbackMessage);
+    if (typeof data === "object" && data !== null && !Array.isArray(data)) {
+      data = { ...data, message };
+    } else {
+      data = { message };
+    }
+  }
+
   return jsonResponseWithAuthHandling(data, response.status);
 }
