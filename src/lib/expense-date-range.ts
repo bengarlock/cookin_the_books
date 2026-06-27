@@ -30,6 +30,20 @@ export function defaultExpenseDateRange(currentDate = new Date()) {
   };
 }
 
+export function mergeExpenseDateRange(
+  current: ExpenseDateRange | undefined,
+  imported: ExpenseDateRange,
+): ExpenseDateRange {
+  if (!current) {
+    return imported;
+  }
+
+  return {
+    start: imported.start < current.start ? imported.start : current.start,
+    end: imported.end > current.end ? imported.end : current.end,
+  };
+}
+
 export function expenseDateRangePreset(
   preset: "week" | "month" | "ytd",
   currentDate = new Date(),

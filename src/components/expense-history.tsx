@@ -9,6 +9,7 @@ import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types"
 import { expenseEntryAverages, effectiveExpenseAmount, scaleExpenseAverages } from "@/lib/expense-averages";
 import {
   defaultExpenseDateRange,
+  mergeExpenseDateRange,
   type ExpenseDateRange,
   formatExpenseDateRange,
 } from "@/lib/expense-date-range";
@@ -254,10 +255,32 @@ export function ExpenseHistory({
       }
       if (result.created.length) {
         if (item.key === "credit-card") {
-          setCreditCardTransactions((current) => [
-            ...(result.created as CreditCardTransaction[]),
-            ...current,
+          const imported = result.created as CreditCardTransaction[];
+          setCreditCardTransactions((current) => [...imported, ...current]);
+
+          const importedDates = imported.flatMap((entry) => [
+            entry.transaction_date,
+            entry.statement_start,
+            entry.statement_end,
           ]);
+          if (importedDates.length) {
+            const importedRange = {
+              start: importedDates.reduce((min, value) =>
+                value < min ? value : min,
+              ),
+              end: importedDates.reduce((max, value) =>
+                value > max ? value : max,
+              ),
+            };
+            setDateRanges((current) => ({
+              ...current,
+              [item.id]: mergeExpenseDateRange(current[item.id], importedRange),
+            }));
+            setExpandedTransactionItems((current) => ({
+              ...current,
+              [item.id]: true,
+            }));
+          }
         } else {
           setEntries((current) => [
             ...(result.created as ExpenseEntry[]),
@@ -285,7 +308,11 @@ export function ExpenseHistory({
             .map((item) => `${item.file} (${item.detail})`)
             .join("; ")}`
         : "";
-      setImportMessage(`${createdText}${duplicateText}${errorText}`);
+      const rangeText =
+        item.key === "credit-card" && result.created_count
+          ? " Date range expanded to include the imported statement."
+          : "";
+      setImportMessage(`${createdText}${duplicateText}${errorText}${rangeText}`);
     } catch (importError) {
       setError(
         importError instanceof Error

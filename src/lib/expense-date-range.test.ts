@@ -4,6 +4,7 @@ import {
   defaultExpenseDateRange,
   expenseDateRangePreset,
   formatExpenseDateRange,
+  mergeExpenseDateRange,
 } from "./expense-date-range";
 
 describe("expense date ranges", () => {
@@ -59,6 +60,18 @@ describe("expense date ranges", () => {
     expect(expenseDateRangePreset("ytd", new Date(2026, 5, 23))).toEqual({
       start: "2026-01-01",
       end: "2026-06-23",
+    });
+  });
+
+  it("expands the selected range to include imported statement dates", () => {
+    expect(
+      mergeExpenseDateRange(
+        { start: "2026-01-01", end: "2026-06-27" },
+        { start: "2025-08-04", end: "2025-09-02" },
+      ),
+    ).toEqual({
+      start: "2025-08-04",
+      end: "2026-06-27",
     });
   });
 });

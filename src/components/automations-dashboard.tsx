@@ -34,6 +34,28 @@ const matchOperatorLabels: Record<ExpenseAutomationMatchOperator, string> = {
   equals: "equals",
 };
 
+const emptyRuleForm = {
+  name: "",
+  match_field: "description" as ExpenseAutomationMatchField,
+  match_operator: "contains" as ExpenseAutomationMatchOperator,
+  match_value: "",
+  target_budget_item: "",
+  note_template: "",
+  is_shared_cost: false,
+};
+
+function ruleToForm(rule: ExpenseAutomationRule) {
+  return {
+    name: rule.name,
+    match_field: rule.match_field,
+    match_operator: rule.match_operator,
+    match_value: rule.match_value,
+    target_budget_item: String(rule.target_budget_item),
+    note_template: rule.note_template,
+    is_shared_cost: rule.is_shared_cost,
+  };
+}
+
 function formatCurrency(value: string | number) {
   const number = Number(value);
   return Number.isFinite(number) ? currencyFormatter.format(number) : "—";
@@ -84,16 +106,9 @@ export function AutomationsDashboard({
 }) {
   const [rules, setRules] = useState(initialRules);
   const [formOpen, setFormOpen] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    match_field: "description" as ExpenseAutomationMatchField,
-    match_operator: "contains" as ExpenseAutomationMatchOperator,
-    match_value: "",
-    target_budget_item: "",
-    note_template: "",
-    is_shared_cost: false,
-  });
-  const [creating, setCreating] = useState(false);
+  const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
+  const [form, setForm] = useState(emptyRuleForm);
+  const [savingForm, setSavingForm] = useState(false);
   const [running, setRunning] = useState(false);
   const [savingRuleId, setSavingRuleId] = useState<number | null>(null);
   const [deletingRuleId, setDeletingRuleId] = useState<number | null>(null);
@@ -135,7 +150,28 @@ export function AutomationsDashboard({
       .slice(0, 5);
   }, [form, initialCreditCardTransactions]);
 
-  async function createRule(event: FormEvent<HTMLFormElement>) {
+  function openCreateForm() {
+    setEditingRuleId(null);
+    setForm(emptyRuleForm);
+    setFormOpen(true);
+    setError("");
+  }
+
+  function openEditForm(rule: ExpenseAutomationRule) {
+    setEditingRuleId(rule.id);
+    setForm(ruleToForm(rule));
+    setFormOpen(true);
+    setError("");
+  }
+
+  function closeForm() {
+    setFormOpen(false);
+    setEditingRuleId(null);
+    setForm(emptyRuleForm);
+    setError("");
+  }
+
+  async function saveRule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const targetBudgetItem = Number(form.target_budget_item);
     if (
@@ -147,64 +183,67 @@ export function AutomationsDashboard({
       return;
     }
 
-    setCreating(true);
+    const payload = {
+      name: form.name.trim(),
+      match_field: form.match_field,
+      match_operator: form.match_operator,
+      match_value: form.match_value.trim(),
+      target_budget_item: targetBudgetItem,
+      note_template: form.note_template.trim(),
+      is_shared_cost: form.is_shared_cost,
+    };
+
+    setSavingForm(true);
     setError("");
     try {
       const response = await fetch(
-        `${APP_BASE_PATH}/api/expense-automation-rules`,
+        editingRuleId
+          ? `${APP_BASE_PATH}/api/expense-automation-rules/${editingRuleId}`
+          : `${APP_BASE_PATH}/api/expense-automation-rules`,
         {
-          method: "POST",
+          method: editingRuleId ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: form.name.trim(),
-            match_field: form.match_field,
-            match_operator: form.match_operator,
-            match_value: form.match_value.trim(),
-            target_budget_item: targetBudgetItem,
-            note_template: form.note_template.trim(),
-            is_shared_cost: form.is_shared_cost,
-          }),
+          body: JSON.stringify(payload),
         },
       );
-      const created = (await response.json().catch(() => null)) as
+      const saved = (await response.json().catch(() => null)) as
         | ExpenseAutomationRule
         | { message?: string; name?: string[]; match_value?: string[] }
         | null;
-      if (!response.ok || !created || !("id" in created)) {
+      if (!response.ok || !saved || !("id" in saved)) {
         const message =
-          created && "message" in created
-            ? created.message
-            : created && "name" in created
-              ? created.name?.[0]
-              : created && "match_value" in created
-                ? created.match_value?.[0]
+          saved && "message" in saved
+            ? saved.message
+            : saved && "name" in saved
+              ? saved.name?.[0]
+              : saved && "match_value" in saved
+                ? saved.match_value?.[0]
                 : undefined;
-        throw new Error(message || "Unable to create the automation rule.");
+        throw new Error(
+          message ||
+            (editingRuleId
+              ? "Unable to update the automation rule."
+              : "Unable to create the automation rule."),
+        );
       }
 
-      setRules((current) =>
-        [...current, created].sort((left, right) =>
-          left.name.localeCompare(right.name),
-        ),
-      );
-      setForm({
-        name: "",
-        match_field: "description",
-        match_operator: "contains",
-        match_value: "",
-        target_budget_item: "",
-        note_template: "",
-        is_shared_cost: false,
+      setRules((current) => {
+        const next = editingRuleId
+          ? current.map((item) => (item.id === saved.id ? saved : item))
+          : [...current, saved];
+        return next.sort((left, right) => left.name.localeCompare(right.name));
       });
-      setFormOpen(false);
-    } catch (createError) {
+      closeForm();
+    } catch (saveError) {
       setError(
-        createError instanceof Error
-          ? createError.message
-          : "Unable to create the automation rule.",
+        saveError instanceof Error
+          ? saveError.message
+          : editingRuleId
+            ? "Unable to update the automation rule."
+            : "Unable to create the automation rule.",
       );
     } finally {
-      setCreating(false);
+      setSavingForm(false);
     }
   }
 
@@ -259,6 +298,9 @@ export function AutomationsDashboard({
         throw new Error(payload?.message || "Unable to delete the rule.");
       }
       setRules((current) => current.filter((rule) => rule.id !== ruleId));
+      if (editingRuleId === ruleId) {
+        closeForm();
+      }
     } catch (deleteError) {
       setError(
         deleteError instanceof Error
@@ -330,10 +372,7 @@ export function AutomationsDashboard({
           </button>
           <button
             className="rounded-xl border border-accent/30 bg-accent/15 px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/20"
-            onClick={() => {
-              setFormOpen((open) => !open);
-              setError("");
-            }}
+            onClick={() => (formOpen ? closeForm() : openCreateForm())}
             type="button"
           >
             {formOpen ? "Close form" : "New rule"}
@@ -359,14 +398,16 @@ export function AutomationsDashboard({
       {formOpen ? (
         <form
           className="surface overflow-hidden rounded-2xl"
-          onSubmit={(event) => void createRule(event)}
+          onSubmit={(event) => void saveRule(event)}
         >
           <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
-            <h2 className="text-sm font-semibold text-white">Create rule</h2>
+            <h2 className="text-sm font-semibold text-white">
+              {editingRuleId ? "Edit rule" : "Create rule"}
+            </h2>
             <p className="mt-1 text-sm text-muted">
               Example: when a transaction description contains{" "}
-              <span className="text-white/80">GEICO *AUTO</span>, create a Car
-              Insurance expense for that date and amount.
+              <span className="text-white/80">MERCHANT KEYWORD</span>, create a
+              matching expense for that date and amount.
             </p>
           </div>
           <div className="grid gap-4 px-4 py-5 sm:grid-cols-2 sm:px-5">
@@ -382,7 +423,7 @@ export function AutomationsDashboard({
                     name: event.target.value,
                   }))
                 }
-                placeholder="GEICO Auto Insurance"
+                placeholder="Recurring bill"
                 value={form.name}
               />
             </label>
@@ -436,7 +477,7 @@ export function AutomationsDashboard({
                     match_value: event.target.value,
                   }))
                 }
-                placeholder="GEICO *AUTO"
+                placeholder="MERCHANT KEYWORD"
                 value={form.match_value}
               />
             </label>
@@ -529,13 +570,31 @@ export function AutomationsDashboard({
             </p>
           ) : null}
           <div className="border-t border-white/10 px-4 py-4 sm:px-5">
-            <button
-              className="rounded-xl border border-accent/30 bg-accent/15 px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/20 disabled:opacity-50"
-              disabled={creating}
-              type="submit"
-            >
-              {creating ? "Creating…" : "Create rule"}
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                className="rounded-xl border border-accent/30 bg-accent/15 px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/20 disabled:opacity-50"
+                disabled={savingForm}
+                type="submit"
+              >
+                {savingForm
+                  ? editingRuleId
+                    ? "Saving…"
+                    : "Creating…"
+                  : editingRuleId
+                    ? "Save changes"
+                    : "Create rule"}
+              </button>
+              {editingRuleId ? (
+                <button
+                  className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-white transition hover:border-white/20 hover:bg-white/[0.08] disabled:opacity-50"
+                  disabled={savingForm}
+                  onClick={closeForm}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              ) : null}
+            </div>
           </div>
         </form>
       ) : null}
@@ -552,7 +611,9 @@ export function AutomationsDashboard({
         {rules.length ? (
           rules.map((rule) => (
             <div
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/[0.07] px-4 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5"
+              className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/[0.07] px-4 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:px-5 ${
+                editingRuleId === rule.id ? "bg-accent/[0.04]" : ""
+              }`}
               key={rule.id}
             >
               <div className="min-w-0">
@@ -575,7 +636,7 @@ export function AutomationsDashboard({
                 <input
                   checked={rule.enabled}
                   className="size-4 rounded border-white/20 bg-black/20 text-accent focus:ring-accent/40 disabled:opacity-50"
-                  disabled={savingRuleId === rule.id}
+                  disabled={savingRuleId === rule.id || savingForm}
                   onChange={(event) =>
                     void toggleRule(rule, event.target.checked)
                   }
@@ -584,8 +645,20 @@ export function AutomationsDashboard({
                 <span>Enabled</span>
               </label>
               <button
+                className="justify-self-end rounded-md px-2 py-1 text-xs text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-50"
+                disabled={
+                  deletingRuleId === rule.id ||
+                  savingForm ||
+                  editingRuleId === rule.id
+                }
+                onClick={() => openEditForm(rule)}
+                type="button"
+              >
+                {editingRuleId === rule.id ? "Editing" : "Edit"}
+              </button>
+              <button
                 className="justify-self-end rounded-md px-2 py-1 text-xs text-rose-200/80 hover:bg-rose-500/10 hover:text-rose-200 disabled:opacity-50"
-                disabled={deletingRuleId === rule.id}
+                disabled={deletingRuleId === rule.id || savingForm}
                 onClick={() => void deleteRule(rule.id)}
                 type="button"
               >
