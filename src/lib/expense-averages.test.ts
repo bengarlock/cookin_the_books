@@ -33,6 +33,19 @@ describe("expenseEntryAverages", () => {
     expect(averages.monthly).toBeCloseTo(456.55, 2);
   });
 
+  it("halves shared expense totals when the expense is marked shared", () => {
+    const averages = expenseEntryAverages(
+      [entry("100.00", "2026-06-01"), entry("50.00", "2026-06-05")],
+      "2026-06-01",
+      "2026-06-10",
+      "2026-06-10",
+      true,
+    );
+
+    expect(averages.total).toBe(75);
+    expect(averages.daily).toBe(7.5);
+  });
+
   it("excludes future entries when the selected range extends past today", () => {
     const averages = expenseEntryAverages(
       [entry("100.00", "2026-06-01"), entry("200.00", "2026-06-20")],

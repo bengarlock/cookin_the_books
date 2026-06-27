@@ -59,6 +59,26 @@ const liabilityAccounts = new Set<keyof BankValueSnapshot>([
   "barclays_card",
 ]);
 
+const accountLoginUrls: Partial<
+  Record<keyof BankValueSnapshot, string>
+> = {
+  chase_checking:
+    "https://secure.chase.com/web/auth/dashboard#/dashboard/overview",
+  chase_savings:
+    "https://secure.chase.com/web/auth/dashboard#/dashboard/overview",
+  chase_credit:
+    "https://secure.chase.com/web/auth/dashboard#/dashboard/overview",
+  citi_current: "https://online.citi.com/US/ag/dashboard/credit-card",
+  barclays_card:
+    "https://www.barclaycardus.com/servicing/accountSummaryOnLogin",
+  etrade: "https://us.etrade.com/etx/pxy/portfolios/positions",
+  betterment_general: "https://wwws.betterment.com/app",
+  betterment_safety: "https://wwws.betterment.com/app",
+  betterment_retirement: "https://wwws.betterment.com/app",
+  fidelity_retirement:
+    "https://workplaceservices.fidelity.com/mybenefits/navstation/navigation#/",
+};
+
 const accountSections: Array<{
   title: string;
   description: string;
@@ -108,32 +128,6 @@ function formatCurrency(value: string | number | undefined) {
   if (value === undefined) return "—";
   const number = Number(value);
   return Number.isFinite(number) ? currencyFormatter.format(number) : "—";
-}
-
-function formatUpdatedAt(value?: string) {
-  if (!value) return "Waiting for the first snapshot";
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
-function getSnapshotFreshness(
-  value: string | undefined,
-  currentDate: Date,
-): "fresh" | "stale" | "expired" {
-  if (!value) return "expired";
-  const updatedAt = new Date(value);
-  const ageInHours =
-    (currentDate.getTime() - updatedAt.getTime()) / (1000 * 60 * 60);
-
-  if (!Number.isFinite(ageInHours) || ageInHours >= 48) {
-    return "expired";
-  }
-  if (ageInHours >= 24) {
-    return "stale";
-  }
-  return "fresh";
 }
 
 function valueFromSnapshot(
@@ -338,6 +332,43 @@ function MetricCard({
   );
 }
 
+function AccountLoginLink({
+  accountKey,
+  label,
+}: {
+  accountKey: keyof BankValueSnapshot;
+  label: string;
+}) {
+  const href = accountLoginUrls[accountKey];
+  if (!href) return null;
+
+  return (
+    <a
+      aria-label={`Open ${label} in bank portal`}
+      className="shrink-0 rounded p-0.5 text-white/30 transition hover:text-accent"
+      href={href}
+      rel="noopener noreferrer"
+      target="_blank"
+      title={`Open ${label}`}
+    >
+      <svg
+        aria-hidden="true"
+        className="size-3.5"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 20 4"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+        />
+      </svg>
+    </a>
+  );
+}
+
 function PaidActionButton({
   disabled,
   label,
@@ -391,7 +422,7 @@ export function LiveBankValues({
   initialPendingTransactions: PendingTransaction[];
   view?: FinancialView;
 }) {
-  const { connectionState, snapshot } = useLiveSnapshot();
+  const { snapshot } = useLiveSnapshot();
   const [pendingTransactions, setPendingTransactions] = useState(
     initialPendingTransactions,
   );
@@ -709,65 +740,8 @@ export function LiveBankValues({
     }
   }
 
-  const connectionLabel =
-    connectionState === "live"
-      ? "Live updates"
-      : connectionState === "connecting"
-        ? "Connecting"
-        : connectionState === "reconnecting"
-          ? "Reconnecting"
-          : "Live updates unavailable";
-  const snapshotFreshness = getSnapshotFreshness(
-    snapshot?.source_updated_at,
-    currentDate,
-  );
-  const freshnessClasses = {
-    fresh: "border-accent/30 bg-accent/10 text-accent hover:border-accent/50 hover:bg-accent/15",
-    stale:
-      "border-amber-200/35 bg-amber-200/10 text-amber-100 hover:border-amber-200/55 hover:bg-amber-200/15",
-    expired:
-      "border-rose-300/35 bg-rose-500/10 text-rose-200 hover:border-rose-300/55 hover:bg-rose-500/15",
-  };
-  const freshnessLabels = {
-    fresh: "Accounts refreshed in the last 24 hours.",
-    stale: "Accounts have not refreshed in 24–48 hours.",
-    expired: "Accounts have not refreshed in at least 48 hours.",
-  };
-
   return (
-    <section className="mt-8">
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        {view === "overview" ? (
-          <button
-            className={`w-fit rounded-full border px-3 py-1.5 text-left text-sm font-medium transition ${freshnessClasses[snapshotFreshness]}`}
-            title={freshnessLabels[snapshotFreshness]}
-            type="button"
-          >
-            Snapshot updated {formatUpdatedAt(snapshot?.source_updated_at)}
-          </button>
-        ) : (
-          <p className="text-sm text-muted">
-            Snapshot updated {formatUpdatedAt(snapshot?.source_updated_at)}
-          </p>
-        )}
-        <div
-          className={`flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
-            connectionState === "live"
-              ? "border-accent/20 bg-accent/10 text-accent"
-              : "border-amber-200/20 bg-amber-200/10 text-amber-100"
-          }`}
-        >
-          <span
-            className={`size-2 rounded-full ${
-              connectionState === "live"
-                ? "bg-accent shadow-[0_0_12px_rgba(86,226,170,0.8)]"
-                : "bg-amber-200"
-            }`}
-          />
-          {connectionLabel}
-        </div>
-      </div>
-
+    <section>
       {view === "overview" ? (
         <div className="space-y-4">
           {calculations.overdrawnAccounts.length ? (
@@ -959,7 +933,13 @@ export function LiveBankValues({
                     className="grid grid-cols-[minmax(0,1fr)_2rem_8rem] items-center gap-x-5 border-b border-white/[0.07] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_2rem_8rem_8rem] sm:px-5"
                   >
                     <div className="min-w-0">
-                      <span className="text-sm text-white/75">Citi Card</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-white/75">Citi Card</span>
+                        <AccountLoginLink
+                          accountKey="citi_current"
+                          label="Citi Card"
+                        />
+                      </div>
                       <p className="mt-1 text-xs text-muted">
                         Current {formatCurrency(currentPosted)}
                         <span className="mx-1.5 text-white/20">·</span>
@@ -1043,6 +1023,10 @@ export function LiveBankValues({
                           >
                             {account.label}
                           </span>
+                          <AccountLoginLink
+                            accountKey={account.key}
+                            label={account.label}
+                          />
                         </div>
                         {compactLiability ? (
                           <p className="mt-1 text-xs text-muted">

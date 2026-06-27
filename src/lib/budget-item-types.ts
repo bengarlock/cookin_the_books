@@ -3,6 +3,7 @@ export type BudgetItem = {
   key: string;
   label: string;
   monthly_amount: string;
+  is_shared_cost: boolean;
   sort_order: number;
   updated_at: string;
 };

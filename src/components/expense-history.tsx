@@ -6,7 +6,7 @@ import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
 import { creditCardExpenditureAverages } from "@/lib/credit-card-averages";
 import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
-import { expenseEntryAverages } from "@/lib/expense-averages";
+import { expenseEntryAverages, effectiveExpenseAmount, scaleExpenseAverages } from "@/lib/expense-averages";
 import {
   defaultExpenseDateRange,
   type ExpenseDateRange,
@@ -52,6 +52,7 @@ export function ExpenseHistory({
   initialCreditCardTransactions: CreditCardTransaction[];
   initialEntries: ExpenseEntry[];
 }) {
+  const [items, setItems] = useState(budgetItems);
   const [entries, setEntries] = useState(initialEntries);
   const [creditCardTransactions, setCreditCardTransactions] = useState(
     initialCreditCardTransactions,
@@ -62,6 +63,9 @@ export function ExpenseHistory({
   );
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [savingItemId, setSavingItemId] = useState<number | null>(null);
+  const [updatingSharedItemId, setUpdatingSharedItemId] = useState<number | null>(
+    null,
+  );
   const [importingItemId, setImportingItemId] = useState<number | null>(null);
   const [expandedEntryId, setExpandedEntryId] = useState<number | null>(null);
   const [expandedTransactionItems, setExpandedTransactionItems] = useState<
@@ -77,7 +81,7 @@ export function ExpenseHistory({
   const [dateRanges, setDateRanges] = useState<Record<number, ExpenseDateRange>>(
     () =>
       Object.fromEntries(
-        budgetItems.map((item) => [item.id, defaultExpenseDateRange()]),
+        items.map((item) => [item.id, defaultExpenseDateRange()]),
       ),
   );
   const today = todayString();
@@ -128,6 +132,45 @@ export function ExpenseHistory({
       );
     } finally {
       setSavingItemId(null);
+    }
+  }
+
+  async function toggleSharedCost(item: BudgetItem, isSharedCost: boolean) {
+    setUpdatingSharedItemId(item.id);
+    setError("");
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/budget-items/${item.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_shared_cost: isSharedCost }),
+        },
+      );
+      const updated = (await response.json().catch(() => null)) as
+        | BudgetItem
+        | { message?: string }
+        | null;
+      if (!response.ok || !updated || !("id" in updated)) {
+        throw new Error(
+          updated && "message" in updated && updated.message
+            ? updated.message
+            : "Unable to update the expense.",
+        );
+      }
+      setItems((current) =>
+        current.map((budgetItem) =>
+          budgetItem.id === item.id ? updated : budgetItem,
+        ),
+      );
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error
+          ? updateError.message
+          : "Unable to update the expense.",
+      );
+    } finally {
+      setUpdatingSharedItemId(null);
     }
   }
 
@@ -274,7 +317,7 @@ export function ExpenseHistory({
       ) : null}
 
       <div className="grid gap-5 xl:grid-cols-2">
-        {budgetItems.map((item) => {
+        {items.map((item) => {
           const dateRange =
             dateRanges[item.id] || defaultExpenseDateRange();
           const relevantEntries = entries
@@ -316,16 +359,20 @@ export function ExpenseHistory({
                 entry.transaction_type,
               ),
           );
-          const creditCardAverages = creditCardExpenditureAverages(
-            itemCreditCardTransactions,
-            dateRange.start,
-            dateRange.end,
+          const creditCardAverages = scaleExpenseAverages(
+            creditCardExpenditureAverages(
+              itemCreditCardTransactions,
+              dateRange.start,
+              dateRange.end,
+            ),
+            item.is_shared_cost,
           );
           const entryAverages = expenseEntryAverages(
             relevantEntries,
             dateRange.start,
             dateRange.end,
             today,
+            item.is_shared_cost,
           );
           const expenseAverages =
             item.key === "credit-card" ? creditCardAverages : entryAverages;
@@ -334,7 +381,9 @@ export function ExpenseHistory({
           const rangeTotal =
             entryAverages.total +
             spendingTransactions.reduce(
-              (total, entry) => total + Number(entry.amount),
+              (total, entry) =>
+                total +
+                effectiveExpenseAmount(entry.amount, item.is_shared_cost),
               0,
             );
 
@@ -358,6 +407,21 @@ export function ExpenseHistory({
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <label
+                    className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-white/65"
+                    title="Shared cost (your share is half the amount)"
+                  >
+                    <input
+                      checked={item.is_shared_cost}
+                      className="size-4 rounded border-white/20 bg-black/20 text-accent focus:ring-accent/40 disabled:opacity-50"
+                      disabled={updatingSharedItemId === item.id}
+                      onChange={(event) =>
+                        void toggleSharedCost(item, event.target.checked)
+                      }
+                      type="checkbox"
+                    />
+                    <span>Shared</span>
+                  </label>
                   {["housing", "power", "credit-card"].includes(item.key) ? (
                     <label className="cursor-pointer rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-white/65 transition hover:border-accent/20 hover:text-accent">
                       {importingItemId === item.id
@@ -591,7 +655,12 @@ export function ExpenseHistory({
                                 : "text-white"
                             }`}
                           >
-                            {currencyFormatter.format(Number(entry.amount))}
+                            {currencyFormatter.format(
+                              effectiveExpenseAmount(
+                                entry.amount,
+                                item.is_shared_cost,
+                              ),
+                            )}
                           </span>
                         </div>
                       ))
@@ -613,7 +682,11 @@ export function ExpenseHistory({
                         {entry.note ? (
                           <p className="mt-1 truncate text-xs text-muted">
                             {entry.note}
-                            {entry.source_type ? (
+                            {entry.source_type === "credit_card_automation" ? (
+                              <span className="ml-2 text-white/35">
+                                · Automation
+                              </span>
+                            ) : entry.source_type ? (
                               <span className="ml-2 text-white/35">
                                 · Imported PDF
                               </span>
@@ -622,9 +695,22 @@ export function ExpenseHistory({
                         ) : null}
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="whitespace-nowrap font-mono text-sm font-semibold text-white">
-                          {currencyFormatter.format(Number(entry.amount))}
-                        </span>
+                        <div className="text-right">
+                          <span className="whitespace-nowrap font-mono text-sm font-semibold text-white">
+                            {currencyFormatter.format(
+                              effectiveExpenseAmount(
+                                entry.amount,
+                                item.is_shared_cost,
+                              ),
+                            )}
+                          </span>
+                          {item.is_shared_cost ? (
+                            <p className="mt-0.5 text-[11px] text-muted">
+                              of{" "}
+                              {currencyFormatter.format(Number(entry.amount))}
+                            </p>
+                          ) : null}
+                        </div>
                         {entry.utility_detail ? (
                           <button
                             className="rounded-md px-2 py-1 text-xs text-accent/70 hover:bg-accent/10 hover:text-accent"

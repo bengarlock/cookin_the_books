@@ -33,8 +33,8 @@ const tools = [
   {
     name: "Financial automations",
     description:
-      "Monitor scheduled workflows and surface actions that need attention.",
-    status: "Planned",
+      "Create rules that turn imported credit-card transactions into expense entries.",
+    status: "Available",
     tone: "violet",
   },
 ];
@@ -54,21 +54,6 @@ export default async function DashboardPage() {
 
   return (
     <div className="w-full">
-      <section className="flex flex-col gap-5 border-b border-white/10 pb-8 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gold">
-            Overview
-          </p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            Financial operations at a glance
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted sm:text-base">
-            This workspace will bring portfolio snapshots, trends, and
-            financial utilities together around one trusted backend.
-          </p>
-        </div>
-      </section>
-
       <LiveBankValues
         initialBudgetPlanSettings={budgetPlanSettings}
         initialPendingTransactions={pendingTransactions}

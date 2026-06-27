@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
 import { LogoutButton } from "@/components/logout-button";
+import { DashboardHeader } from "@/components/dashboard-header";
 
 const navigation: Array<{
   name: string;
@@ -25,8 +26,13 @@ const navigation: Array<{
     href: "/dashboard/budget/expenses",
     parent: "/dashboard/budget",
   },
+  {
+    name: "Projections",
+    href: "/dashboard/budget/projections",
+    parent: "/dashboard/budget",
+  },
   { name: "Snapshots", href: "/dashboard/snapshots" },
-  { name: "Automations", href: "/dashboard/automations", disabled: true },
+  { name: "Automations", href: "/dashboard/automations" },
 ];
 
 function GridIcon() {
@@ -62,12 +68,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <nav className="mt-5 flex gap-2 overflow-x-auto lg:mt-10 lg:block lg:space-y-2 lg:overflow-x-hidden">
+        <nav className="mt-5 flex flex-wrap gap-2 lg:mt-10 lg:block lg:space-y-2">
           {navigation.map((item) =>
             item.disabled ? (
               <span
                 key={item.name}
-                className="flex shrink-0 cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/30 lg:w-full"
+                className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/30 lg:w-full"
               >
                 <GridIcon />
                 {item.name}
@@ -77,7 +83,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               </span>
             ) : (
               <div
-                className={item.parent ? "shrink-0 lg:ml-8" : "shrink-0"}
+                className={item.parent ? "lg:ml-8" : undefined}
                 key={item.name}
               >
                 <Link
@@ -102,16 +108,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="min-w-0 lg:col-start-2">
-        <header className="flex min-h-20 items-center justify-between border-b border-white/10 bg-[#07100f]/70 px-5 backdrop-blur sm:px-8 lg:px-10">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">
-              Dashboard
-            </p>
-            <p className="mt-1 text-sm text-white/75">
-              Your financial tools, one workspace
-            </p>
-          </div>
-        </header>
+        <DashboardHeader />
 
         <main className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
           <div className="mx-auto w-full max-w-7xl">{children}</div>

@@ -7,13 +7,14 @@ const budgetLinks = [
   { href: "/dashboard/budget", label: "Plan" },
   { href: "/dashboard/budget/income", label: "Income" },
   { href: "/dashboard/budget/expenses", label: "Expenses" },
+  { href: "/dashboard/budget/projections", label: "Projections" },
 ];
 
 export function BudgetNavigation() {
   const pathname = usePathname();
 
   return (
-    <nav className="mt-6 flex gap-2" aria-label="Budget sections">
+    <nav className="flex flex-wrap gap-2" aria-label="Budget sections">
       {budgetLinks.map((link) => (
         <Link
           className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
