@@ -2,10 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import type { IncomeEntry } from "./income-entry-types";
 import type { BankValueSnapshot } from "./snapshot-types";
+import type { BudgetItem } from "./budget-item-types";
+import type { ExpenseEntry } from "./expense-entry-types";
+import { remainingPaydaysInYear } from "./pay-cycle";
 import {
   classifyPaychecks,
   incomeEntriesInLookback,
+  projectCurrentYear,
   projectRevenueAfterPayCycle,
+  yearToDateIncome,
 } from "./projections";
 
 function incomeEntry(
@@ -101,6 +106,90 @@ describe("classifyPaychecks", () => {
     ]);
     expect(result.normalPaychecks).toHaveLength(5);
     expect(result.predictedNetPay).toBe(3190);
+  });
+});
+
+function budgetItem(overrides: Partial<BudgetItem> = {}): BudgetItem {
+  return {
+    id: 1,
+    key: "utilities",
+    label: "Utilities",
+    monthly_amount: "0.000000",
+    is_shared_cost: false,
+    sort_order: 0,
+    updated_at: "2026-06-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+function expenseEntry(
+  amount: string,
+  incurredOn: string,
+  budgetItemId = 1,
+): ExpenseEntry {
+  return {
+    id: Number(`${incurredOn.replaceAll("-", "")}${amount.replace(".", "")}`),
+    budget_item: budgetItemId,
+    incurred_on: incurredOn,
+    amount,
+    note: "",
+    exclude_from_credit_card: false,
+    source_identifier: "",
+    source_type: "",
+    created_at: `${incurredOn}T00:00:00Z`,
+    updated_at: `${incurredOn}T00:00:00Z`,
+    utility_detail: null,
+  };
+}
+
+describe("yearToDateIncome", () => {
+  it("sums net pay for the current calendar year through today", () => {
+    const total = yearToDateIncome(
+      [
+        incomeEntry({ id: 1, pay_date: "2026-01-15", net_pay: "3000.00" }),
+        incomeEntry({ id: 2, pay_date: "2026-06-01", net_pay: "3100.00" }),
+        incomeEntry({ id: 3, pay_date: "2025-12-15", net_pay: "2900.00" }),
+        incomeEntry({ id: 4, pay_date: "2026-12-15", net_pay: "5000.00" }),
+      ],
+      new Date(2026, 5, 27),
+    );
+
+    expect(total).toBe(6100);
+  });
+});
+
+describe("remainingPaydaysInYear", () => {
+  it("counts paydays after today through year end", () => {
+    expect(remainingPaydaysInYear(new Date(2026, 5, 27))).toBe(12);
+  });
+});
+
+describe("projectCurrentYear", () => {
+  it("combines year-to-date totals with forecasts for the rest of the year", () => {
+    const item = budgetItem();
+    const result = projectCurrentYear({
+      incomeEntries: [
+        incomeEntry({ id: 1, pay_date: "2026-01-15", net_pay: "3000.00" }),
+        incomeEntry({ id: 2, pay_date: "2026-06-01", net_pay: "3000.00" }),
+        incomeEntry({ id: 3, pay_date: "2026-06-15", net_pay: "3000.00" }),
+      ],
+      budgetItems: [item],
+      expenseEntries: [expenseEntry("600.00", "2026-06-01")],
+      creditCardTransactions: [],
+      currentDate: new Date(2026, 5, 27),
+    });
+
+    expect(result.year).toBe(2026);
+    expect(result.ytdIncome).toBe(9000);
+    expect(result.remainingPaydays).toBe(12);
+    expect(result.predictedPaycheck).toBe(3000);
+    expect(result.forecastIncome).toBe(36000);
+    expect(result.projectedIncome).toBe(45000);
+    expect(result.ytdExpenses).toBe(600);
+    expect(result.projectedExpenses).toBeGreaterThan(result.ytdExpenses);
+    expect(result.projectedNet).toBe(
+      result.projectedIncome - result.projectedExpenses,
+    );
   });
 });
 

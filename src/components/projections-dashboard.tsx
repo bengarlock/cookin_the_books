@@ -3,9 +3,15 @@
 import { useMemo } from "react";
 
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
+import type { BudgetItem } from "@/lib/budget-item-types";
+import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import type { ExpenseEntry } from "@/lib/expense-entry-types";
 import type { IncomeEntry } from "@/lib/income-entry-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
-import { projectRevenueAfterPayCycle } from "@/lib/projections";
+import {
+  projectCurrentYear,
+  projectRevenueAfterPayCycle,
+} from "@/lib/projections";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -109,9 +115,15 @@ function SummaryRow({
 }
 
 export function ProjectionsDashboard({
+  budgetItems,
+  creditCardTransactions,
+  expenseEntries,
   initialIncomeEntries,
   initialPendingTransactions,
 }: {
+  budgetItems: BudgetItem[];
+  creditCardTransactions: CreditCardTransaction[];
+  expenseEntries: ExpenseEntry[];
   initialIncomeEntries: IncomeEntry[];
   initialPendingTransactions: PendingTransaction[];
 }) {
@@ -127,6 +139,22 @@ export function ProjectionsDashboard({
     [initialIncomeEntries, initialPendingTransactions, snapshot],
   );
 
+  const yearProjection = useMemo(
+    () =>
+      projectCurrentYear({
+        incomeEntries: initialIncomeEntries,
+        budgetItems,
+        expenseEntries,
+        creditCardTransactions,
+      }),
+    [
+      budgetItems,
+      creditCardTransactions,
+      expenseEntries,
+      initialIncomeEntries,
+    ],
+  );
+
   const sampleSize =
     projection.paycheckProjection.normalPaychecks.length +
     projection.paycheckProjection.bonusPaychecks.length;
@@ -134,6 +162,35 @@ export function ProjectionsDashboard({
 
   return (
     <div className="mt-10 space-y-8">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <MetricCard
+          label={`${yearProjection.year} projected income`}
+          value={formatCurrency(yearProjection.projectedIncome)}
+          description={
+            yearProjection.predictedPaycheck > 0
+              ? `${formatCurrency(yearProjection.ytdIncome)} year to date plus ${yearProjection.remainingPaydays} remaining paycheck${
+                  yearProjection.remainingPaydays === 1 ? "" : "s"
+                } at ${formatCurrency(yearProjection.predictedPaycheck)} each.`
+              : `${formatCurrency(yearProjection.ytdIncome)} year to date. Add income history to forecast remaining paychecks.`
+          }
+        />
+        <MetricCard
+          label={`${yearProjection.year} projected expenses`}
+          value={formatCurrency(yearProjection.projectedExpenses)}
+          description={`${formatCurrency(yearProjection.ytdExpenses)} year to date plus ${formatCurrency(
+            yearProjection.forecastExpenses,
+          )} forecast through Dec 31 from current monthly averages.`}
+          negative
+        />
+        <MetricCard
+          featured
+          label={`${yearProjection.year} net gain / loss`}
+          negative={yearProjection.projectedNet < 0}
+          value={formatCurrency(yearProjection.projectedNet)}
+          description="Projected income minus projected expenses for the calendar year."
+        />
+      </section>
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Next payday"

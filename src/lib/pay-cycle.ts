@@ -65,3 +65,17 @@ export function formatPayday(date: Date) {
     year: "numeric",
   }).format(date);
 }
+
+export function remainingPaydaysInYear(currentDate = new Date()) {
+  const today = startOfLocalDay(currentDate);
+  const year = today.getFullYear();
+  const candidates: Date[] = [];
+
+  for (let month = 0; month < 12; month += 1) {
+    for (const payday of PAYDAYS) {
+      candidates.push(adjustWeekendPayday(new Date(year, month, payday)));
+    }
+  }
+
+  return candidates.filter((candidate) => candidate > today).length;
+}

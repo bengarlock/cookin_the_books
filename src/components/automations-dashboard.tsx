@@ -43,6 +43,7 @@ const emptyRuleForm = {
   match_value: "",
   target_budget_item: "",
   note_template: "",
+  exclude_from_credit_card: true,
 };
 
 function ruleToForm(rule: ExpenseAutomationRule) {
@@ -53,6 +54,7 @@ function ruleToForm(rule: ExpenseAutomationRule) {
     match_value: rule.match_value,
     target_budget_item: String(rule.target_budget_item),
     note_template: rule.note_template,
+    exclude_from_credit_card: rule.exclude_from_credit_card ?? true,
   };
 }
 
@@ -140,6 +142,7 @@ export function AutomationsDashboard({
       match_value: form.match_value.trim(),
       target_budget_item: Number(form.target_budget_item) || 0,
       note_template: form.note_template,
+      exclude_from_credit_card: form.exclude_from_credit_card,
       created_at: "",
       updated_at: "",
     };
@@ -189,6 +192,7 @@ export function AutomationsDashboard({
       match_value: form.match_value.trim(),
       target_budget_item: targetBudgetItem,
       note_template: form.note_template.trim(),
+      exclude_from_credit_card: form.exclude_from_credit_card,
     };
 
     setSavingForm(true);
@@ -516,6 +520,31 @@ export function AutomationsDashboard({
                 placeholder="Leave blank to use the transaction description"
                 value={form.note_template}
               />
+            </label>
+            <label
+              className="flex items-start gap-3 rounded-xl border border-white/10 bg-black/15 px-3 py-3 sm:col-span-2"
+              title="Deduct created expenses from the credit card total so they are not double counted"
+            >
+              <input
+                checked={form.exclude_from_credit_card}
+                className="mt-0.5 size-4 rounded border-white/20 bg-black/20 text-accent focus:ring-accent/40"
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    exclude_from_credit_card: event.target.checked,
+                  }))
+                }
+                type="checkbox"
+              />
+              <span>
+                <span className="block text-sm text-white/80">
+                  Exclude from credit card
+                </span>
+                <span className="mt-0.5 block text-xs text-muted">
+                  When enabled, expense entries created by this rule are
+                  deducted from the credit card total.
+                </span>
+              </span>
             </label>
           </div>
           {previewMatches.length ? (

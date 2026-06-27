@@ -1,8 +1,15 @@
 import type { IncomeEntry } from "./income-entry-types";
 import { localDateString } from "./expense-date-range";
 import type { PendingTransaction } from "./pending-transaction-types";
-import { formatPayday, getNextPayCycle } from "./pay-cycle";
+import { formatPayday, getNextPayCycle, remainingPaydaysInYear } from "./pay-cycle";
 import type { BankValueSnapshot, SnapshotAccountKey } from "./snapshot-types";
+import type { BudgetItem } from "./budget-item-types";
+import {
+  AVERAGE_DAYS_PER_MONTH,
+  budgetItemExpenseAverages,
+} from "./expense-averages";
+import type { CreditCardTransaction } from "./credit-card-transaction-types";
+import type { ExpenseEntry } from "./expense-entry-types";
 
 const LIABILITY_ACCOUNTS: SnapshotAccountKey[] = [
   "chase_credit",
@@ -55,6 +62,20 @@ export type PayCycleProjection = {
   liabilityBreakdown: LiabilityBreakdown[];
   projectedCashAfterPayCycle: number;
   paycheckProjection: PaycheckProjection;
+};
+
+export type CurrentYearProjection = {
+  year: number;
+  ytdIncome: number;
+  forecastIncome: number;
+  projectedIncome: number;
+  ytdExpenses: number;
+  forecastExpenses: number;
+  projectedExpenses: number;
+  projectedNet: number;
+  remainingPaydays: number;
+  predictedPaycheck: number;
+  remainingDays: number;
 };
 
 function oneYearAgo(currentDate: Date) {
@@ -222,6 +243,95 @@ export function liabilityBreakdownFromSnapshot(
   return {
     breakdown,
     total: breakdown.reduce((sum, item) => sum + item.amount, 0),
+  };
+}
+
+function calendarDaysBetween(start: string, end: string) {
+  const startValue = Date.parse(`${start}T00:00:00Z`);
+  const endValue = Date.parse(`${end}T00:00:00Z`);
+  if (!Number.isFinite(startValue) || !Number.isFinite(endValue)) return 0;
+  if (endValue < startValue) return 0;
+  return Math.floor((endValue - startValue) / MILLISECONDS_PER_DAY) + 1;
+}
+
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function currentYearBounds(currentDate = new Date()) {
+  const year = currentDate.getFullYear();
+  return {
+    year,
+    start: `${year}-01-01`,
+    end: `${year}-12-31`,
+    today: localDateString(currentDate),
+  };
+}
+
+export function yearToDateIncome(
+  entries: IncomeEntry[],
+  currentDate = new Date(),
+) {
+  const { start, today } = currentYearBounds(currentDate);
+
+  return entries
+    .filter((entry) => entry.pay_date >= start && entry.pay_date <= today)
+    .reduce((sum, entry) => sum + Number(entry.net_pay), 0);
+}
+
+export function projectCurrentYear({
+  incomeEntries,
+  budgetItems,
+  expenseEntries,
+  creditCardTransactions,
+  currentDate = new Date(),
+}: {
+  incomeEntries: IncomeEntry[];
+  budgetItems: BudgetItem[];
+  expenseEntries: ExpenseEntry[];
+  creditCardTransactions: CreditCardTransaction[];
+  currentDate?: Date;
+}): CurrentYearProjection {
+  const { year, start, end, today } = currentYearBounds(currentDate);
+  const paycheckProjection = classifyPaychecks(incomeEntries, currentDate);
+  const predictedPaycheck = paycheckProjection.predictedNetPay;
+  const remainingPaydays = remainingPaydaysInYear(currentDate);
+  const ytdIncome = yearToDateIncome(incomeEntries, currentDate);
+  const forecastIncome = remainingPaydays * predictedPaycheck;
+  const projectedIncome = ytdIncome + forecastIncome;
+
+  const yearDateRange = { start, end: today };
+  let ytdExpenses = 0;
+  let monthlyExpenseRate = 0;
+
+  for (const item of budgetItems) {
+    const averages = budgetItemExpenseAverages(
+      item,
+      expenseEntries,
+      creditCardTransactions,
+      yearDateRange,
+      today,
+      budgetItems,
+    );
+    ytdExpenses += averages.total;
+    monthlyExpenseRate += averages.monthly;
+  }
+
+  const remainingDays = Math.max(0, calendarDaysBetween(today, end) - 1);
+  const forecastExpenses =
+    monthlyExpenseRate * (remainingDays / AVERAGE_DAYS_PER_MONTH);
+  const projectedExpenses = ytdExpenses + forecastExpenses;
+
+  return {
+    year,
+    ytdIncome,
+    forecastIncome,
+    projectedIncome,
+    ytdExpenses,
+    forecastExpenses,
+    projectedExpenses,
+    projectedNet: projectedIncome - projectedExpenses,
+    remainingPaydays,
+    predictedPaycheck,
+    remainingDays,
   };
 }
 

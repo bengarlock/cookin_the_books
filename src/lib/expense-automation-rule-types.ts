@@ -14,6 +14,7 @@ export type ExpenseAutomationRule = {
   match_value: string;
   target_budget_item: number;
   note_template: string;
+  exclude_from_credit_card: boolean;
   created_at: string;
   updated_at: string;
 };

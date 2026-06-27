@@ -7,6 +7,8 @@ import type { ExpenseEntry } from "./expense-entry-types";
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const AVERAGE_DAYS_PER_MONTH = 365.2425 / 12;
 
+export { AVERAGE_DAYS_PER_MONTH };
+
 export function effectiveExpenseAmount(
   amount: string | number,
   isSharedCost: boolean,

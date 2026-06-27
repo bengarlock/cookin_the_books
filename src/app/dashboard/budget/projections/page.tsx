@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 
 import { BudgetNavigation } from "@/components/budget-navigation";
 import { ProjectionsDashboard } from "@/components/projections-dashboard";
+import { getBudgetItems } from "@/lib/budget-items";
+import { getCreditCardTransactions } from "@/lib/credit-card-transactions";
+import { getExpenseEntries } from "@/lib/expense-entries";
 import { getIncomeEntries } from "@/lib/income-entries";
 import { getPendingTransactions } from "@/lib/pending-transactions";
 
@@ -10,9 +13,18 @@ export const metadata: Metadata = {
 };
 
 export default async function ProjectionsPage() {
-  const [incomeEntries, pendingTransactions] = await Promise.all([
+  const [
+    incomeEntries,
+    pendingTransactions,
+    budgetItems,
+    expenseEntries,
+    creditCardTransactions,
+  ] = await Promise.all([
     getIncomeEntries(),
     getPendingTransactions(),
+    getBudgetItems(),
+    getExpenseEntries(),
+    getCreditCardTransactions(),
   ]);
 
   return (
@@ -22,6 +34,9 @@ export default async function ProjectionsPage() {
       </section>
 
       <ProjectionsDashboard
+        budgetItems={budgetItems}
+        creditCardTransactions={creditCardTransactions}
+        expenseEntries={expenseEntries}
         initialIncomeEntries={incomeEntries}
         initialPendingTransactions={pendingTransactions}
       />
