@@ -185,8 +185,8 @@ function adjustedAccountValue(
   pendingTransactions: PendingTransaction[],
   key: SnapshotAccountKey,
 ) {
-  const pendingByAccount = new Map<SnapshotAccountKey, number>();
-  const settledAccounts = new Set<SnapshotAccountKey>();
+  const pendingByAccount = new Map<keyof BankValueSnapshot, number>();
+  const settledAccounts = new Set<keyof BankValueSnapshot>();
 
   for (const transaction of pendingTransactions) {
     if (transaction.is_cleared) continue;
