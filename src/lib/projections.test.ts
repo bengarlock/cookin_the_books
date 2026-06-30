@@ -4,6 +4,7 @@ import type { IncomeEntry } from "./income-entry-types";
 import type { BankValueSnapshot } from "./snapshot-types";
 import type { BudgetItem } from "./budget-item-types";
 import type { ExpenseEntry } from "./expense-entry-types";
+import type { PendingTransaction } from "./pending-transaction-types";
 import { remainingPaydaysInYear } from "./pay-cycle";
 import {
   classifyPaychecks,
@@ -142,6 +143,24 @@ function expenseEntry(
   };
 }
 
+function pendingCardPayment(
+  overrides: Partial<PendingTransaction> = {},
+): PendingTransaction {
+  return {
+    id: 1,
+    account: "chase_checking",
+    note: "Credit Card Payment",
+    amount: "600.00",
+    settled_accounts: ["citi_current", "citi_pending"],
+    expected_post_date: "2026-07-01",
+    is_cleared: false,
+    cleared_at: null,
+    created_at: "2026-06-30T09:00:00Z",
+    updated_at: "2026-06-30T09:00:00Z",
+    ...overrides,
+  };
+}
+
 describe("yearToDateIncome", () => {
   it("sums net pay for the current calendar year through today", () => {
     const total = yearToDateIncome(
@@ -194,7 +213,7 @@ describe("projectCurrentYear", () => {
 });
 
 describe("projectRevenueAfterPayCycle", () => {
-  it("projects checking cash after the next paycheck and card payoff", () => {
+  it("projects paycheck cash after card payoff without existing checking", () => {
     const entries = [
       incomeEntry({ id: 1, pay_date: "2026-05-15", net_pay: "3200.00" }),
       incomeEntry({ id: 2, pay_date: "2026-06-01", net_pay: "3180.00" }),
@@ -209,9 +228,24 @@ describe("projectRevenueAfterPayCycle", () => {
     });
 
     expect(result.predictedNextPaycheck).toBe(3190);
-    expect(result.currentChecking).toBe(2500);
     expect(result.creditCardPayoff).toBe(1100);
-    expect(result.projectedCashAfterPayCycle).toBe(4590);
+    expect(result.projectedCashAfterPayCycle).toBe(2090);
     expect(result.daysRemaining).toBeGreaterThan(0);
+  });
+
+  it("keeps Citi pending charges after the current balance is marked paid", () => {
+    const result = projectRevenueAfterPayCycle({
+      incomeEntries: [],
+      snapshot: snapshot({
+        chase_credit: "0.00",
+        citi_current: "600.00",
+        citi_pending: "47.99",
+        barclays_card: "0.00",
+      }),
+      pendingTransactions: [pendingCardPayment()],
+      currentDate: new Date(2026, 5, 30),
+    });
+
+    expect(result.creditCardPayoff).toBe(47.99);
   });
 });

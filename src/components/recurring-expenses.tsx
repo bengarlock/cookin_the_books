@@ -69,6 +69,15 @@ export function RecurringExpenses({
     (total, row) => total + row.averages.monthly,
     0,
   );
+  const totalDaily = rows.reduce(
+    (total, row) => total + row.averages.daily,
+    0,
+  );
+  const totalWeekly = rows.reduce(
+    (total, row) => total + row.averages.weekly,
+    0,
+  );
+  const totalYearly = amountForBudgetPeriod(totalMonthly, "yearly");
 
   return (
     <div className="surface mt-8 overflow-hidden rounded-2xl">
@@ -93,6 +102,30 @@ export function RecurringExpenses({
 
       <div className="border-b border-white/10 bg-black/10 px-4 py-4 sm:px-5">
         <DateRangePicker range={dateRange} onApply={setDateRange} />
+      </div>
+
+      <div className="grid border-b border-white/10 sm:grid-cols-3">
+        {[
+          { label: "Daily average", value: totalDaily },
+          { label: "Weekly average", value: totalWeekly },
+          { label: "Yearly average", value: totalYearly },
+        ].map((summary, index) => (
+          <div
+            className={`bg-white/[0.025] px-5 py-4 ${
+              index > 0
+                ? "border-t border-white/[0.07] sm:border-l sm:border-t-0"
+                : ""
+            }`}
+            key={summary.label}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
+              {summary.label}
+            </p>
+            <p className="mt-2 font-mono text-xl font-semibold text-accent">
+              {formatCurrency(summary.value)}
+            </p>
+          </div>
+        ))}
       </div>
 
       <div className="overflow-x-auto">

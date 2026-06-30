@@ -329,7 +329,7 @@ export function ProjectionsDashboard({
         <MetricCard
           label="Projected cash after pay cycle"
           value={formatCurrency(projection.projectedCashAfterPayCycle)}
-          description="Checking balance plus predicted paycheck minus card payoffs."
+          description="Predicted paycheck minus card payoffs."
           featured
           negative={projection.projectedCashAfterPayCycle < 0}
         />
@@ -341,14 +341,9 @@ export function ProjectionsDashboard({
             Projection breakdown
           </p>
           <p className="mt-2 text-sm text-muted">
-            Starting from current checking, adding the forecasted paycheck, then
-            paying off credit cards.
+            Starting from the forecasted paycheck, then paying off credit cards.
           </p>
         </div>
-        <SummaryRow
-          label="Current checking"
-          value={formatCurrency(projection.currentChecking)}
-        />
         <SummaryRow
           detail="Based on median net pay from normal paychecks in the last year."
           label="Predicted next paycheck"

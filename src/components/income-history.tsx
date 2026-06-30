@@ -483,7 +483,7 @@ export function IncomeHistory({
               />
             </p>
           </div>
-          <div className="px-5 py-4 lg:border-r lg:border-white/[0.07]">
+          <div className="px-5 py-4 lg:npborder-r lg:border-white/[0.07]">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
               Taxes withheld
             </p>

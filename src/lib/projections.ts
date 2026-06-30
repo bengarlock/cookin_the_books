@@ -56,7 +56,6 @@ export type PayCycleProjection = {
   nextPayday: Date;
   nextPaydayLabel: string;
   daysRemaining: number;
-  currentChecking: number;
   predictedNextPaycheck: number;
   creditCardPayoff: number;
   liabilityBreakdown: LiabilityBreakdown[];
@@ -221,7 +220,7 @@ function adjustedAccountValue(
     );
   }
 
-  if (settledAccounts.has(key)) return 0;
+  if (settledAccounts.has(key) && key !== "citi_pending") return 0;
 
   const posted = valueFromSnapshot(snapshot, key);
   const pending = pendingByAccount.get(key) || 0;
@@ -359,21 +358,13 @@ export function projectRevenueAfterPayCycle({
     snapshot,
     pendingTransactions,
   );
-  const currentChecking = adjustedAccountValue(
-    snapshot,
-    pendingTransactions,
-    "chase_checking",
-  );
   const projectedCashAfterPayCycle =
-    currentChecking +
-    paycheckProjection.predictedNetPay -
-    liabilities.total;
+    paycheckProjection.predictedNetPay - liabilities.total;
 
   return {
     nextPayday: payCycle.nextPayday,
     nextPaydayLabel: formatPayday(payCycle.nextPayday),
     daysRemaining: payCycle.daysRemaining,
-    currentChecking,
     predictedNextPaycheck: paycheckProjection.predictedNetPay,
     creditCardPayoff: liabilities.total,
     liabilityBreakdown: liabilities.breakdown,

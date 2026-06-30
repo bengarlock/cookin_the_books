@@ -484,7 +484,7 @@ export function LiveBankValues({
 
     const adjustedValue = (key: keyof BankValueSnapshot) => {
       const posted = valueFromSnapshot(snapshot, key);
-      if (settledAccounts.has(key)) return 0;
+      if (settledAccounts.has(key) && key !== "citi_pending") return 0;
       const pending = pendingByAccount.get(key) || 0;
       return liabilityAccounts.has(key) ? posted + pending : posted - pending;
     };
@@ -941,8 +941,7 @@ export function LiveBankValues({
                   calculations.adjustedValue("citi_current") +
                   calculations.adjustedValue("citi_pending");
                 const citiSettled =
-                  calculations.settledAccounts.has("citi_current") ||
-                  calculations.settledAccounts.has("citi_pending");
+                  calculations.settledAccounts.has("citi_current");
 
                 return (
                   <div
@@ -968,7 +967,7 @@ export function LiveBankValues({
                           onClick={() =>
                             markLiabilityPaid({
                               amount: currentPosted,
-                              settledAccounts: ["citi_current", "citi_pending"],
+                              settledAccounts: ["citi_current"],
                             })
                           }
                           state={
