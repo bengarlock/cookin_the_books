@@ -901,11 +901,23 @@ export function LiveBankValues({
                     <p className="text-xs text-muted">{section.description}</p>
                   </div>
                 </div>
-                <div className="hidden grid-cols-[minmax(0,1fr)_2rem_8rem_8rem] gap-6 border-b border-white/10 px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted sm:grid">
+                <div
+                  className={`hidden gap-6 border-b border-white/10 px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted sm:grid ${
+                    section.title === "Investments & retirement"
+                      ? "grid-cols-[minmax(0,1fr)_8rem]"
+                      : "grid-cols-[minmax(0,1fr)_8rem_8rem_8rem]"
+                  }`}
+                >
                   <span>Account</span>
-                  <span className="sr-only">Payment status</span>
-                  <span className="text-right">Posted</span>
-                  <span className="text-right">Adjusted</span>
+                  {section.title === "Investments & retirement" ? (
+                    <span className="text-right">Available</span>
+                  ) : (
+                    <>
+                      <span className="text-right">Available</span>
+                      <span className="text-right">Pending</span>
+                      <span className="text-right">Adjusted</span>
+                    </>
+                  )}
                 </div>
                 {section.keys.map((accountKey) => {
                   const account = accounts.find(
@@ -920,6 +932,8 @@ export function LiveBankValues({
                   calculations.pendingByAccount.get("citi_current") || 0;
                 const pendingManual =
                   calculations.pendingByAccount.get("citi_pending") || 0;
+                const totalPending =
+                  pendingPosted + currentManual + pendingManual;
                 const adjusted =
                   calculations.adjustedValue("citi_current") +
                   calculations.adjustedValue("citi_pending");
@@ -930,7 +944,7 @@ export function LiveBankValues({
                 return (
                   <div
                     key="citi_card"
-                    className="grid grid-cols-[minmax(0,1fr)_2rem_8rem] items-center gap-x-5 border-b border-white/[0.07] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_2rem_8rem_8rem] sm:px-5"
+                    className="grid grid-cols-[minmax(0,1fr)_8rem] items-center gap-x-5 border-b border-white/[0.07] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_8rem] sm:px-5"
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -939,50 +953,41 @@ export function LiveBankValues({
                           accountKey="citi_current"
                           label="Citi Card"
                         />
+                        <PaidActionButton
+                          disabled={
+                            citiSettled || currentPosted <= 0 || !!payingAccount
+                          }
+                          label={
+                            citiSettled
+                              ? "Citi Card is paid pending clearance"
+                              : "Mark Citi Card paid"
+                          }
+                          onClick={() =>
+                            markLiabilityPaid({
+                              amount: currentPosted,
+                              settledAccounts: ["citi_current", "citi_pending"],
+                            })
+                          }
+                          state={
+                            citiSettled
+                              ? "paid"
+                              : payingAccount === "citi_current"
+                                ? "saving"
+                                : "idle"
+                          }
+                        />
                       </div>
-                      <p className="mt-1 text-xs text-muted">
-                        Current {formatCurrency(currentPosted)}
-                        <span className="mx-1.5 text-white/20">·</span>
-                        Pending {formatCurrency(pendingPosted)}
-                        {currentManual + pendingManual > 0 ? (
-                          <span className="text-amber-100/70">
-                            {" "}
-                            · {formatCurrency(currentManual + pendingManual)} manual
-                          </span>
-                        ) : null}
-                        {citiSettled ? (
-                          <span className="text-accent">
-                            {" "}
-                            · Paid pending clearance
-                          </span>
-                        ) : null}
-                      </p>
+                      {citiSettled ? (
+                        <p className="mt-1 text-xs text-accent">
+                          Paid pending clearance
+                        </p>
+                      ) : null}
                     </div>
-                    <PaidActionButton
-                      disabled={
-                        citiSettled || currentPosted <= 0 || !!payingAccount
-                      }
-                      label={
-                        citiSettled
-                          ? "Citi Card is paid pending clearance"
-                          : "Mark Citi Card paid"
-                      }
-                      onClick={() =>
-                        markLiabilityPaid({
-                          amount: currentPosted,
-                          settledAccounts: ["citi_current", "citi_pending"],
-                        })
-                      }
-                      state={
-                        citiSettled
-                          ? "paid"
-                          : payingAccount === "citi_current"
-                            ? "saving"
-                            : "idle"
-                      }
-                    />
                     <span className="hidden whitespace-nowrap text-right font-mono text-sm text-white/55 sm:block">
-                      {formatCurrency(currentPosted + pendingPosted)}
+                      {formatCurrency(currentPosted)}
+                    </span>
+                    <span className="hidden whitespace-nowrap text-right font-mono text-sm text-amber-100/70 sm:block">
+                      {formatCurrency(totalPending)}
                     </span>
                     <div className="text-right">
                       <p className="whitespace-nowrap font-mono text-sm font-semibold text-white">
@@ -1005,10 +1010,16 @@ export function LiveBankValues({
                   const liabilitySettled = calculations.settledAccounts.has(
                     account.key,
                   );
+                  const isInvestmentSection =
+                    section.title === "Investments & retirement";
                   return (
                     <div
                       key={account.key}
-                      className={`grid grid-cols-[minmax(0,1fr)_2rem_8rem] items-center gap-x-5 gap-y-1 border-b px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_2rem_8rem_8rem] sm:px-5 ${
+                      className={`grid grid-cols-[minmax(0,1fr)_8rem] items-center gap-x-5 gap-y-1 border-b px-4 py-3.5 sm:px-5 ${
+                        isInvestmentSection
+                          ? "sm:grid-cols-[minmax(0,1fr)_8rem]"
+                          : "sm:grid-cols-[minmax(0,1fr)_8rem_8rem_8rem]"
+                      } ${
                         overdrawn
                           ? "border-rose-300/15 bg-rose-500/10"
                           : "border-white/[0.07]"
@@ -1029,80 +1040,82 @@ export function LiveBankValues({
                             accountKey={account.key}
                             label={account.label}
                           />
-                        </div>
-                        {compactLiability ? (
-                          <p className="mt-1 text-xs text-muted">
-                            Current {formatCurrency(posted)}
-                            <span className="mx-1.5 text-white/20">·</span>
-                            Pending{" "}
-                            <span
-                              className={
-                                pending > 0 ? "text-amber-100/70" : undefined
+                          {compactLiability ? (
+                            <PaidActionButton
+                              disabled={
+                                liabilitySettled ||
+                                posted <= 0 ||
+                                !!payingAccount
                               }
-                            >
-                              {formatCurrency(pending)}
-                            </span>
-                            {liabilitySettled ? (
-                              <span className="text-accent">
-                                {" "}
-                                · Paid pending clearance
-                              </span>
-                            ) : null}
-                          </p>
-                        ) : pending > 0 ? (
-                          <p className="mt-1 text-xs text-amber-100/70">
-                            {formatCurrency(pending)} pending
+                              label={
+                                liabilitySettled
+                                  ? `${account.label} is paid pending clearance`
+                                  : `Mark ${account.label} paid`
+                              }
+                              onClick={() =>
+                                markLiabilityPaid({
+                                  amount: posted,
+                                  settledAccounts: [account.key],
+                                })
+                              }
+                              state={
+                                liabilitySettled
+                                  ? "paid"
+                                  : payingAccount === account.key
+                                    ? "saving"
+                                    : "idle"
+                              }
+                            />
+                          ) : null}
+                        </div>
+                        {liabilitySettled ? (
+                          <p className="mt-1 text-xs text-accent">
+                            Paid pending clearance
                           </p>
                         ) : null}
                       </div>
-                      {compactLiability ? (
-                        <PaidActionButton
-                          disabled={
-                            liabilitySettled || posted <= 0 || !!payingAccount
-                          }
-                          label={
-                            liabilitySettled
-                              ? `${account.label} is paid pending clearance`
-                              : `Mark ${account.label} paid`
-                          }
-                          onClick={() =>
-                            markLiabilityPaid({
-                              amount: posted,
-                              settledAccounts: [account.key],
-                            })
-                          }
-                          state={
-                            liabilitySettled
-                              ? "paid"
-                              : payingAccount === account.key
-                                ? "saving"
-                                : "idle"
-                          }
-                        />
-                      ) : (
-                        <span aria-hidden="true" />
-                      )}
-                      <span className="hidden whitespace-nowrap text-right font-mono text-sm text-white/55 sm:block">
+                      <span
+                        className={`whitespace-nowrap text-right font-mono text-sm text-white/55 ${
+                          isInvestmentSection ? "block" : "hidden sm:block"
+                        }`}
+                      >
                         {formatCurrency(posted)}
                       </span>
-                      <div className="text-right">
-                        <p
-                          className={`whitespace-nowrap font-mono text-sm font-semibold ${
-                            overdrawn ? "text-rose-300" : "text-white"
-                          }`}
-                        >
-                          {formatCurrency(adjusted)}
-                        </p>
-                      </div>
+                      {!isInvestmentSection ? (
+                        <>
+                          <span className="hidden whitespace-nowrap text-right font-mono text-sm text-amber-100/70 sm:block">
+                            {formatCurrency(pending)}
+                          </span>
+                          <div className="text-right">
+                            <p
+                              className={`whitespace-nowrap font-mono text-sm font-semibold ${
+                                overdrawn ? "text-rose-300" : "text-white"
+                              }`}
+                            >
+                              {formatCurrency(adjusted)}
+                            </p>
+                          </div>
+                        </>
+                      ) : null}
                     </div>
                   );
                 })}
-                <div className="mt-auto grid grid-cols-[minmax(0,1fr)_8rem] items-center gap-5 bg-white/[0.04] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_2rem_8rem_8rem] sm:px-5">
+                <div
+                  className={`mt-auto grid grid-cols-[minmax(0,1fr)_8rem] items-center gap-5 bg-white/[0.04] px-4 py-3.5 sm:px-5 ${
+                    section.title === "Investments & retirement"
+                      ? "sm:grid-cols-[minmax(0,1fr)_8rem]"
+                      : "sm:grid-cols-[minmax(0,1fr)_8rem_8rem_8rem]"
+                  }`}
+                >
                   <span className="text-sm font-semibold text-white">
                     Total {section.title.toLowerCase()}
                   </span>
-                  <span aria-hidden="true" className="hidden sm:block" />
-                  <span aria-hidden="true" className="hidden sm:block" />
+                  {section.title !== "Investments & retirement" ? (
+                    <>
+                      <span aria-hidden="true" className="hidden sm:block" />
+                      <span aria-hidden="true" className="hidden sm:block" />
+                    </>
+                  ) : null}
                   <span
                     className={`whitespace-nowrap text-right font-mono text-sm font-semibold ${
                       section.title === "Liability accounts"
@@ -1113,7 +1126,10 @@ export function LiveBankValues({
                     {formatCurrency(
                       (section.totalKeys || section.keys).reduce(
                         (total, key) =>
-                          total + calculations.adjustedValue(key),
+                          total +
+                          (section.title === "Investments & retirement"
+                            ? valueFromSnapshot(snapshot, key)
+                            : calculations.adjustedValue(key)),
                         0,
                       ),
                     )}
