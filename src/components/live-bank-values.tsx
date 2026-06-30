@@ -369,6 +369,71 @@ function AccountLoginLink({
   );
 }
 
+function AdjustedReserveCopyButton({
+  copied,
+  disabled,
+  label,
+  onClick,
+}: {
+  copied: boolean;
+  disabled: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label={label}
+      className={`relative grid size-5 shrink-0 place-items-center rounded text-white/30 transition hover:text-accent disabled:cursor-not-allowed disabled:text-white/15 ${
+        copied ? "text-accent" : ""
+      }`}
+      disabled={disabled}
+      onClick={onClick}
+      title={copied ? "Copied" : label}
+      type="button"
+    >
+      <svg
+        aria-hidden="true"
+        className={`size-3.5 transition duration-200 ${
+          copied ? "scale-50 opacity-0" : "scale-100 opacity-100"
+        }`}
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <path
+          d="M12 3v18M7 6h10M6 6l-3 7h6L6 6Zm12 0-3 7h6l-3-7ZM5 21h14"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+        />
+      </svg>
+      <span
+        aria-hidden="true"
+        className={`absolute inset-0 rounded-full border border-accent/40 ${
+          copied ? "animate-ping opacity-75" : "opacity-0"
+        }`}
+      />
+      <svg
+        aria-hidden="true"
+        className={`absolute size-3.5 transition duration-200 ${
+          copied ? "scale-100 opacity-100" : "scale-50 opacity-0"
+        }`}
+        fill="none"
+        viewBox="0 0 16 16"
+      >
+        <path
+          d="m3.2 8.2 2.8 2.8 6.8-6.9"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2.2"
+        />
+      </svg>
+      <span className="sr-only">{copied ? "Copied" : label}</span>
+    </button>
+  );
+}
+
 function PaidActionButton({
   disabled,
   label,
@@ -453,6 +518,8 @@ export function LiveBankValues({
   const [isBudgetOffsetEditing, setIsBudgetOffsetEditing] = useState(false);
   const [budgetOffsetError, setBudgetOffsetError] = useState("");
   const [isBudgetOffsetSaving, setIsBudgetOffsetSaving] = useState(false);
+  const [copiedAdjustedAccount, setCopiedAdjustedAccount] =
+    useState<keyof BankValueSnapshot | null>(null);
   const payCycle = getNextPayCycle(
     currentDate,
     initialBudgetPlanSettings.next_payday_override,
@@ -691,6 +758,25 @@ export function LiveBankValues({
       );
     } finally {
       setPayingAccount(null);
+    }
+  }
+
+  async function copyAdjustedReserveValue(
+    accountKey: keyof BankValueSnapshot,
+    adjustedValue: number,
+  ) {
+    setRegisterError("");
+
+    try {
+      await navigator.clipboard.writeText((adjustedValue - 500).toFixed(2));
+      setCopiedAdjustedAccount(accountKey);
+      window.setTimeout(() => {
+        setCopiedAdjustedAccount((current) =>
+          current === accountKey ? null : current,
+        );
+      }, 1800);
+    } catch {
+      setRegisterError("Unable to copy the adjusted total.");
     }
   }
 
@@ -1042,6 +1128,18 @@ export function LiveBankValues({
                             accountKey={account.key}
                             label={account.label}
                           />
+                          {account.key === "chase_checking" ? (
+                            <AdjustedReserveCopyButton
+                              copied={
+                                copiedAdjustedAccount === "chase_checking"
+                              }
+                              disabled={!snapshot}
+                              label="Copy Chase Checking adjusted total minus $500"
+                              onClick={() =>
+                                copyAdjustedReserveValue(account.key, adjusted)
+                              }
+                            />
+                          ) : null}
                           {compactLiability ? (
                             <PaidActionButton
                               disabled={

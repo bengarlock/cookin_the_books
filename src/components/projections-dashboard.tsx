@@ -151,11 +151,17 @@ export function ProjectionsDashboard({
     () =>
       projectRevenueAfterPayCycle({
         incomeEntries: initialIncomeEntries,
+        budgetItems,
+        expenseEntries,
+        creditCardTransactions,
         snapshot,
         pendingTransactions: initialPendingTransactions,
         nextPaydayOverride,
       }),
     [
+      budgetItems,
+      creditCardTransactions,
+      expenseEntries,
       initialIncomeEntries,
       initialPendingTransactions,
       nextPaydayOverride,
@@ -308,7 +314,7 @@ export function ProjectionsDashboard({
           }
         />
         <MetricCard
-          label="Predicted paycheck"
+          label="Projected Income"
           value={formatCurrency(projection.predictedNextPaycheck)}
           description={
             hasIncomeData
@@ -321,15 +327,19 @@ export function ProjectionsDashboard({
           }
         />
         <MetricCard
-          label="Credit card payoff"
-          value={formatCurrency(-projection.creditCardPayoff)}
-          description="Assumes all current card balances are paid in full."
-          negative={projection.creditCardPayoff > 0}
+          label="Predicted Spend"
+          value={formatCurrency(-projection.predictedSpend)}
+          description={`Daily average expense of ${formatCurrency(
+            projection.dailyAverageExpense,
+          )} over ${projection.daysRemaining} day${
+            projection.daysRemaining === 1 ? "" : "s"
+          }.`}
+          negative={projection.predictedSpend > 0}
         />
         <MetricCard
           label="Projected cash after pay cycle"
           value={formatCurrency(projection.projectedCashAfterPayCycle)}
-          description="Predicted paycheck minus card payoffs."
+          description="Projected income minus predicted spend."
           featured
           negative={projection.projectedCashAfterPayCycle < 0}
         />
@@ -341,19 +351,23 @@ export function ProjectionsDashboard({
             Projection breakdown
           </p>
           <p className="mt-2 text-sm text-muted">
-            Starting from the forecasted paycheck, then paying off credit cards.
+            Starting from projected income, then subtracting predicted spend.
           </p>
         </div>
         <SummaryRow
           detail="Based on median net pay from normal paychecks in the last year."
-          label="Predicted next paycheck"
+          label="Projected income"
           value={`+${formatCurrency(projection.predictedNextPaycheck)}`}
         />
         <SummaryRow
-          detail="Chase, Citi, and Barclaycard balances from the latest snapshot."
-          label="Credit card payoff"
-          negative={projection.creditCardPayoff > 0}
-          value={`-${formatCurrency(projection.creditCardPayoff)}`}
+          detail={`${formatCurrency(
+            projection.dailyAverageExpense,
+          )} daily average expense multiplied by ${projection.daysRemaining} day${
+            projection.daysRemaining === 1 ? "" : "s"
+          } until the pay cycle.`}
+          label="Predicted spend"
+          negative={projection.predictedSpend > 0}
+          value={`-${formatCurrency(projection.predictedSpend)}`}
         />
         <SummaryRow
           emphasized

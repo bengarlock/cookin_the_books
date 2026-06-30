@@ -213,29 +213,38 @@ describe("projectCurrentYear", () => {
 });
 
 describe("projectRevenueAfterPayCycle", () => {
-  it("projects paycheck cash after card payoff without existing checking", () => {
+  it("projects paycheck cash after predicted spend without existing checking", () => {
     const entries = [
       incomeEntry({ id: 1, pay_date: "2026-05-15", net_pay: "3200.00" }),
       incomeEntry({ id: 2, pay_date: "2026-06-01", net_pay: "3180.00" }),
       incomeEntry({ id: 3, pay_date: "2026-06-15", net_pay: "3190.00" }),
     ];
+    const item = budgetItem();
 
     const result = projectRevenueAfterPayCycle({
       incomeEntries: entries,
+      budgetItems: [item],
+      expenseEntries: [expenseEntry("1780.00", "2026-06-01")],
+      creditCardTransactions: [],
       snapshot: snapshot(),
       pendingTransactions: [],
       currentDate: new Date(2026, 5, 27),
     });
 
     expect(result.predictedNextPaycheck).toBe(3190);
+    expect(result.dailyAverageExpense).toBe(10);
+    expect(result.predictedSpend).toBe(40);
     expect(result.creditCardPayoff).toBe(1100);
-    expect(result.projectedCashAfterPayCycle).toBe(2090);
+    expect(result.projectedCashAfterPayCycle).toBe(3150);
     expect(result.daysRemaining).toBeGreaterThan(0);
   });
 
   it("keeps Citi pending charges after the current balance is marked paid", () => {
     const result = projectRevenueAfterPayCycle({
       incomeEntries: [],
+      budgetItems: [],
+      expenseEntries: [],
+      creditCardTransactions: [],
       snapshot: snapshot({
         chase_credit: "0.00",
         citi_current: "600.00",

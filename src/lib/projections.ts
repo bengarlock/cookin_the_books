@@ -1,5 +1,5 @@
 import type { IncomeEntry } from "./income-entry-types";
-import { localDateString } from "./expense-date-range";
+import { defaultExpenseDateRange, localDateString } from "./expense-date-range";
 import type { PendingTransaction } from "./pending-transaction-types";
 import { formatPayday, getNextPayCycle, remainingPaydaysInYear } from "./pay-cycle";
 import type { BankValueSnapshot, SnapshotAccountKey } from "./snapshot-types";
@@ -57,6 +57,8 @@ export type PayCycleProjection = {
   nextPaydayLabel: string;
   daysRemaining: number;
   predictedNextPaycheck: number;
+  dailyAverageExpense: number;
+  predictedSpend: number;
   creditCardPayoff: number;
   liabilityBreakdown: LiabilityBreakdown[];
   projectedCashAfterPayCycle: number;
@@ -341,12 +343,18 @@ export function projectCurrentYear({
 
 export function projectRevenueAfterPayCycle({
   incomeEntries,
+  budgetItems,
+  expenseEntries,
+  creditCardTransactions,
   snapshot,
   pendingTransactions,
   currentDate = new Date(),
   nextPaydayOverride,
 }: {
   incomeEntries: IncomeEntry[];
+  budgetItems: BudgetItem[];
+  expenseEntries: ExpenseEntry[];
+  creditCardTransactions: CreditCardTransaction[];
   snapshot: BankValueSnapshot | null;
   pendingTransactions: PendingTransaction[];
   currentDate?: Date;
@@ -354,18 +362,36 @@ export function projectRevenueAfterPayCycle({
 }): PayCycleProjection {
   const payCycle = getNextPayCycle(currentDate, nextPaydayOverride);
   const paycheckProjection = classifyPaychecks(incomeEntries, currentDate);
+  const today = localDateString(currentDate);
+  const expenseDateRange = defaultExpenseDateRange(currentDate);
+  const dailyAverageExpense = budgetItems.reduce(
+    (total, item) =>
+      total +
+      budgetItemExpenseAverages(
+        item,
+        expenseEntries,
+        creditCardTransactions,
+        expenseDateRange,
+        today,
+        budgetItems,
+      ).daily,
+    0,
+  );
+  const predictedSpend = dailyAverageExpense * payCycle.daysRemaining;
   const liabilities = liabilityBreakdownFromSnapshot(
     snapshot,
     pendingTransactions,
   );
   const projectedCashAfterPayCycle =
-    paycheckProjection.predictedNetPay - liabilities.total;
+    paycheckProjection.predictedNetPay - predictedSpend;
 
   return {
     nextPayday: payCycle.nextPayday,
     nextPaydayLabel: formatPayday(payCycle.nextPayday),
     daysRemaining: payCycle.daysRemaining,
     predictedNextPaycheck: paycheckProjection.predictedNetPay,
+    dailyAverageExpense,
+    predictedSpend,
     creditCardPayoff: liabilities.total,
     liabilityBreakdown: liabilities.breakdown,
     projectedCashAfterPayCycle,
