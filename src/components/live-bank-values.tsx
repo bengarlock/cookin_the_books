@@ -959,7 +959,9 @@ export function LiveBankValues({
                       </p>
                     </div>
                     <PaidActionButton
-                      disabled={citiSettled || adjusted <= 0 || !!payingAccount}
+                      disabled={
+                        citiSettled || currentPosted <= 0 || !!payingAccount
+                      }
                       label={
                         citiSettled
                           ? "Citi Card is paid pending clearance"
@@ -967,7 +969,7 @@ export function LiveBankValues({
                       }
                       onClick={() =>
                         markLiabilityPaid({
-                          amount: adjusted,
+                          amount: currentPosted,
                           settledAccounts: ["citi_current", "citi_pending"],
                         })
                       }
@@ -1056,7 +1058,7 @@ export function LiveBankValues({
                       {compactLiability ? (
                         <PaidActionButton
                           disabled={
-                            liabilitySettled || adjusted <= 0 || !!payingAccount
+                            liabilitySettled || posted <= 0 || !!payingAccount
                           }
                           label={
                             liabilitySettled
@@ -1065,7 +1067,7 @@ export function LiveBankValues({
                           }
                           onClick={() =>
                             markLiabilityPaid({
-                              amount: adjusted,
+                              amount: posted,
                               settledAccounts: [account.key],
                             })
                           }
