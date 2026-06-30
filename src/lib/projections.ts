@@ -283,17 +283,22 @@ export function projectCurrentYear({
   expenseEntries,
   creditCardTransactions,
   currentDate = new Date(),
+  nextPaydayOverride,
 }: {
   incomeEntries: IncomeEntry[];
   budgetItems: BudgetItem[];
   expenseEntries: ExpenseEntry[];
   creditCardTransactions: CreditCardTransaction[];
   currentDate?: Date;
+  nextPaydayOverride?: string | null;
 }): CurrentYearProjection {
   const { year, start, end, today } = currentYearBounds(currentDate);
   const paycheckProjection = classifyPaychecks(incomeEntries, currentDate);
   const predictedPaycheck = paycheckProjection.predictedNetPay;
-  const remainingPaydays = remainingPaydaysInYear(currentDate);
+  const remainingPaydays = remainingPaydaysInYear(
+    currentDate,
+    nextPaydayOverride,
+  );
   const ytdIncome = yearToDateIncome(incomeEntries, currentDate);
   const forecastIncome = remainingPaydays * predictedPaycheck;
   const projectedIncome = ytdIncome + forecastIncome;
@@ -340,13 +345,15 @@ export function projectRevenueAfterPayCycle({
   snapshot,
   pendingTransactions,
   currentDate = new Date(),
+  nextPaydayOverride,
 }: {
   incomeEntries: IncomeEntry[];
   snapshot: BankValueSnapshot | null;
   pendingTransactions: PendingTransaction[];
   currentDate?: Date;
+  nextPaydayOverride?: string | null;
 }): PayCycleProjection {
-  const payCycle = getNextPayCycle(currentDate);
+  const payCycle = getNextPayCycle(currentDate, nextPaydayOverride);
   const paycheckProjection = classifyPaychecks(incomeEntries, currentDate);
   const liabilities = liabilityBreakdownFromSnapshot(
     snapshot,

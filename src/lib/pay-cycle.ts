@@ -27,8 +27,26 @@ function calendarDayNumber(date: Date) {
   return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-export function getNextPayCycle(currentDate = new Date()): PayCycle {
+function dateFromOverride(value?: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? null : startOfLocalDay(date);
+}
+
+export function getNextPayCycle(
+  currentDate = new Date(),
+  nextPaydayOverride?: string | null,
+): PayCycle {
   const today = startOfLocalDay(currentDate);
+  const overriddenPayday = dateFromOverride(nextPaydayOverride);
+  if (overriddenPayday && overriddenPayday >= today) {
+    return {
+      nextPayday: overriddenPayday,
+      daysRemaining:
+        (calendarDayNumber(overriddenPayday) - calendarDayNumber(today)) /
+        MILLISECONDS_PER_DAY,
+    };
+  }
   const candidates: Date[] = [];
 
   for (let monthOffset = 0; monthOffset <= 2; monthOffset += 1) {
@@ -58,6 +76,20 @@ export function getNextPayCycle(currentDate = new Date()): PayCycle {
   };
 }
 
+export function followingPayday(currentPayday: Date) {
+  const followingDay = startOfLocalDay(currentPayday);
+  followingDay.setDate(followingDay.getDate() + 1);
+  return getNextPayCycle(followingDay).nextPayday;
+}
+
+export function localPaydayString(date: Date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 export function formatPayday(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
     month: "long",
@@ -66,9 +98,15 @@ export function formatPayday(date: Date) {
   }).format(date);
 }
 
-export function remainingPaydaysInYear(currentDate = new Date()) {
+export function remainingPaydaysInYear(
+  currentDate = new Date(),
+  nextPaydayOverride?: string | null,
+) {
   const today = startOfLocalDay(currentDate);
   const year = today.getFullYear();
+  const overriddenPayday = dateFromOverride(nextPaydayOverride);
+  const firstIncludedPayday =
+    overriddenPayday && overriddenPayday > today ? overriddenPayday : null;
   const candidates: Date[] = [];
 
   for (let month = 0; month < 12; month += 1) {
@@ -77,5 +115,9 @@ export function remainingPaydaysInYear(currentDate = new Date()) {
     }
   }
 
-  return candidates.filter((candidate) => candidate > today).length;
+  return candidates.filter(
+    (candidate) =>
+      candidate > today &&
+      (!firstIncludedPayday || candidate >= firstIncludedPayday),
+  ).length;
 }

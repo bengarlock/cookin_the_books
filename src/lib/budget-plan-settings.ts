@@ -8,7 +8,7 @@ import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
 export async function getBudgetPlanSettings(): Promise<BudgetPlanSettings> {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
-  if (!token) return { budget_offset: "0.00" };
+  if (!token) return { budget_offset: "0.00", next_payday_override: null };
 
   try {
     const response = await fetch(
@@ -21,9 +21,11 @@ export async function getBudgetPlanSettings(): Promise<BudgetPlanSettings> {
         cache: "no-store",
       },
     );
-    if (!response.ok) return { budget_offset: "0.00" };
+    if (!response.ok) {
+      return { budget_offset: "0.00", next_payday_override: null };
+    }
     return (await response.json()) as BudgetPlanSettings;
   } catch {
-    return { budget_offset: "0.00" };
+    return { budget_offset: "0.00", next_payday_override: null };
   }
 }

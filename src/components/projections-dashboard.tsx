@@ -1,13 +1,20 @@
 "use client";
 
-import { useMemo } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
+import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import type { BudgetItem } from "@/lib/budget-item-types";
+import { APP_BASE_PATH } from "@/lib/config";
 import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
 import type { ExpenseEntry } from "@/lib/expense-entry-types";
 import type { IncomeEntry } from "@/lib/income-entry-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
+import {
+  followingPayday,
+  formatPayday,
+  localPaydayString,
+} from "@/lib/pay-cycle";
 import {
   projectCurrentYear,
   projectRevenueAfterPayCycle,
@@ -36,12 +43,14 @@ function MetricCard({
   label,
   value,
   description,
+  action,
   featured = false,
   negative = false,
 }: {
   label: string;
   value: string;
   description: string;
+  action?: ReactNode;
   featured?: boolean;
   negative?: boolean;
 }) {
@@ -64,6 +73,7 @@ function MetricCard({
         {value}
       </p>
       <p className="mt-3 text-xs leading-5 text-muted">{description}</p>
+      {action ? <div className="mt-4">{action}</div> : null}
     </article>
   );
 }
@@ -118,16 +128,24 @@ export function ProjectionsDashboard({
   budgetItems,
   creditCardTransactions,
   expenseEntries,
+  initialBudgetPlanSettings,
   initialIncomeEntries,
   initialPendingTransactions,
 }: {
   budgetItems: BudgetItem[];
   creditCardTransactions: CreditCardTransaction[];
   expenseEntries: ExpenseEntry[];
+  initialBudgetPlanSettings: BudgetPlanSettings;
   initialIncomeEntries: IncomeEntry[];
   initialPendingTransactions: PendingTransaction[];
 }) {
   const { snapshot } = useLiveSnapshot();
+  const [nextPaydayOverride, setNextPaydayOverride] = useState(
+    initialBudgetPlanSettings.next_payday_override,
+  );
+  const [confirmingFastForward, setConfirmingFastForward] = useState(false);
+  const [isFastForwarding, setIsFastForwarding] = useState(false);
+  const [fastForwardError, setFastForwardError] = useState("");
 
   const projection = useMemo(
     () =>
@@ -135,8 +153,14 @@ export function ProjectionsDashboard({
         incomeEntries: initialIncomeEntries,
         snapshot,
         pendingTransactions: initialPendingTransactions,
+        nextPaydayOverride,
       }),
-    [initialIncomeEntries, initialPendingTransactions, snapshot],
+    [
+      initialIncomeEntries,
+      initialPendingTransactions,
+      nextPaydayOverride,
+      snapshot,
+    ],
   );
 
   const yearProjection = useMemo(
@@ -146,14 +170,55 @@ export function ProjectionsDashboard({
         budgetItems,
         expenseEntries,
         creditCardTransactions,
+        nextPaydayOverride,
       }),
     [
       budgetItems,
       creditCardTransactions,
       expenseEntries,
       initialIncomeEntries,
+      nextPaydayOverride,
     ],
   );
+
+  const fastForwardPayday = followingPayday(projection.nextPayday);
+
+  async function fastForwardPayCycle() {
+    setIsFastForwarding(true);
+    setFastForwardError("");
+
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/budget-plan-settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          next_payday_override: localPaydayString(fastForwardPayday),
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | BudgetPlanSettings
+        | { message?: string; detail?: string }
+        | null;
+      if (!response.ok || !data || !("next_payday_override" in data)) {
+        throw new Error(
+          (data && "message" in data && data.message) ||
+            (data && "detail" in data && data.detail) ||
+            "Unable to fast forward the pay cycle.",
+        );
+      }
+
+      setNextPaydayOverride(data.next_payday_override);
+      setConfirmingFastForward(false);
+    } catch (error) {
+      setFastForwardError(
+        error instanceof Error
+          ? error.message
+          : "Unable to fast forward the pay cycle.",
+      );
+    } finally {
+      setIsFastForwarding(false);
+    }
+  }
 
   const sampleSize =
     projection.paycheckProjection.normalPaychecks.length +
@@ -198,6 +263,49 @@ export function ProjectionsDashboard({
           description={`${projection.daysRemaining} day${
             projection.daysRemaining === 1 ? "" : "s"
           } remaining in the current pay cycle.`}
+          action={
+            confirmingFastForward ? (
+              <div className="space-y-2">
+                <p className="text-xs text-amber-100/80">
+                  Advance next payday to {formatPayday(fastForwardPayday)}?
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent transition hover:bg-accent/15 disabled:cursor-wait disabled:opacity-60"
+                    disabled={isFastForwarding}
+                    onClick={fastForwardPayCycle}
+                    type="button"
+                  >
+                    {isFastForwarding ? "Saving…" : "Confirm"}
+                  </button>
+                  <button
+                    className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-muted transition hover:border-white/20 hover:text-white disabled:opacity-60"
+                    disabled={isFastForwarding}
+                    onClick={() => {
+                      setConfirmingFastForward(false);
+                      setFastForwardError("");
+                    }}
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {fastForwardError ? (
+                  <p className="text-xs text-rose-300" role="alert">
+                    {fastForwardError}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <button
+                className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-muted transition hover:border-accent/30 hover:bg-accent/10 hover:text-accent"
+                onClick={() => setConfirmingFastForward(true)}
+                type="button"
+              >
+                Fast forward
+              </button>
+            )
+          }
         />
         <MetricCard
           label="Predicted paycheck"

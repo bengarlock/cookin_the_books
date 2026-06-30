@@ -453,7 +453,10 @@ export function LiveBankValues({
   const [isBudgetOffsetEditing, setIsBudgetOffsetEditing] = useState(false);
   const [budgetOffsetError, setBudgetOffsetError] = useState("");
   const [isBudgetOffsetSaving, setIsBudgetOffsetSaving] = useState(false);
-  const payCycle = getNextPayCycle(currentDate);
+  const payCycle = getNextPayCycle(
+    currentDate,
+    initialBudgetPlanSettings.next_payday_override,
+  );
 
   useEffect(() => {
     const refreshDate = window.setInterval(
