@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 
+import { APP_BASE_PATH } from "@/lib/config";
 import type { FinancialGoal, FinancialGoalInput } from "@/lib/financial-goal-types";
 import { getCurrentPayPeriod } from "@/lib/pay-cycle";
 
@@ -84,7 +85,7 @@ export function FinancialGoals({ initialGoals, nextPaydayOverride }: { initialGo
   async function createGoal(event: FormEvent) {
     event.preventDefault();
     setSaving(true); setError("");
-    const response = await fetch("/api/financial-goals", {
+    const response = await fetch(`${APP_BASE_PATH}/api/financial-goals`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft),
     });
     if (!response.ok) { setError(await responseMessage(response)); setSaving(false); return; }
@@ -103,7 +104,7 @@ export function FinancialGoals({ initialGoals, nextPaydayOverride }: { initialGo
     event.preventDefault();
     if (editingId === null) return;
     setSaving(true); setError("");
-    const response = await fetch(`/api/financial-goals/${editingId}`, {
+    const response = await fetch(`${APP_BASE_PATH}/api/financial-goals/${editingId}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editDraft),
     });
     if (!response.ok) { setError(await responseMessage(response)); setSaving(false); return; }
