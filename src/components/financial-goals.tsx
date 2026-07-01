@@ -1,0 +1,133 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+
+import type { FinancialGoal, FinancialGoalInput } from "@/lib/financial-goal-types";
+
+const emptyGoal: FinancialGoalInput = {
+  goal_type: "spending",
+  name: "Pay cycle spending cap",
+  target_amount: "",
+  pay_cycle_start: "",
+  pay_cycle_end: "",
+  is_active: true,
+};
+
+async function responseMessage(response: Response) {
+  const body = (await response.json().catch(() => null)) as { message?: string } | null;
+  return body?.message || "The financial goal could not be saved.";
+}
+
+function GoalFields({
+  value,
+  onChange,
+}: {
+  value: FinancialGoalInput;
+  onChange: (value: FinancialGoalInput) => void;
+}) {
+  const inputClass =
+    "mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-none transition focus:border-accent/40";
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <label className="text-xs font-semibold uppercase tracking-[0.14em] text-muted sm:col-span-2">
+        Goal name
+        <input className={inputClass} maxLength={100} onChange={(event) => onChange({ ...value, name: event.target.value })} required value={value.name} />
+      </label>
+      <label className="text-xs font-semibold uppercase tracking-[0.14em] text-muted sm:col-span-2">
+        Spending cap
+        <input className={inputClass} inputMode="decimal" min="0.01" onChange={(event) => onChange({ ...value, target_amount: event.target.value })} placeholder="$0.00" required step="0.01" type="number" value={value.target_amount} />
+      </label>
+      <label className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+        Pay cycle starts
+        <input className={inputClass} onChange={(event) => onChange({ ...value, pay_cycle_start: event.target.value })} required type="date" value={value.pay_cycle_start} />
+      </label>
+      <label className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+        Pay cycle ends
+        <input className={inputClass} min={value.pay_cycle_start || undefined} onChange={(event) => onChange({ ...value, pay_cycle_end: event.target.value })} required type="date" value={value.pay_cycle_end} />
+      </label>
+      <label className="flex items-center gap-2 text-sm text-white/70 sm:col-span-2">
+        <input checked={value.is_active} onChange={(event) => onChange({ ...value, is_active: event.target.checked })} type="checkbox" />
+        Active goal
+      </label>
+    </div>
+  );
+}
+
+export function FinancialGoals({ initialGoals }: { initialGoals: FinancialGoal[] }) {
+  const [goals, setGoals] = useState(initialGoals);
+  const [creating, setCreating] = useState(false);
+  const [draft, setDraft] = useState<FinancialGoalInput>(emptyGoal);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<FinancialGoalInput>(emptyGoal);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function createGoal(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true); setError("");
+    const response = await fetch("/api/financial-goals", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft),
+    });
+    if (!response.ok) { setError(await responseMessage(response)); setSaving(false); return; }
+    const goal = (await response.json()) as FinancialGoal;
+    setGoals((current) => [goal, ...current]);
+    setDraft(emptyGoal); setCreating(false); setSaving(false);
+  }
+
+  function beginEdit(goal: FinancialGoal) {
+    setEditingId(goal.id);
+    setEditDraft({ goal_type: goal.goal_type, name: goal.name, target_amount: goal.target_amount, pay_cycle_start: goal.pay_cycle_start, pay_cycle_end: goal.pay_cycle_end, is_active: goal.is_active });
+    setError("");
+  }
+
+  async function updateGoal(event: FormEvent) {
+    event.preventDefault();
+    if (editingId === null) return;
+    setSaving(true); setError("");
+    const response = await fetch(`/api/financial-goals/${editingId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editDraft),
+    });
+    if (!response.ok) { setError(await responseMessage(response)); setSaving(false); return; }
+    const goal = (await response.json()) as FinancialGoal;
+    setGoals((current) => current.map((item) => item.id === goal.id ? goal : item));
+    setEditingId(null); setSaving(false);
+  }
+
+  return (
+    <div className="space-y-6 pt-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">Financial goals</p>
+          <h2 className="mt-2 text-2xl font-semibold text-white">Give each pay cycle a target</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">Create goals you can revisit and adjust as your priorities change.</p>
+        </div>
+        {!creating ? <button className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-[#07100f] transition hover:bg-[#7aebbd]" onClick={() => { setCreating(true); setError(""); }} type="button">Create goal</button> : null}
+      </div>
+
+      {creating ? (
+        <form className="surface rounded-2xl p-5" onSubmit={createGoal}>
+          <div className="mb-5"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold">Spending goal template</p><h3 className="mt-2 text-lg font-semibold text-white">Cap spending for a pay cycle</h3></div>
+          <GoalFields onChange={setDraft} value={draft} />
+          {error ? <p className="mt-4 text-sm text-rose-300" role="alert">{error}</p> : null}
+          <div className="mt-5 flex gap-3"><button className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-[#07100f] disabled:opacity-50" disabled={saving} type="submit">{saving ? "Saving…" : "Save goal"}</button><button className="rounded-xl border border-white/10 px-4 py-2 text-sm text-muted" onClick={() => setCreating(false)} type="button">Cancel</button></div>
+        </form>
+      ) : null}
+
+      <div className="grid gap-4">
+        {goals.map((goal) => editingId === goal.id ? (
+          <form className="surface rounded-2xl p-5" key={goal.id} onSubmit={updateGoal}>
+            <GoalFields onChange={setEditDraft} value={editDraft} />
+            {error ? <p className="mt-4 text-sm text-rose-300" role="alert">{error}</p> : null}
+            <div className="mt-5 flex gap-3"><button className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-[#07100f] disabled:opacity-50" disabled={saving} type="submit">{saving ? "Saving…" : "Update goal"}</button><button className="rounded-xl border border-white/10 px-4 py-2 text-sm text-muted" onClick={() => setEditingId(null)} type="button">Cancel</button></div>
+          </form>
+        ) : (
+          <article className="surface flex flex-col gap-4 rounded-2xl p-5 sm:flex-row sm:items-center sm:justify-between" key={goal.id}>
+            <div><div className="flex items-center gap-2"><h3 className="font-semibold text-white">{goal.name}</h3><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${goal.is_active ? "bg-accent/10 text-accent" : "bg-white/5 text-muted"}`}>{goal.is_active ? "Active" : "Paused"}</span></div><p className="mt-2 text-sm text-muted">{new Date(`${goal.pay_cycle_start}T00:00:00`).toLocaleDateString()} – {new Date(`${goal.pay_cycle_end}T00:00:00`).toLocaleDateString()}</p></div>
+            <div className="flex items-center gap-4"><div className="text-right"><p className="text-xs uppercase tracking-[0.14em] text-muted">Spending cap</p><p className="mt-1 font-mono text-xl font-semibold text-accent">{Number(goal.target_amount).toLocaleString("en-US", { style: "currency", currency: "USD" })}</p></div><button className="rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold text-white/70 hover:border-accent/30 hover:text-accent" onClick={() => beginEdit(goal)} type="button">Edit</button></div>
+          </article>
+        ))}
+        {!goals.length && !creating ? <div className="surface rounded-2xl p-8 text-center"><p className="text-sm text-muted">No financial goals yet. Start with a spending cap for your next pay cycle.</p></div> : null}
+      </div>
+    </div>
+  );
+}

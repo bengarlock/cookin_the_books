@@ -327,7 +327,7 @@ export function ProjectionsDashboard({
           }
         />
         <MetricCard
-          label="Predicted Spend"
+          label="Projected Spend"
           value={formatCurrency(-projection.predictedSpend)}
           description={`Daily average expense of ${formatCurrency(
             projection.dailyAverageExpense,
@@ -339,7 +339,7 @@ export function ProjectionsDashboard({
         <MetricCard
           label="Projected cash after pay cycle"
           value={formatCurrency(projection.projectedCashAfterPayCycle)}
-          description="Projected income minus predicted spend."
+          description="Projected income minus projected spend."
           featured
           negative={projection.projectedCashAfterPayCycle < 0}
         />
@@ -351,7 +351,7 @@ export function ProjectionsDashboard({
             Projection breakdown
           </p>
           <p className="mt-2 text-sm text-muted">
-            Starting from projected income, then subtracting predicted spend.
+            Starting from projected income, then subtracting projected spend.
           </p>
         </div>
         <SummaryRow
@@ -365,7 +365,7 @@ export function ProjectionsDashboard({
           )} daily average expense multiplied by ${projection.daysRemaining} day${
             projection.daysRemaining === 1 ? "" : "s"
           } until the pay cycle.`}
-          label="Predicted spend"
+          label="Projected spend"
           negative={projection.predictedSpend > 0}
           value={`-${formatCurrency(projection.predictedSpend)}`}
         />

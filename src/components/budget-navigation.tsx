@@ -8,6 +8,7 @@ const budgetLinks = [
   { href: "/dashboard/budget/income", label: "Income" },
   { href: "/dashboard/budget/expenses", label: "Expenses" },
   { href: "/dashboard/budget/projections", label: "Projections" },
+  { href: "/dashboard/budget/goals", label: "Goals" },
 ];
 
 export function BudgetNavigation() {

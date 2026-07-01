@@ -300,12 +300,14 @@ function MetricCard({
   label,
   value,
   description,
+  icon,
   featured = false,
   negative = false,
 }: {
   label: string;
   value: string;
   description: ReactNode;
+  icon?: ReactNode;
   featured?: boolean;
   negative?: boolean;
 }) {
@@ -317,9 +319,12 @@ function MetricCard({
           : "border-white/10 bg-white/[0.045]"
       }`}
     >
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-        {label}
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+          {label}
+        </p>
+        {icon}
+      </div>
       <p
         className={`mt-4 font-mono text-2xl font-semibold tracking-tight sm:text-3xl ${
           negative ? "text-rose-300" : featured ? "text-accent" : "text-white"
@@ -937,6 +942,30 @@ export function LiveBankValues({
             <MetricCard
               label="Snapshot"
               value={formatCurrency(snapshot?.change)}
+              icon={
+                snapshot?.is_highpoint ? (
+                  <span
+                    aria-label="Highpoint"
+                    className="grid size-8 shrink-0 place-items-center rounded-full border border-gold/25 bg-gold/10 text-gold"
+                    title="Highpoint"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      className="size-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M8 4h8v3.5a4 4 0 0 1-8 0V4Zm0 2H5.5v1.5A3.5 3.5 0 0 0 9 11m7-5h2.5v1.5A3.5 3.5 0 0 1 15 11m-3 .5V16m-3 4h6m-5-4h4v4h-4v-4Z"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.7"
+                      />
+                    </svg>
+                  </span>
+                ) : undefined
+              }
               description={
                 <>
                   <span>
@@ -1116,7 +1145,7 @@ export function LiveBankValues({
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`truncate text-sm ${
+                            className={`shrink-0 whitespace-nowrap text-sm ${
                               overdrawn
                                 ? "font-semibold text-rose-200"
                                 : "text-white/75"
