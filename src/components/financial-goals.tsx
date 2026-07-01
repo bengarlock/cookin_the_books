@@ -213,7 +213,6 @@ export function FinancialGoals({
                   ["Days left", `${metrics.daysLeft}`],
                   ["Daily allowance", currency(metrics.dailyAllowance)],
                   ["Projected finish", currency(metrics.projectedSpend)],
-                  [metrics.projectedVariance >= 0 ? "Projected under" : "Projected over", currency(Math.abs(metrics.projectedVariance))],
                   ["Projected paycheck", currency(metrics.projectedPaycheck)],
                   ["Projected cycle expenses", currency(metrics.projectedCycleExpenses)],
                   ["Projected Savings", currency(metrics.projectedSavings)],
