@@ -6,6 +6,11 @@ export type PayCycle = {
   daysRemaining: number;
 };
 
+export type PayPeriod = {
+  start: Date;
+  end: Date;
+};
+
 function startOfLocalDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -80,6 +85,36 @@ export function followingPayday(currentPayday: Date) {
   const followingDay = startOfLocalDay(currentPayday);
   followingDay.setDate(followingDay.getDate() + 1);
   return getNextPayCycle(followingDay).nextPayday;
+}
+
+function previousScheduledPayday(beforeDate: Date) {
+  const candidates: Date[] = [];
+  for (let monthOffset = -2; monthOffset <= 0; monthOffset += 1) {
+    for (const payday of PAYDAYS) {
+      candidates.push(
+        adjustWeekendPayday(
+          new Date(beforeDate.getFullYear(), beforeDate.getMonth() + monthOffset, payday),
+        ),
+      );
+    }
+  }
+  return candidates
+    .filter((candidate) => candidate < beforeDate)
+    .sort((left, right) => right.getTime() - left.getTime())[0];
+}
+
+export function getCurrentPayPeriod(
+  currentDate = new Date(),
+  nextPaydayOverride?: string | null,
+): PayPeriod {
+  const today = startOfLocalDay(currentDate);
+  const nextPayday = getNextPayCycle(today, nextPaydayOverride).nextPayday;
+  const startsToday = nextPayday.getTime() === today.getTime();
+  const start = startsToday ? today : previousScheduledPayday(nextPayday);
+  const nextStart = startsToday ? followingPayday(today) : nextPayday;
+  const end = new Date(nextStart);
+  end.setDate(end.getDate() - 1);
+  return { start, end };
 }
 
 export function localPaydayString(date: Date) {

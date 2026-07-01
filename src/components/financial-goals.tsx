@@ -3,13 +3,15 @@
 import { useState, type FormEvent } from "react";
 
 import type { FinancialGoal, FinancialGoalInput } from "@/lib/financial-goal-types";
+import { getCurrentPayPeriod } from "@/lib/pay-cycle";
 
 const emptyGoal: FinancialGoalInput = {
   goal_type: "spending",
   name: "Pay cycle spending cap",
   target_amount: "",
-  pay_cycle_start: "",
-  pay_cycle_end: "",
+  period_mode: "current_pay_period",
+  pay_cycle_start: null,
+  pay_cycle_end: null,
   is_active: true,
 };
 
@@ -37,14 +39,31 @@ function GoalFields({
         Spending cap
         <input className={inputClass} inputMode="decimal" min="0.01" onChange={(event) => onChange({ ...value, target_amount: event.target.value })} placeholder="$0.00" required step="0.01" type="number" value={value.target_amount} />
       </label>
-      <label className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-        Pay cycle starts
-        <input className={inputClass} onChange={(event) => onChange({ ...value, pay_cycle_start: event.target.value })} required type="date" value={value.pay_cycle_start} />
-      </label>
-      <label className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-        Pay cycle ends
-        <input className={inputClass} min={value.pay_cycle_start || undefined} onChange={(event) => onChange({ ...value, pay_cycle_end: event.target.value })} required type="date" value={value.pay_cycle_end} />
-      </label>
+      <fieldset className="sm:col-span-2">
+        <legend className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Goal timing</legend>
+        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+          <label className={`rounded-xl border p-3 text-sm ${value.period_mode === "current_pay_period" ? "border-accent/30 bg-accent/10 text-accent" : "border-white/10 text-white/60"}`}>
+            <input checked={value.period_mode === "current_pay_period"} className="mr-2" name="period-mode" onChange={() => onChange({ ...value, period_mode: "current_pay_period", pay_cycle_start: null, pay_cycle_end: null })} type="radio" />
+            Current Pay Period
+            <span className="mt-1 block text-xs font-normal text-muted">Ongoing; advances automatically each pay cycle.</span>
+          </label>
+          <label className={`rounded-xl border p-3 text-sm ${value.period_mode === "custom_dates" ? "border-accent/30 bg-accent/10 text-accent" : "border-white/10 text-white/60"}`}>
+            <input checked={value.period_mode === "custom_dates"} className="mr-2" name="period-mode" onChange={() => onChange({ ...value, period_mode: "custom_dates" })} type="radio" />
+            Custom dates
+            <span className="mt-1 block text-xs font-normal text-muted">Use a fixed, one-time date range.</span>
+          </label>
+        </div>
+      </fieldset>
+      {value.period_mode === "custom_dates" ? <>
+        <label className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+          Pay cycle starts
+          <input className={inputClass} onChange={(event) => onChange({ ...value, pay_cycle_start: event.target.value })} required type="date" value={value.pay_cycle_start || ""} />
+        </label>
+        <label className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+          Pay cycle ends
+          <input className={inputClass} min={value.pay_cycle_start || undefined} onChange={(event) => onChange({ ...value, pay_cycle_end: event.target.value })} required type="date" value={value.pay_cycle_end || ""} />
+        </label>
+      </> : null}
       <label className="flex items-center gap-2 text-sm text-white/70 sm:col-span-2">
         <input checked={value.is_active} onChange={(event) => onChange({ ...value, is_active: event.target.checked })} type="checkbox" />
         Active goal
@@ -53,7 +72,7 @@ function GoalFields({
   );
 }
 
-export function FinancialGoals({ initialGoals }: { initialGoals: FinancialGoal[] }) {
+export function FinancialGoals({ initialGoals, nextPaydayOverride }: { initialGoals: FinancialGoal[]; nextPaydayOverride?: string | null }) {
   const [goals, setGoals] = useState(initialGoals);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<FinancialGoalInput>(emptyGoal);
@@ -76,7 +95,7 @@ export function FinancialGoals({ initialGoals }: { initialGoals: FinancialGoal[]
 
   function beginEdit(goal: FinancialGoal) {
     setEditingId(goal.id);
-    setEditDraft({ goal_type: goal.goal_type, name: goal.name, target_amount: goal.target_amount, pay_cycle_start: goal.pay_cycle_start, pay_cycle_end: goal.pay_cycle_end, is_active: goal.is_active });
+    setEditDraft({ goal_type: goal.goal_type, name: goal.name, target_amount: goal.target_amount, period_mode: goal.period_mode, pay_cycle_start: goal.pay_cycle_start, pay_cycle_end: goal.pay_cycle_end, is_active: goal.is_active });
     setError("");
   }
 
@@ -114,7 +133,11 @@ export function FinancialGoals({ initialGoals }: { initialGoals: FinancialGoal[]
       ) : null}
 
       <div className="grid gap-4">
-        {goals.map((goal) => editingId === goal.id ? (
+        {goals.map((goal) => {
+          const currentPeriod = getCurrentPayPeriod(new Date(), nextPaydayOverride);
+          const periodStart = goal.period_mode === "current_pay_period" ? currentPeriod.start : new Date(`${goal.pay_cycle_start}T00:00:00`);
+          const periodEnd = goal.period_mode === "current_pay_period" ? currentPeriod.end : new Date(`${goal.pay_cycle_end}T00:00:00`);
+          return editingId === goal.id ? (
           <form className="surface rounded-2xl p-5" key={goal.id} onSubmit={updateGoal}>
             <GoalFields onChange={setEditDraft} value={editDraft} />
             {error ? <p className="mt-4 text-sm text-rose-300" role="alert">{error}</p> : null}
@@ -122,10 +145,11 @@ export function FinancialGoals({ initialGoals }: { initialGoals: FinancialGoal[]
           </form>
         ) : (
           <article className="surface flex flex-col gap-4 rounded-2xl p-5 sm:flex-row sm:items-center sm:justify-between" key={goal.id}>
-            <div><div className="flex items-center gap-2"><h3 className="font-semibold text-white">{goal.name}</h3><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${goal.is_active ? "bg-accent/10 text-accent" : "bg-white/5 text-muted"}`}>{goal.is_active ? "Active" : "Paused"}</span></div><p className="mt-2 text-sm text-muted">{new Date(`${goal.pay_cycle_start}T00:00:00`).toLocaleDateString()} – {new Date(`${goal.pay_cycle_end}T00:00:00`).toLocaleDateString()}</p></div>
+            <div><div className="flex items-center gap-2"><h3 className="font-semibold text-white">{goal.name}</h3><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${goal.is_active ? "bg-accent/10 text-accent" : "bg-white/5 text-muted"}`}>{goal.is_active ? "Active" : "Paused"}</span></div><p className="mt-2 text-sm text-muted">{periodStart.toLocaleDateString()} – {periodEnd.toLocaleDateString()}</p>{goal.period_mode === "current_pay_period" ? <p className="mt-1 text-xs text-accent">Current Pay Period · renews automatically</p> : null}</div>
             <div className="flex items-center gap-4"><div className="text-right"><p className="text-xs uppercase tracking-[0.14em] text-muted">Spending cap</p><p className="mt-1 font-mono text-xl font-semibold text-accent">{Number(goal.target_amount).toLocaleString("en-US", { style: "currency", currency: "USD" })}</p></div><button className="rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold text-white/70 hover:border-accent/30 hover:text-accent" onClick={() => beginEdit(goal)} type="button">Edit</button></div>
           </article>
-        ))}
+          );
+        })}
         {!goals.length && !creating ? <div className="surface rounded-2xl p-8 text-center"><p className="text-sm text-muted">No financial goals yet. Start with a spending cap for your next pay cycle.</p></div> : null}
       </div>
     </div>

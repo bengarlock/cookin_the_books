@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   followingPayday,
+  getCurrentPayPeriod,
   getNextPayCycle,
   remainingPaydaysInYear,
 } from "./pay-cycle";
@@ -90,6 +91,18 @@ describe("getNextPayCycle", () => {
       followingPayday(localDate(2026, 7, 1)),
       localDate(2026, 7, 15),
     );
+  });
+
+  it("resolves the current pay period between scheduled paydays", () => {
+    const period = getCurrentPayPeriod(localDate(2026, 7, 8));
+    expectSameLocalDate(period.start, localDate(2026, 7, 1));
+    expectSameLocalDate(period.end, localDate(2026, 7, 14));
+  });
+
+  it("starts a new current period on payday", () => {
+    const period = getCurrentPayPeriod(localDate(2026, 7, 15));
+    expectSameLocalDate(period.start, localDate(2026, 7, 15));
+    expectSameLocalDate(period.end, localDate(2026, 7, 30));
   });
 
   it("excludes skipped paydays from the remaining yearly count", () => {

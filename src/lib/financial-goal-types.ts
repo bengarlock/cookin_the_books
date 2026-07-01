@@ -3,8 +3,9 @@ export type FinancialGoal = {
   goal_type: "spending";
   name: string;
   target_amount: string;
-  pay_cycle_start: string;
-  pay_cycle_end: string;
+  period_mode: "current_pay_period" | "custom_dates";
+  pay_cycle_start: string | null;
+  pay_cycle_end: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
