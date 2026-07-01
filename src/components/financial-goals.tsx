@@ -3,8 +3,16 @@
 import { useState, type FormEvent } from "react";
 
 import { APP_BASE_PATH } from "@/lib/config";
+import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import type { FinancialGoal, FinancialGoalInput } from "@/lib/financial-goal-types";
-import { getCurrentPayPeriod } from "@/lib/pay-cycle";
+import { calculateFinancialGoalMetrics } from "@/lib/financial-goal-metrics";
+import { getCurrentPayPeriod, localPaydayString } from "@/lib/pay-cycle";
+import type { PendingTransaction } from "@/lib/pending-transaction-types";
+import type { IncomeEntry } from "@/lib/income-entry-types";
+import { dailyExpenseAverage, projectRevenueAfterPayCycle } from "@/lib/projections";
+import type { BudgetItem } from "@/lib/budget-item-types";
+import type { ExpenseEntry } from "@/lib/expense-entry-types";
+import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
 
 const emptyGoal: FinancialGoalInput = {
   goal_type: "spending",
@@ -19,6 +27,10 @@ const emptyGoal: FinancialGoalInput = {
 async function responseMessage(response: Response) {
   const body = (await response.json().catch(() => null)) as { message?: string } | null;
   return body?.message || "The financial goal could not be saved.";
+}
+
+function currency(value: number) {
+  return value.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
 function GoalFields({
@@ -73,7 +85,39 @@ function GoalFields({
   );
 }
 
-export function FinancialGoals({ initialGoals, nextPaydayOverride }: { initialGoals: FinancialGoal[]; nextPaydayOverride?: string | null }) {
+export function FinancialGoals({
+  initialGoals,
+  nextPaydayOverride,
+  pendingTransactions,
+  incomeEntries,
+  budgetItems,
+  expenseEntries,
+  creditCardTransactions,
+}: {
+  initialGoals: FinancialGoal[];
+  nextPaydayOverride?: string | null;
+  pendingTransactions: PendingTransaction[];
+  incomeEntries: IncomeEntry[];
+  budgetItems: BudgetItem[];
+  expenseEntries: ExpenseEntry[];
+  creditCardTransactions: CreditCardTransaction[];
+}) {
+  const { snapshot } = useLiveSnapshot();
+  const projection = projectRevenueAfterPayCycle({
+    incomeEntries,
+    budgetItems,
+    expenseEntries,
+    creditCardTransactions,
+    snapshot,
+    pendingTransactions,
+    nextPaydayOverride,
+  });
+  const nonCreditCardDailyExpenses = dailyExpenseAverage({
+    budgetItems,
+    expenseEntries,
+    creditCardTransactions,
+    excludeCreditCard: true,
+  });
   const [goals, setGoals] = useState(initialGoals);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<FinancialGoalInput>(emptyGoal);
@@ -138,6 +182,16 @@ export function FinancialGoals({ initialGoals, nextPaydayOverride }: { initialGo
           const currentPeriod = getCurrentPayPeriod(new Date(), nextPaydayOverride);
           const periodStart = goal.period_mode === "current_pay_period" ? currentPeriod.start : new Date(`${goal.pay_cycle_start}T00:00:00`);
           const periodEnd = goal.period_mode === "current_pay_period" ? currentPeriod.end : new Date(`${goal.pay_cycle_end}T00:00:00`);
+          const metrics = calculateFinancialGoalMetrics({
+            cap: Number(goal.target_amount),
+            periodStart: localPaydayString(periodStart),
+            periodEnd: localPaydayString(periodEnd),
+            today: localPaydayString(new Date()),
+            projectedPaycheck: projection.predictedNextPaycheck,
+            averageDailyExpenses: nonCreditCardDailyExpenses,
+            snapshot,
+            pendingTransactions,
+          });
           return editingId === goal.id ? (
           <form className="surface rounded-2xl p-5" key={goal.id} onSubmit={updateGoal}>
             <GoalFields onChange={setEditDraft} value={editDraft} />
@@ -145,9 +199,27 @@ export function FinancialGoals({ initialGoals, nextPaydayOverride }: { initialGo
             <div className="mt-5 flex gap-3"><button className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-[#07100f] disabled:opacity-50" disabled={saving} type="submit">{saving ? "Saving…" : "Update goal"}</button><button className="rounded-xl border border-white/10 px-4 py-2 text-sm text-muted" onClick={() => setEditingId(null)} type="button">Cancel</button></div>
           </form>
         ) : (
-          <article className="surface flex flex-col gap-4 rounded-2xl p-5 sm:flex-row sm:items-center sm:justify-between" key={goal.id}>
-            <div><div className="flex items-center gap-2"><h3 className="font-semibold text-white">{goal.name}</h3><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${goal.is_active ? "bg-accent/10 text-accent" : "bg-white/5 text-muted"}`}>{goal.is_active ? "Active" : "Paused"}</span></div><p className="mt-2 text-sm text-muted">{periodStart.toLocaleDateString()} – {periodEnd.toLocaleDateString()}</p>{goal.period_mode === "current_pay_period" ? <p className="mt-1 text-xs text-accent">Current Pay Period · renews automatically</p> : null}</div>
-            <div className="flex items-center gap-4"><div className="text-right"><p className="text-xs uppercase tracking-[0.14em] text-muted">Spending cap</p><p className="mt-1 font-mono text-xl font-semibold text-accent">{Number(goal.target_amount).toLocaleString("en-US", { style: "currency", currency: "USD" })}</p></div><button className="rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold text-white/70 hover:border-accent/30 hover:text-accent" onClick={() => beginEdit(goal)} type="button">Edit</button></div>
+          <article className="surface overflow-hidden rounded-2xl" key={goal.id}>
+            <div className="flex flex-col gap-4 border-b border-white/10 p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div><div className="flex items-center gap-2"><h3 className="font-semibold text-white">{goal.name}</h3><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${goal.is_active ? "bg-accent/10 text-accent" : "bg-white/5 text-muted"}`}>{goal.is_active ? "Active" : "Paused"}</span></div><p className="mt-2 text-sm text-muted">{periodStart.toLocaleDateString()} – {periodEnd.toLocaleDateString()}</p>{goal.period_mode === "current_pay_period" ? <p className="mt-1 text-xs text-accent">Current Pay Period · renews automatically</p> : null}</div>
+              <div className="flex items-center gap-4"><div className="text-right"><p className="text-xs uppercase tracking-[0.14em] text-muted">Spending cap</p><p className="mt-1 font-mono text-xl font-semibold text-accent">{currency(Number(goal.target_amount))}</p></div><button className="rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold text-white/70 hover:border-accent/30 hover:text-accent" onClick={() => beginEdit(goal)} type="button">Edit</button></div>
+            </div>
+            <div className="p-5">
+              <div className="flex items-end justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Progress</p><p className="mt-1 font-mono text-2xl font-semibold text-white">{currency(metrics.spent)} <span className="text-sm font-normal text-muted">spent</span></p></div><p className={`font-mono text-sm font-semibold ${metrics.remaining >= 0 ? "text-accent" : "text-rose-300"}`}>{currency(Math.abs(metrics.remaining))} {metrics.remaining >= 0 ? "left" : "over"}</p></div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full ${metrics.progress > 100 ? "bg-rose-400" : "bg-accent"}`} style={{ width: `${Math.min(100, metrics.progress)}%` }} /></div>
+              <p className="mt-2 text-right text-xs text-muted">{metrics.progress.toFixed(1)}% of cap used</p>
+              <div className="mt-5 grid gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  ["Days left", `${metrics.daysLeft}`],
+                  ["Daily allowance", currency(metrics.dailyAllowance)],
+                  ["Projected finish", currency(metrics.projectedSpend)],
+                  [metrics.projectedVariance >= 0 ? "Projected under" : "Projected over", currency(Math.abs(metrics.projectedVariance))],
+                  ["Projected paycheck", currency(metrics.projectedPaycheck)],
+                  ["Projected cycle expenses", currency(metrics.projectedCycleExpenses)],
+                  ["Projected Savings", currency(metrics.projectedSavings)],
+                ].map(([label, value]) => <div className="bg-panel px-4 py-3" key={label}><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">{label}</p><p className="mt-1 whitespace-nowrap font-mono text-sm font-semibold text-white">{value}</p></div>)}
+              </div>
+            </div>
           </article>
           );
         })}

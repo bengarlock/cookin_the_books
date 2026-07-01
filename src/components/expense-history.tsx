@@ -23,6 +23,10 @@ import {
   validatePdfImportFiles,
 } from "@/lib/pdf-import";
 import { DateRangePicker } from "@/components/date-range-picker";
+import {
+  normalizeCurrencyInput,
+  normalizeDateInput,
+} from "@/lib/form-input-normalization";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -100,7 +104,8 @@ export function ExpenseHistory({
     budgetItemId: number,
   ) {
     event.preventDefault();
-    const amount = Number(entryForm.amount);
+    const normalizedAmount = normalizeCurrencyInput(entryForm.amount);
+    const amount = Number(normalizedAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
       setError("Enter an amount greater than zero.");
       return;
@@ -608,6 +613,17 @@ export function ExpenseHistory({
                           incurredOn: event.target.value,
                         }))
                       }
+                      onPaste={(event) => {
+                        const date = normalizeDateInput(
+                          event.clipboardData.getData("text"),
+                        );
+                        if (!date) return;
+                        event.preventDefault();
+                        setEntryForm((current) => ({
+                          ...current,
+                          incurredOn: date,
+                        }));
+                      }}
                       required
                       type="date"
                       value={entryForm.incurredOn}
@@ -623,12 +639,13 @@ export function ExpenseHistory({
                       data-1p-ignore
                       data-op-ignore
                       inputMode="decimal"
-                      onChange={(event) =>
-                        setEntryForm((current) => ({
-                          ...current,
-                          amount: event.target.value,
-                        }))
-                      }
+                      onChange={(event) => {
+                        const amount = normalizeCurrencyInput(
+                          event.target.value,
+                        );
+                        if (amount === null) return;
+                        setEntryForm((current) => ({ ...current, amount }));
+                      }}
                       placeholder="0.00"
                       required
                       type="text"

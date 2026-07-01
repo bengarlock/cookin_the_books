@@ -1,0 +1,82 @@
+import type { PendingTransaction } from "./pending-transaction-types";
+import type { BankValueSnapshot, SnapshotAccountKey } from "./snapshot-types";
+
+const DAY = 24 * 60 * 60 * 1000;
+const LIABILITY_ACCOUNTS: SnapshotAccountKey[] = [
+  "chase_credit", "citi_current", "citi_pending", "barclays_card",
+];
+
+function dayNumber(value: string) {
+  return Date.parse(`${value}T00:00:00Z`);
+}
+
+function inclusiveDays(start: string, end: string) {
+  const startValue = dayNumber(start);
+  const endValue = dayNumber(end);
+  if (!Number.isFinite(startValue) || !Number.isFinite(endValue) || endValue < startValue) return 0;
+  return Math.floor((endValue - startValue) / DAY) + 1;
+}
+
+function snapshotValue(snapshot: BankValueSnapshot | null, key: SnapshotAccountKey) {
+  const value = snapshot ? Number(snapshot[key]) : 0;
+  return Number.isFinite(value) ? value : 0;
+}
+
+function pendingTotals(transactions: PendingTransaction[]) {
+  const totals = new Map<string, number>();
+  const settled = new Set<string>();
+  for (const transaction of transactions) {
+    if (transaction.is_cleared) continue;
+    totals.set(transaction.account, (totals.get(transaction.account) || 0) + Number(transaction.amount));
+    transaction.settled_accounts.forEach((account) => settled.add(account));
+  }
+  return { totals, settled };
+}
+
+export function calculateFinancialGoalMetrics({
+  cap, periodStart, periodEnd, today, projectedPaycheck,
+  averageDailyExpenses, snapshot, pendingTransactions,
+}: {
+  cap: number;
+  periodStart: string;
+  periodEnd: string;
+  today: string;
+  projectedPaycheck: number;
+  averageDailyExpenses: number;
+  snapshot: BankValueSnapshot | null;
+  pendingTransactions: PendingTransaction[];
+}) {
+  const effectiveToday = today < periodStart ? periodStart : today > periodEnd ? periodEnd : today;
+  const totalDays = inclusiveDays(periodStart, periodEnd);
+  const elapsedDays = Math.min(totalDays, inclusiveDays(periodStart, effectiveToday));
+  const daysLeft = Math.max(0, totalDays - elapsedDays);
+  const { totals, settled } = pendingTotals(pendingTransactions);
+  const adjustedLiability = (key: SnapshotAccountKey) => {
+    if (settled.has(key) && key !== "citi_pending") return 0;
+    const posted = snapshotValue(snapshot, key);
+    const pending = totals.get(key) || 0;
+    return posted + pending;
+  };
+  const currentLiabilities = LIABILITY_ACCOUNTS.reduce(
+    (sum, key) => sum + adjustedLiability(key),
+    0,
+  );
+  const spent = currentLiabilities;
+  const remaining = cap - spent;
+  const dailyPace = elapsedDays > 0 ? spent / elapsedDays : 0;
+  const projectedSpend = spent + dailyPace * daysLeft;
+  const projectedCycleExpenses = averageDailyExpenses * totalDays;
+
+  return {
+    spent,
+    remaining,
+    progress: cap > 0 ? (spent / cap) * 100 : 0,
+    daysLeft,
+    dailyAllowance: daysLeft > 0 ? Math.max(0, remaining) / daysLeft : 0,
+    projectedSpend,
+    projectedVariance: cap - projectedSpend,
+    projectedPaycheck,
+    projectedCycleExpenses,
+    projectedSavings: projectedPaycheck - projectedCycleExpenses - cap,
+  };
+}

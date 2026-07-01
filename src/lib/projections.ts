@@ -362,21 +362,12 @@ export function projectRevenueAfterPayCycle({
 }): PayCycleProjection {
   const payCycle = getNextPayCycle(currentDate, nextPaydayOverride);
   const paycheckProjection = classifyPaychecks(incomeEntries, currentDate);
-  const today = localDateString(currentDate);
-  const expenseDateRange = defaultExpenseDateRange(currentDate);
-  const dailyAverageExpense = budgetItems.reduce(
-    (total, item) =>
-      total +
-      budgetItemExpenseAverages(
-        item,
-        expenseEntries,
-        creditCardTransactions,
-        expenseDateRange,
-        today,
-        budgetItems,
-      ).daily,
-    0,
-  );
+  const dailyAverageExpense = dailyExpenseAverage({
+    budgetItems,
+    expenseEntries,
+    creditCardTransactions,
+    currentDate,
+  });
   const predictedSpend = dailyAverageExpense * payCycle.daysRemaining;
   const liabilities = liabilityBreakdownFromSnapshot(
     snapshot,
@@ -397,4 +388,36 @@ export function projectRevenueAfterPayCycle({
     projectedCashAfterPayCycle,
     paycheckProjection,
   };
+}
+
+export function dailyExpenseAverage({
+  budgetItems,
+  expenseEntries,
+  creditCardTransactions,
+  currentDate = new Date(),
+  excludeCreditCard = false,
+}: {
+  budgetItems: BudgetItem[];
+  expenseEntries: ExpenseEntry[];
+  creditCardTransactions: CreditCardTransaction[];
+  currentDate?: Date;
+  excludeCreditCard?: boolean;
+}) {
+  const today = localDateString(currentDate);
+  const expenseDateRange = defaultExpenseDateRange(currentDate);
+  return budgetItems
+    .filter((item) => !excludeCreditCard || item.key !== "credit-card")
+    .reduce(
+    (total, item) =>
+      total +
+      budgetItemExpenseAverages(
+        item,
+        expenseEntries,
+        creditCardTransactions,
+        expenseDateRange,
+        today,
+        budgetItems,
+      ).daily,
+    0,
+  );
 }

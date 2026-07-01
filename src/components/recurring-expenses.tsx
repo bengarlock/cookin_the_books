@@ -129,9 +129,10 @@ export function RecurringExpenses({
       </div>
 
       <div className="overflow-x-auto">
-        <div className="min-w-[980px]">
-          <div className="grid grid-cols-[minmax(220px,1fr)_repeat(4,minmax(160px,0.5fr))] border-b border-white/10 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+        <div className="min-w-[1140px]">
+          <div className="grid grid-cols-[minmax(220px,1fr)_repeat(5,minmax(160px,0.5fr))] border-b border-white/10 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted">
             <span>Expense</span>
+            <span className="text-right">Daily</span>
             <span className="text-right">Weekly</span>
             <span className="text-right">Bi-Weekly</span>
             <span className="text-right">Monthly</span>
@@ -140,7 +141,7 @@ export function RecurringExpenses({
 
           {rows.map(({ item, averages }) => (
             <div
-              className="grid grid-cols-[minmax(220px,1fr)_repeat(4,minmax(160px,0.5fr))] items-center border-b border-white/[0.07] px-5 py-3"
+              className="grid grid-cols-[minmax(220px,1fr)_repeat(5,minmax(160px,0.5fr))] items-center border-b border-white/[0.07] px-5 py-3"
               key={item.id}
             >
               <div className="min-w-0">
@@ -151,6 +152,10 @@ export function RecurringExpenses({
                   <p className="mt-0.5 text-xs text-muted">Shared cost</p>
                 ) : null}
               </div>
+
+              <p className="text-right font-mono text-sm text-white">
+                {formatCurrency(averages.daily)}
+              </p>
 
               {budgetPeriods.map((period: BudgetPeriod) => (
                 <p
@@ -166,8 +171,11 @@ export function RecurringExpenses({
           ))}
 
           {rows.length ? (
-            <div className="grid grid-cols-[minmax(220px,1fr)_repeat(4,minmax(160px,0.5fr))] items-center bg-white/[0.045] px-5 py-4">
+            <div className="grid grid-cols-[minmax(220px,1fr)_repeat(5,minmax(160px,0.5fr))] items-center bg-white/[0.045] px-5 py-4">
               <span className="text-sm font-semibold text-white">Total</span>
+              <span className="text-right font-mono text-sm font-semibold text-accent">
+                {formatCurrency(totalDaily)}
+              </span>
               {budgetPeriods.map((period) => (
                 <span
                   className="text-right font-mono text-sm font-semibold text-accent"
