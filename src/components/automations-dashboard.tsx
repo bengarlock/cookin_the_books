@@ -13,6 +13,7 @@ import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types"
 import { extractApiErrorDetail, extractApiErrorMessage } from "@/lib/api-error-message";
 import { APP_BASE_PATH } from "@/lib/config";
 import { formatAutomationRunMessage } from "@/lib/format-automation-run-message";
+import type { ExpenseCategoryRule } from "@/lib/expense-category-rule-types";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -101,10 +102,12 @@ export function AutomationsDashboard({
   initialBudgetItems,
   initialCreditCardTransactions,
   initialRules,
+  initialCategoryRules,
 }: {
   initialBudgetItems: BudgetItem[];
   initialCreditCardTransactions: CreditCardTransaction[];
   initialRules: ExpenseAutomationRule[];
+  initialCategoryRules: ExpenseCategoryRule[];
 }) {
   const [rules, setRules] = useState(initialRules);
   const [formOpen, setFormOpen] = useState(false);
@@ -352,6 +355,34 @@ export function AutomationsDashboard({
 
   return (
     <div className="space-y-6">
+      <section className="space-y-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
+            Category rules
+          </p>
+          <p className="mt-1 max-w-2xl text-sm text-muted">
+            Categorize matching card transactions before AI classification. Rules learned from corrections appear here too.
+          </p>
+        </div>
+        <div className="surface overflow-hidden rounded-2xl">
+          <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
+            <h2 className="text-sm font-semibold text-white">Active category rules</h2>
+            <p className="mt-1 text-xs text-muted">{initialCategoryRules.length} {initialCategoryRules.length === 1 ? "rule" : "rules"}</p>
+          </div>
+          {initialCategoryRules.length ? <div className="divide-y divide-white/[0.07]">
+            {initialCategoryRules.map((rule) => <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5" key={rule.id}>
+              <div>
+                <p className="text-sm font-semibold text-white">{rule.display_description}</p>
+                <p className="mt-1 text-xs text-muted">
+                  Description {rule.match_type === "starts_with" ? "starts with" : "equals"} “{rule.normalized_description}”
+                </p>
+              </div>
+              <span className="rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-xs font-semibold capitalize text-accent">{rule.category.replaceAll("_", " ")}</span>
+            </div>)}
+          </div> : <p className="px-5 py-8 text-center text-sm text-muted">No category rules yet.</p>}
+        </div>
+      </section>
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
