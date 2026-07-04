@@ -85,6 +85,19 @@ export function ExpenseHistory({
   >({});
   const [importMessage, setImportMessage] = useState("");
   const [categorizing, setCategorizing] = useState(false);
+  const [spendingDateRange, setSpendingDateRange] = useState<ExpenseDateRange>(
+    () => defaultExpenseDateRange(),
+  );
+  const [expandedSpendingCategory, setExpandedSpendingCategory] = useState<
+    string | null
+  >(null);
+  const [correctingTransactionId, setCorrectingTransactionId] = useState<
+    number | null
+  >(null);
+  const [savingCorrectionId, setSavingCorrectionId] = useState<number | null>(
+    null,
+  );
+  const [correctedCategory, setCorrectedCategory] = useState("");
   const [error, setError] = useState("");
   const [entryForm, setEntryForm] = useState({
     incurredOn: todayString(),
@@ -105,15 +118,70 @@ export function ExpenseHistory({
     entertainment: "Entertainment", travel: "Travel", subscriptions: "Subscriptions",
     fees_interest: "Fees & interest", other: "Other",
   };
+  const categorizedTransactions = creditCardTransactions.filter((item) =>
+    item.category &&
+    ["purchase", "fee", "interest"].includes(item.transaction_type) &&
+    item.transaction_date >= spendingDateRange.start &&
+    item.transaction_date <= spendingDateRange.end
+  );
   const categoryTotals = Object.entries(
-    creditCardTransactions
-      .filter((item) => item.category && ["purchase", "fee", "interest"].includes(item.transaction_type))
+    categorizedTransactions
       .reduce<Record<string, number>>((totals, item) => {
         totals[item.category] = (totals[item.category] || 0) + Number(item.amount);
         return totals;
       }, {}),
   ).sort((left, right) => right[1] - left[1]);
   const categorizedTotal = categoryTotals.reduce((sum, [, amount]) => sum + amount, 0);
+  const earliestTransactionDate = creditCardTransactions.reduce(
+    (earliest, item) =>
+      !earliest || item.transaction_date < earliest
+        ? item.transaction_date
+        : earliest,
+    "",
+  );
+
+  async function correctTransactionCategory(transactionId: number) {
+    if (!correctedCategory) return;
+    setSavingCorrectionId(transactionId);
+    setError("");
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transactionId}/correct-category`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ category: correctedCategory }),
+        },
+      );
+      const result = (await response.json().catch(() => null)) as
+        | {
+            updated_count: number;
+            transactions: CreditCardTransaction[];
+            message?: string;
+          }
+        | null;
+      if (!response.ok || !result?.transactions) {
+        throw new Error(result?.message || "Unable to correct the category.");
+      }
+      const updates = new Map(result.transactions.map((item) => [item.id, item]));
+      setCreditCardTransactions((current) =>
+        current.map((item) => updates.get(item.id) || item),
+      );
+      setImportMessage(
+        `Category corrected and learned for ${result.updated_count} matching ${result.updated_count === 1 ? "transaction" : "transactions"}.`,
+      );
+      setCorrectingTransactionId(null);
+      setCorrectedCategory("");
+    } catch (correctionError) {
+      setError(
+        correctionError instanceof Error
+          ? correctionError.message
+          : "Unable to correct the category.",
+      );
+    } finally {
+      setSavingCorrectionId(null);
+    }
+  }
 
   async function categorizeExpenses() {
     setCategorizing(true); setError(""); setImportMessage("");
@@ -444,17 +512,88 @@ export function ExpenseHistory({
           <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Spending by type</p>
             <h2 className="mt-1 text-lg font-semibold text-white">Categorized expenses</h2>
             <p className="mt-1 text-sm text-muted">{currencyFormatter.format(categorizedTotal)} across {categoryTotals.length} categories</p></div>
-          <button className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
-            disabled={categorizing} onClick={() => void categorizeExpenses()} type="button">
-            {categorizing ? "Categorizing…" : "Categorize new expenses"}
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <DateRangePicker
+              allTimeStart={earliestTransactionDate || undefined}
+              dialogLabel="Select spending graph date range"
+              onApply={(range) => {
+                setSpendingDateRange(range);
+                setExpandedSpendingCategory(null);
+              }}
+              range={spendingDateRange}
+            />
+            <button className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
+              disabled={categorizing} onClick={() => void categorizeExpenses()} type="button">
+              {categorizing ? "Categorizing…" : "Categorize new expenses"}
+            </button>
+          </div>
         </div>
-        {categoryTotals.length ? <div className="mt-5 space-y-3">
-          {categoryTotals.map(([category, amount]) => <div key={category}>
-            <div className="mb-1 flex justify-between text-xs"><span className="text-white/75">{categoryLabels[category] || category}</span><span className="font-mono text-white">{currencyFormatter.format(amount)}</span></div>
-            <div className="h-2 overflow-hidden rounded-full bg-white/[0.07]"><div className="h-full rounded-full bg-accent" style={{ width: `${categorizedTotal ? Math.max(2, amount / categorizedTotal * 100) : 0}%` }} /></div>
-          </div>)}
-        </div> : <p className="mt-5 rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-muted">Run categorization to build the spending graph.</p>}
+        {categoryTotals.length ? <div className="mt-5 space-y-2">
+          {categoryTotals.map(([category, amount]) => {
+            const isExpanded = expandedSpendingCategory === category;
+            const categoryTransactions = categorizedTransactions
+              .filter((transaction) => transaction.category === category)
+              .sort((left, right) =>
+                right.transaction_date.localeCompare(left.transaction_date) ||
+                right.id - left.id,
+              );
+            return <div className="overflow-hidden rounded-xl border border-white/[0.07]" key={category}>
+              <button
+                aria-expanded={isExpanded}
+                className="w-full px-3 py-3 text-left transition hover:bg-white/[0.035]"
+                onClick={() => setExpandedSpendingCategory(isExpanded ? null : category)}
+                type="button"
+              >
+                <div className="mb-2 flex items-center justify-between gap-3 text-xs">
+                  <span className="flex items-center gap-2 text-white/75">
+                    <span aria-hidden="true" className={`text-accent transition ${isExpanded ? "rotate-90" : ""}`}>›</span>
+                    {categoryLabels[category] || category}
+                    <span className="text-muted">{categoryTransactions.length}</span>
+                  </span>
+                  <span className="font-mono text-white">{currencyFormatter.format(amount)}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-white/[0.07]"><div className="h-full rounded-full bg-accent" style={{ width: `${categorizedTotal ? Math.max(2, amount / categorizedTotal * 100) : 0}%` }} /></div>
+              </button>
+              {isExpanded ? <div className="divide-y divide-white/[0.06] border-t border-white/[0.07] bg-black/10">
+                {categoryTransactions.map((transaction) => <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3" key={transaction.id}>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-white">{transaction.description}</p>
+                    <p className="mt-1 text-xs text-muted">{formatDate(transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}</p>
+                    {correctingTransactionId === transaction.id ? <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <select
+                        aria-label={`Correct category for ${transaction.description}`}
+                        className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
+                        onChange={(event) => setCorrectedCategory(event.target.value)}
+                        value={correctedCategory}
+                      >
+                        {Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </select>
+                      <button
+                        className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
+                        disabled={savingCorrectionId === transaction.id}
+                        onClick={() => void correctTransactionCategory(transaction.id)}
+                        type="button"
+                      >{savingCorrectionId === transaction.id ? "Learning…" : "Save & learn"}</button>
+                      <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={() => setCorrectingTransactionId(null)} type="button">Cancel</button>
+                      <p className="basis-full text-[11px] text-muted">Updates every transaction with this identical description and remembers it for future imports.</p>
+                    </div> : null}
+                  </div>
+                  <div className="flex items-center gap-3 self-start">
+                    <p className="font-mono text-sm font-semibold text-white">{currencyFormatter.format(Number(transaction.amount))}</p>
+                    <button
+                      className="text-xs font-medium text-white/50 hover:text-accent"
+                      onClick={() => {
+                        setCorrectingTransactionId(transaction.id);
+                        setCorrectedCategory(transaction.category);
+                      }}
+                      type="button"
+                    >Correct</button>
+                  </div>
+                </div>)}
+              </div> : null}
+            </div>;
+          })}
+        </div> : <p className="mt-5 rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-muted">No categorized expenses were found in this date range.</p>}
       </section>
 
       <div className="grid gap-5 xl:grid-cols-2">
