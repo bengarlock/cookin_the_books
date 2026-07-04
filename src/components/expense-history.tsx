@@ -84,6 +84,7 @@ export function ExpenseHistory({
     Record<number, boolean>
   >({});
   const [importMessage, setImportMessage] = useState("");
+  const [categorizing, setCategorizing] = useState(false);
   const [error, setError] = useState("");
   const [entryForm, setEntryForm] = useState({
     incurredOn: todayString(),
@@ -98,6 +99,38 @@ export function ExpenseHistory({
       ),
   );
   const today = todayString();
+  const categoryLabels: Record<string, string> = {
+    dining: "Dining", groceries: "Groceries", transportation: "Transportation",
+    housing: "Housing", utilities: "Utilities", shopping: "Shopping", health: "Health",
+    entertainment: "Entertainment", travel: "Travel", subscriptions: "Subscriptions",
+    fees_interest: "Fees & interest", other: "Other",
+  };
+  const categoryTotals = Object.entries(
+    creditCardTransactions
+      .filter((item) => item.category && ["purchase", "fee", "interest"].includes(item.transaction_type))
+      .reduce<Record<string, number>>((totals, item) => {
+        totals[item.category] = (totals[item.category] || 0) + Number(item.amount);
+        return totals;
+      }, {}),
+  ).sort((left, right) => right[1] - left[1]);
+  const categorizedTotal = categoryTotals.reduce((sum, [, amount]) => sum + amount, 0);
+
+  async function categorizeExpenses() {
+    setCategorizing(true); setError(""); setImportMessage("");
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+      });
+      const result = await response.json().catch(() => null) as { categorized_count?: number; message?: string } | null;
+      if (!response.ok) throw new Error(result?.message || "Unable to categorize expenses.");
+      const refreshed = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions`, { cache: "no-store" });
+      if (!refreshed.ok) throw new Error("Expenses were categorized, but the chart could not refresh.");
+      setCreditCardTransactions(await refreshed.json() as CreditCardTransaction[]);
+      setImportMessage(`Categorized ${result?.categorized_count || 0} new expenses.`);
+    } catch (categoryError) {
+      setError(categoryError instanceof Error ? categoryError.message : "Unable to categorize expenses.");
+    } finally { setCategorizing(false); }
+  }
 
   async function addEntry(
     event: FormEvent<HTMLFormElement>,
@@ -405,6 +438,24 @@ export function ExpenseHistory({
           {importMessage}
         </p>
       ) : null}
+
+      <section className="surface mb-5 rounded-2xl p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Spending by type</p>
+            <h2 className="mt-1 text-lg font-semibold text-white">Categorized expenses</h2>
+            <p className="mt-1 text-sm text-muted">{currencyFormatter.format(categorizedTotal)} across {categoryTotals.length} categories</p></div>
+          <button className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
+            disabled={categorizing} onClick={() => void categorizeExpenses()} type="button">
+            {categorizing ? "Categorizing…" : "Categorize new expenses"}
+          </button>
+        </div>
+        {categoryTotals.length ? <div className="mt-5 space-y-3">
+          {categoryTotals.map(([category, amount]) => <div key={category}>
+            <div className="mb-1 flex justify-between text-xs"><span className="text-white/75">{categoryLabels[category] || category}</span><span className="font-mono text-white">{currencyFormatter.format(amount)}</span></div>
+            <div className="h-2 overflow-hidden rounded-full bg-white/[0.07]"><div className="h-full rounded-full bg-accent" style={{ width: `${categorizedTotal ? Math.max(2, amount / categorizedTotal * 100) : 0}%` }} /></div>
+          </div>)}
+        </div> : <p className="mt-5 rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-muted">Run categorization to build the spending graph.</p>}
+      </section>
 
       <div className="grid gap-5 xl:grid-cols-2">
         {items.map((item) => {

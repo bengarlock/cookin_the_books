@@ -11,5 +11,9 @@ export type CreditCardTransaction = {
   amount: string;
   transaction_type: "purchase" | "payment" | "credit" | "fee" | "interest";
   source_identifier: string;
+  category: string;
+  category_confidence: string | null;
+  category_source: "ai" | "rules" | "";
+  categorized_at: string | null;
   created_at: string;
 };
