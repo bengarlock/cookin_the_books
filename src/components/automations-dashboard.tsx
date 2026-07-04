@@ -110,6 +110,18 @@ export function AutomationsDashboard({
   initialCategoryRules: ExpenseCategoryRule[];
 }) {
   const [rules, setRules] = useState(initialRules);
+  const [categoryRules, setCategoryRules] = useState(initialCategoryRules);
+  const [editingCategoryRuleId, setEditingCategoryRuleId] = useState<number | null>(null);
+  const [savingCategoryRuleId, setSavingCategoryRuleId] = useState<number | null>(null);
+  const [deletingCategoryRuleId, setDeletingCategoryRuleId] = useState<number | null>(null);
+  const [confirmingCategoryRuleId, setConfirmingCategoryRuleId] = useState<number | null>(null);
+  const [runningCategoryRules, setRunningCategoryRules] = useState(false);
+  const [categoryRuleMessage, setCategoryRuleMessage] = useState("");
+  const [categoryRuleForm, setCategoryRuleForm] = useState({
+    display_description: "",
+    match_type: "exact" as "exact" | "starts_with",
+    category: "other",
+  });
   const [formOpen, setFormOpen] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyRuleForm);
@@ -119,6 +131,74 @@ export function AutomationsDashboard({
   const [deletingRuleId, setDeletingRuleId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [runMessage, setRunMessage] = useState("");
+
+  const categoryLabels: Record<string, string> = {
+    dining: "Dining", groceries: "Groceries", transportation: "Transportation",
+    housing: "Housing", utilities: "Utilities", shopping: "Shopping", health: "Health",
+    entertainment: "Entertainment", travel: "Travel", subscriptions: "Subscriptions",
+    fees_interest: "Fees & interest", other: "Other",
+  };
+
+  function editCategoryRule(rule: ExpenseCategoryRule) {
+    setEditingCategoryRuleId(rule.id);
+    setCategoryRuleForm({
+      display_description: rule.display_description,
+      match_type: rule.match_type,
+      category: rule.category,
+    });
+    setError("");
+  }
+
+  async function saveCategoryRule(ruleId: number) {
+    setSavingCategoryRuleId(ruleId);
+    setError("");
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/expense-category-rules/${ruleId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(categoryRuleForm),
+      });
+      const saved = await response.json().catch(() => null) as ExpenseCategoryRule | { message?: string } | null;
+      if (!response.ok || !saved || !("id" in saved)) throw new Error(saved && "message" in saved ? saved.message : "Unable to update the category rule.");
+      setCategoryRules((current) => current.map((rule) => rule.id === saved.id ? saved : rule));
+      setEditingCategoryRuleId(null);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Unable to update the category rule.");
+    } finally {
+      setSavingCategoryRuleId(null);
+    }
+  }
+
+  async function deleteCategoryRule(ruleId: number) {
+    setDeletingCategoryRuleId(ruleId);
+    setError("");
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/expense-category-rules/${ruleId}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Unable to delete the category rule.");
+      setCategoryRules((current) => current.filter((rule) => rule.id !== ruleId));
+      setConfirmingCategoryRuleId(null);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete the category rule.");
+    } finally {
+      setDeletingCategoryRuleId(null);
+    }
+  }
+
+  async function runCategoryRules() {
+    setRunningCategoryRules(true);
+    setError("");
+    setCategoryRuleMessage("");
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/expense-category-rules/run`, { method: "POST" });
+      const result = await response.json().catch(() => null) as { updated_count?: number; message?: string } | null;
+      if (!response.ok) throw new Error(result?.message || "Unable to run category rules.");
+      setCategoryRuleMessage(`Updated ${result?.updated_count || 0} existing transactions.`);
+    } catch (runError) {
+      setError(runError instanceof Error ? runError.message : "Unable to run category rules.");
+    } finally {
+      setRunningCategoryRules(false);
+    }
+  }
 
   const budgetItemsById = useMemo(
     () => new Map(initialBudgetItems.map((item) => [item.id, item])),
@@ -356,28 +436,40 @@ export function AutomationsDashboard({
   return (
     <div className="space-y-6">
       <section className="space-y-4">
-        <div>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
             Category rules
           </p>
           <p className="mt-1 max-w-2xl text-sm text-muted">
             Categorize matching card transactions before AI classification. Rules learned from corrections appear here too.
           </p>
+          </div>
+          <button className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-white transition hover:border-accent/25 hover:bg-accent/10 disabled:opacity-50" disabled={runningCategoryRules || !categoryRules.length} onClick={() => void runCategoryRules()} type="button">{runningCategoryRules ? "Running…" : "Run category rules now"}</button>
         </div>
+        {categoryRuleMessage ? <p className="rounded-xl border border-accent/20 bg-accent/10 px-4 py-3 text-sm text-accent" role="status">{categoryRuleMessage}</p> : null}
         <div className="surface overflow-hidden rounded-2xl">
           <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
             <h2 className="text-sm font-semibold text-white">Active category rules</h2>
-            <p className="mt-1 text-xs text-muted">{initialCategoryRules.length} {initialCategoryRules.length === 1 ? "rule" : "rules"}</p>
+            <p className="mt-1 text-xs text-muted">{categoryRules.length} {categoryRules.length === 1 ? "rule" : "rules"}</p>
           </div>
-          {initialCategoryRules.length ? <div className="divide-y divide-white/[0.07]">
-            {initialCategoryRules.map((rule) => <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5" key={rule.id}>
-              <div>
+          {categoryRules.length ? <div className="divide-y divide-white/[0.07]">
+            {categoryRules.map((rule) => <div className="px-4 py-4 sm:px-5" key={rule.id}>
+              {editingCategoryRuleId === rule.id ? <div className="grid items-center gap-3 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_auto_auto]">
+                <select aria-label="Match condition" className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white" value={categoryRuleForm.match_type} onChange={(event) => setCategoryRuleForm((current) => ({ ...current, match_type: event.target.value as "exact" | "starts_with" }))}><option value="exact">Equals</option><option value="starts_with">Starts with</option></select>
+                <input aria-label="Match value" className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-accent/40" placeholder="AMAZON" value={categoryRuleForm.display_description} onChange={(event) => setCategoryRuleForm((current) => ({ ...current, display_description: event.target.value }))} />
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Set category</span>
+                <select aria-label="Set category" className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white" value={categoryRuleForm.category} onChange={(event) => setCategoryRuleForm((current) => ({ ...current, category: event.target.value }))}>{Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+                <div className="flex gap-2"><button className="rounded-lg bg-accent/15 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50" disabled={savingCategoryRuleId === rule.id} onClick={() => void saveCategoryRule(rule.id)} type="button">{savingCategoryRuleId === rule.id ? "Saving…" : "Save"}</button><button className="px-2 text-xs text-muted hover:text-white" onClick={() => setEditingCategoryRuleId(null)} type="button">Cancel</button></div>
+              </div> : <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
                 <p className="text-sm font-semibold text-white">{rule.display_description}</p>
                 <p className="mt-1 text-xs text-muted">
                   Description {rule.match_type === "starts_with" ? "starts with" : "equals"} “{rule.normalized_description}”
                 </p>
-              </div>
-              <span className="rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-xs font-semibold capitalize text-accent">{rule.category.replaceAll("_", " ")}</span>
+                </div>
+                <div className="flex items-center gap-3"><span className="rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">{categoryLabels[rule.category] || rule.category}</span><button className="text-xs font-medium text-white/55 hover:text-accent" onClick={() => editCategoryRule(rule)} type="button">Edit</button>{confirmingCategoryRuleId === rule.id ? <><button className="text-xs font-semibold text-rose-200" disabled={deletingCategoryRuleId === rule.id} onClick={() => void deleteCategoryRule(rule.id)} type="button">{deletingCategoryRuleId === rule.id ? "Deleting…" : "Confirm delete"}</button><button className="text-xs text-muted hover:text-white" onClick={() => setConfirmingCategoryRuleId(null)} type="button">Cancel</button></> : <button className="text-xs font-medium text-rose-200/70 hover:text-rose-100" onClick={() => setConfirmingCategoryRuleId(rule.id)} type="button">Delete</button>}</div>
+              </div>}
             </div>)}
           </div> : <p className="px-5 py-8 text-center text-sm text-muted">No category rules yet.</p>}
         </div>
