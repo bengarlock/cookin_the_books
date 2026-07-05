@@ -3,6 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { ExpenseAutomationCondition } from "@/lib/expense-automation-rule-types";
+import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+
+const pageSize = 10;
+const currencyFormatter = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+const dateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 const selectors = [
   { field: "account_last_four", label: "Account", operators: ["equals"] },
@@ -54,15 +59,20 @@ function AccountSelector({ accounts, value, onChange }: {
   </details>;
 }
 
-export function AutomationSelectorBuilder({ conditions, logic, accounts, matchCount, onChange, onLogicChange }: {
+export function AutomationSelectorBuilder({ conditions, logic, accounts, matches, onChange, onLogicChange }: {
   conditions: ExpenseAutomationCondition[];
   logic: "and" | "or";
   accounts: Array<{ value: string; label: string }>;
-  matchCount: number;
+  matches: CreditCardTransaction[];
   onChange: (conditions: ExpenseAutomationCondition[]) => void;
   onLogicChange: (logic: "and" | "or") => void;
 }) {
   const [search, setSearch] = useState("");
+  const [tab, setTab] = useState<"selectors" | "matches">("selectors");
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(matches.length / pageSize));
+  const currentPage = Math.min(page, pageCount - 1);
+  const visibleMatches = matches.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
 
   function addSelector(field: ExpenseAutomationCondition["field"]) {
     const selector = selectors.find((item) => item.field === field)!;
@@ -75,8 +85,8 @@ export function AutomationSelectorBuilder({ conditions, logic, accounts, matchCo
 
   return <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_17rem]">
     <div className="min-h-64 rounded-2xl border border-dashed border-white/15 bg-black/10 p-4" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const field = event.dataTransfer.getData("text/plain") as ExpenseAutomationCondition["field"]; if (selectors.some((item) => item.field === field)) addSelector(field); }}>
-      <div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Staging area</p><p className="mt-1 text-xs text-muted">Drag selectors here or click them in the palette.</p></div><div className="flex items-center gap-2"><div className="inline-flex items-center gap-2 rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1.5 text-xs font-semibold text-sky-100" title="Records matching the current selectors"><span aria-hidden="true">◉</span><span>{matchCount}</span><span className="font-normal text-sky-100/65">records</span></div>{conditions.length > 1 ? <div className="flex rounded-lg border border-white/10 p-1"><button className={`rounded px-2 py-1 text-xs ${logic === "and" ? "bg-accent/15 text-accent" : "text-muted"}`} onClick={() => onLogicChange("and")} type="button">AND</button><button className={`rounded px-2 py-1 text-xs ${logic === "or" ? "bg-accent/15 text-accent" : "text-muted"}`} onClick={() => onLogicChange("or")} type="button">OR</button></div> : null}</div></div>
-      {conditions.length ? <div className="space-y-3">{conditions.map((condition, index) => {
+      <div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Staging area</p><div className="mt-2 flex gap-1 rounded-lg border border-white/10 p-1"><button className={`rounded-md px-3 py-1.5 text-xs ${tab === "selectors" ? "bg-accent/15 text-accent" : "text-muted"}`} onClick={() => setTab("selectors")} type="button">Selectors</button><button className={`rounded-md px-3 py-1.5 text-xs ${tab === "matches" ? "bg-accent/15 text-accent" : "text-muted"}`} onClick={() => { setTab("matches"); setPage(0); }} type="button">Matching transactions</button></div></div><div className="flex items-center gap-2"><div className="inline-flex items-center gap-2 rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1.5 text-xs font-semibold text-sky-100" title="Records matching the current selectors"><span aria-hidden="true">◉</span><span>{matches.length}</span><span className="font-normal text-sky-100/65">records</span></div>{conditions.length > 1 && tab === "selectors" ? <div className="flex rounded-lg border border-white/10 p-1"><button className={`rounded px-2 py-1 text-xs ${logic === "and" ? "bg-accent/15 text-accent" : "text-muted"}`} onClick={() => onLogicChange("and")} type="button">AND</button><button className={`rounded px-2 py-1 text-xs ${logic === "or" ? "bg-accent/15 text-accent" : "text-muted"}`} onClick={() => onLogicChange("or")} type="button">OR</button></div> : null}</div></div>
+      {tab === "selectors" ? (conditions.length ? <div className="space-y-3">{conditions.map((condition, index) => {
         const selector = selectors.find((item) => item.field === condition.field)!;
         return <div className="rounded-xl border border-white/10 bg-white/[0.035] p-3" key={condition.id}>
           {index ? <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-gold">{logic}</p> : null}
@@ -87,7 +97,7 @@ export function AutomationSelectorBuilder({ conditions, logic, accounts, matchCo
             <button aria-label={`Remove ${selector.label}`} className="px-2 text-lg text-white/35 hover:text-rose-200" onClick={() => onChange(conditions.filter((item) => item.id !== condition.id))} type="button">×</button>
           </div>
         </div>;
-      })}</div> : <div className="grid min-h-44 place-items-center rounded-xl border border-white/[0.06] text-center text-sm text-muted">Drop a selector here to begin.</div>}
+      })}</div> : <div className="grid min-h-44 place-items-center rounded-xl border border-white/[0.06] text-center text-sm text-muted">Drop a selector here to begin.</div>) : <div><div className="space-y-2">{visibleMatches.map((transaction) => <div className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2" key={transaction.id}><div className="min-w-0"><p className="truncate text-sm text-white/80">{transaction.description}</p><p className="mt-0.5 text-xs text-muted">{dateFormatter.format(new Date(`${transaction.transaction_date}T12:00:00`))} · {transaction.issuer} •••• {transaction.account_last_four}</p></div><span className="whitespace-nowrap font-mono text-sm text-white">{currencyFormatter.format(Number(transaction.amount))}</span></div>)}{!matches.length ? <div className="grid min-h-44 place-items-center rounded-xl border border-white/[0.06] text-sm text-muted">No transactions match the current selectors.</div> : null}</div>{matches.length ? <div className="mt-4 flex items-center justify-between"><p className="text-xs text-muted">Showing {currentPage * pageSize + 1}–{Math.min((currentPage + 1) * pageSize, matches.length)} of {matches.length}</p><div className="flex gap-2"><button className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white disabled:opacity-30" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} type="button">Previous</button><span className="px-2 py-1.5 text-xs text-muted">Page {currentPage + 1} of {pageCount}</span><button className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white disabled:opacity-30" disabled={currentPage >= pageCount - 1} onClick={() => setPage(currentPage + 1)} type="button">Next</button></div></div> : null}</div>}
     </div>
     <aside className="rounded-2xl border border-white/10 bg-white/[0.025] p-3"><p className="px-1 text-xs font-semibold uppercase tracking-[0.14em] text-gold">Selectors</p><input className="mt-3 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none" onChange={(event) => setSearch(event.target.value)} placeholder="Search selectors" value={search} /><div className="mt-3 space-y-1">{selectors.filter((item) => item.label.toLowerCase().includes(search.toLowerCase())).map((selector) => <button className="flex w-full cursor-grab items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/70 transition hover:bg-accent/10 hover:text-accent" draggable key={selector.field} onClick={() => addSelector(selector.field)} onDragStart={(event) => event.dataTransfer.setData("text/plain", selector.field)} type="button"><span aria-hidden="true">⠿</span>{selector.label}</button>)}</div></aside>
   </div>;

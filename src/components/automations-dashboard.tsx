@@ -19,16 +19,6 @@ import { APP_BASE_PATH } from "@/lib/config";
 import { formatAutomationRunMessage } from "@/lib/format-automation-run-message";
 import type { ExpenseCategoryRule } from "@/lib/expense-category-rule-types";
 
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-});
-
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-});
 
 const matchFieldLabels: Record<ExpenseAutomationMatchField, string> = {
   description: "description",
@@ -70,15 +60,6 @@ function ruleToForm(rule: ExpenseAutomationRule) {
     actions: (rule.actions?.length ? rule.actions : rule.target_budget_item ? [{ type: "create_expense" as const, budget_item: String(rule.target_budget_item), note: rule.note_template, exclude_from_credit_card: rule.exclude_from_credit_card }] : []).map((action) => ({ ...action, budget_item: action.type === "create_expense" ? String(action.budget_item) : undefined, id: crypto.randomUUID() })) as ExpenseAutomationAction[],
     logic_operator: rule.logic_operator || "and",
   };
-}
-
-function formatCurrency(value: string | number) {
-  const number = Number(value);
-  return Number.isFinite(number) ? currencyFormatter.format(number) : "—";
-}
-
-function formatDate(value: string) {
-  return dateFormatter.format(new Date(`${value}T12:00:00`));
 }
 
 function ruleSummary(
@@ -320,11 +301,21 @@ export function AutomationsDashboard({
       return;
     }
 
+    const firstCondition = form.conditions[0];
+    const compatibilityField = ["description", "issuer", "transaction_type"].includes(firstCondition.field)
+      ? firstCondition.field as ExpenseAutomationMatchField
+      : "description";
+    const compatibilityOperator = ["contains", "equals"].includes(firstCondition.operator)
+      ? firstCondition.operator as ExpenseAutomationMatchOperator
+      : "contains";
+    const compatibilityValue = Array.isArray(firstCondition.value)
+      ? firstCondition.value.join(",")
+      : firstCondition.value;
     const payload = {
       name: form.name.trim(),
-      match_field: form.match_field,
-      match_operator: form.match_operator,
-      match_value: form.match_value.trim(),
+      match_field: compatibilityField,
+      match_operator: compatibilityOperator,
+      match_value: compatibilityValue,
       target_budget_item: form.actions.find((action) => action.type === "create_expense")?.budget_item || null,
       note_template: form.note_template.trim(),
       exclude_from_credit_card: form.exclude_from_credit_card,
@@ -611,7 +602,7 @@ export function AutomationsDashboard({
                 accounts={accountOptions}
                 conditions={form.conditions}
                 logic={form.logic_operator}
-                matchCount={previewMatches.length}
+                matches={previewMatches}
                 onChange={(conditions) => setForm((current) => ({ ...current, conditions }))}
                 onLogicChange={(logic_operator) => setForm((current) => ({ ...current, logic_operator }))}
               />
@@ -683,39 +674,6 @@ export function AutomationsDashboard({
               </span>
             </label> : null}
           </div>
-          {previewMatches.length ? (
-            <div className="border-t border-white/10 px-4 py-4 sm:px-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-                Matching transactions
-              </p>
-              <div className="mt-3 space-y-2">
-                {previewMatches.slice(0, 5).map((transaction) => (
-                  <div
-                    className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2"
-                    key={transaction.id}
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm text-white/80">
-                        {transaction.description}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted">
-                        {formatDate(transaction.transaction_date)} ·{" "}
-                        {transaction.issuer}
-                      </p>
-                    </div>
-                    <span className="whitespace-nowrap font-mono text-sm text-white">
-                      {formatCurrency(transaction.amount)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {previewMatches.length > 5 ? <p className="mt-3 text-xs text-muted">Showing 5 of {previewMatches.length} matching transactions.</p> : null}
-            </div>
-          ) : form.match_value.trim() ? (
-            <p className="border-t border-white/10 px-4 py-4 text-sm text-muted sm:px-5">
-              No imported transactions match this rule yet.
-            </p>
-          ) : null}
           <div className="border-t border-white/10 px-4 py-4 sm:px-5">
             <div className="flex flex-wrap gap-3">
               <button
