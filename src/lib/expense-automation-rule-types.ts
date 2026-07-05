@@ -50,4 +50,5 @@ export type ExpenseAutomationRunResult = {
   }>;
   created_count: number;
   skipped_duplicate_count: number;
+  processed_count: number;
 };

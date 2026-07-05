@@ -457,7 +457,7 @@ export function AutomationsDashboard({
         | ExpenseAutomationRunResult
         | { message?: string; detail?: string }
         | null;
-      if (!response.ok || !result || !("created_count" in result)) {
+      if (!response.ok || !result || !("processed_count" in result)) {
         const fallback = "Unable to run automation rules.";
         const message = extractApiErrorMessage(result, fallback);
         const detail = extractApiErrorDetail(result);
@@ -465,8 +465,7 @@ export function AutomationsDashboard({
       }
       setRunMessage(
         formatAutomationRunMessage({
-          created_count: result.created_count,
-          skipped_duplicate_count: result.skipped_duplicate_count ?? 0,
+          processed_count: result.processed_count,
         }),
       );
     } catch (runError) {
@@ -528,8 +527,8 @@ export function AutomationsDashboard({
             Transaction rules
           </p>
           <p className="mt-1 max-w-2xl text-sm text-muted">
-            Match imported credit-card transactions and automatically create
-            expense entries. Rules also run when new statements are imported.
+            Match imported credit-card transactions and apply every configured
+            action. Automations also run when new statements are imported.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -539,7 +538,7 @@ export function AutomationsDashboard({
             onClick={() => void runRules()}
             type="button"
           >
-            {running ? "Running…" : "Run rules now"}
+            {running ? "Running automations…" : "Run Automations"}
           </button>
           <button
             className="rounded-xl border border-accent/30 bg-accent/15 px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/20"
