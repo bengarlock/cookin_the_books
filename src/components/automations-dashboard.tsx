@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import type { BudgetItem } from "@/lib/budget-item-types";
 import type {
@@ -13,22 +14,12 @@ import type {
 } from "@/lib/expense-automation-rule-types";
 import { AutomationSelectorBuilder } from "@/components/automation-selector-builder";
 import { AutomationActionBuilder } from "@/components/automation-action-builder";
-import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import type { CreditCardTransaction, ExpenseTag } from "@/lib/credit-card-transaction-types";
 import { extractApiErrorDetail, extractApiErrorMessage } from "@/lib/api-error-message";
 import { APP_BASE_PATH } from "@/lib/config";
 import { formatAutomationRunMessage } from "@/lib/format-automation-run-message";
+import { formatAutomationActionSummary } from "@/lib/expense-automation-summary";
 
-
-const matchFieldLabels: Record<ExpenseAutomationMatchField, string> = {
-  description: "description",
-  issuer: "issuer",
-  transaction_type: "transaction type",
-};
-
-const matchOperatorLabels: Record<ExpenseAutomationMatchOperator, string> = {
-  contains: "contains",
-  equals: "equals",
-};
 
 const emptyRuleForm = {
   name: "",
@@ -59,14 +50,6 @@ function ruleToForm(rule: ExpenseAutomationRule) {
     actions: (rule.actions?.length ? rule.actions : rule.target_budget_item ? [{ type: "create_expense" as const, budget_item: String(rule.target_budget_item), note: rule.note_template, exclude_from_credit_card: rule.exclude_from_credit_card }] : []).map((action) => ({ ...action, budget_item: action.type === "create_expense" ? String(action.budget_item) : undefined, id: crypto.randomUUID() })) as ExpenseAutomationAction[],
     logic_operator: rule.logic_operator || "and",
   };
-}
-
-function ruleSummary(
-  rule: ExpenseAutomationRule,
-  budgetItemsById: Map<number, BudgetItem>,
-) {
-  const target = budgetItemsById.get(rule.target_budget_item)?.label || "Expense";
-  return `When ${matchFieldLabels[rule.match_field]} ${matchOperatorLabels[rule.match_operator]} "${rule.match_value}", create ${target}`;
 }
 
 function transactionMatchesCondition(
@@ -111,10 +94,12 @@ export function AutomationsDashboard({
   initialBudgetItems,
   initialCreditCardTransactions,
   initialRules,
+  initialTags,
 }: {
   initialBudgetItems: BudgetItem[];
   initialCreditCardTransactions: CreditCardTransaction[];
   initialRules: ExpenseAutomationRule[];
+  initialTags: ExpenseTag[];
 }) {
   const [rules, setRules] = useState(initialRules);
   const [formOpen, setFormOpen] = useState(false);
@@ -126,6 +111,17 @@ export function AutomationsDashboard({
   const [deletingRuleId, setDeletingRuleId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [runMessage, setRunMessage] = useState("");
+  const [formHost, setFormHost] = useState<HTMLDivElement | null>(null);
+  const [availableTags, setAvailableTags] = useState(() =>
+    Array.from(
+      new Set([
+        ...initialTags.map((tag) => tag.name),
+        ...initialCreditCardTransactions.flatMap((transaction) =>
+          (transaction.tags || []).map((tag) => tag.name),
+        ),
+      ]),
+    ).sort((a, b) => a.localeCompare(b)),
+  );
 
   const budgetItemsById = useMemo(
     () => new Map(initialBudgetItems.map((item) => [item.id, item])),
@@ -154,8 +150,22 @@ export function AutomationsDashboard({
     });
     return Array.from(accounts, ([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
   }, [initialCreditCardTransactions]);
-  const tagOptions = useMemo(() => Array.from(new Set(initialCreditCardTransactions.flatMap((transaction) => (transaction.tags || []).map((tag) => tag.name)))).sort((a, b) => a.localeCompare(b)), [initialCreditCardTransactions]);
   const descriptionOptions = useMemo(() => Array.from(new Set(initialCreditCardTransactions.map((transaction) => transaction.description).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [initialCreditCardTransactions]);
+
+  function createTag(name: string) {
+    const cleaned = name.trim();
+    if (!cleaned) return "";
+    const existing = availableTags.find(
+      (tag) => tag.toLowerCase() === cleaned.toLowerCase(),
+    );
+    const selected = existing || cleaned;
+    if (!existing) {
+      setAvailableTags((current) =>
+        [...current, cleaned].sort((a, b) => a.localeCompare(b)),
+      );
+    }
+    return selected;
+  }
 
   const conditionIsEmpty = (condition: ExpenseAutomationCondition) =>
     Array.isArray(condition.value)
@@ -190,6 +200,7 @@ export function AutomationsDashboard({
   }, [form, initialCreditCardTransactions]);
 
   function openCreateForm() {
+    setFormHost(null);
     setEditingRuleId(null);
     setForm(emptyRuleForm);
     setFormOpen(true);
@@ -197,6 +208,7 @@ export function AutomationsDashboard({
   }
 
   function openEditForm(rule: ExpenseAutomationRule) {
+    setFormHost(null);
     setEditingRuleId(rule.id);
     setForm(ruleToForm(rule));
     setFormOpen(true);
@@ -444,7 +456,9 @@ export function AutomationsDashboard({
         </p>
       ) : null}
 
-      {formOpen ? (
+      <div ref={editingRuleId === null ? setFormHost : undefined} />
+
+      {formOpen && formHost ? createPortal((
         <form
           className="surface overflow-hidden rounded-2xl"
           onSubmit={(event) => void saveRule(event)}
@@ -487,7 +501,7 @@ export function AutomationsDashboard({
                 onLogicChange={(logic_operator) => setForm((current) => ({ ...current, logic_operator }))}
               />
             </div>
-            <div className="sm:col-span-2"><AutomationActionBuilder actions={form.actions} expenses={expenseTargets} tags={tagOptions} onChange={(actions) => setForm((current) => ({ ...current, actions }))} /></div>
+            <div className="sm:col-span-2"><AutomationActionBuilder actions={form.actions} expenses={expenseTargets} tags={availableTags} onChange={(actions) => setForm((current) => ({ ...current, actions }))} onCreateTag={createTag} /></div>
             {/* Legacy fields are represented by staged Create Expense actions. */}
             {false ? <label className="sm:col-span-2">
               <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
@@ -582,6 +596,7 @@ export function AutomationsDashboard({
             </div>
           </div>
         </form>
+      ), formHost
       ) : null}
 
       <div className="surface overflow-hidden rounded-2xl">
@@ -611,7 +626,7 @@ export function AutomationsDashboard({
                   ) : null}
                 </div>
                 <p className="mt-1 text-sm text-muted">
-                  {ruleSummary(rule, budgetItemsById)}
+                  {formatAutomationActionSummary(rule, budgetItemsById)}
                 </p>
               </div>
               <label className="flex items-center gap-2 text-xs text-white/60">
@@ -646,6 +661,10 @@ export function AutomationsDashboard({
               >
                 {deletingRuleId === rule.id ? "Deleting…" : "Delete"}
               </button>
+              <div
+                className="col-span-full"
+                ref={editingRuleId === rule.id ? setFormHost : undefined}
+              />
             </div>
           ))
         ) : (

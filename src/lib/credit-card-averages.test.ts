@@ -19,6 +19,8 @@ function transaction(
     amount: "300.00",
     transaction_type: "purchase",
     source_identifier: "test",
+    split: false,
+    include: true,
     created_at: "2026-06-30T00:00:00Z",
     ...overrides,
   };
@@ -66,5 +68,19 @@ describe("credit-card expenditure averages", () => {
     expect(
       creditCardExpenditureAverages([], "2025-07-01", "2026-06-30"),
     ).toEqual({ total: 0, daily: 0, weekly: 0, monthly: 0 });
+  });
+
+  it("halves split transactions and ignores excluded transactions", () => {
+    const result = creditCardExpenditureAverages(
+      [
+        transaction({ amount: "300.00", split: true }),
+        transaction({ id: 2, amount: "500.00", include: false }),
+      ],
+      "2025-07-01",
+      "2026-06-30",
+    );
+
+    expect(result.total).toBe(150);
+    expect(result.daily).toBe(5);
   });
 });

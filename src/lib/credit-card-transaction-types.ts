@@ -18,5 +18,7 @@ export type CreditCardTransaction = {
   category_source: "ai" | "rules" | "user_rule" | "";
   categorized_at: string | null;
   tags: ExpenseTag[];
+  split: boolean;
+  include: boolean;
   created_at: string;
 };

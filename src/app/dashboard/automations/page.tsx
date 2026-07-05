@@ -4,16 +4,18 @@ import { AutomationsDashboard } from "@/components/automations-dashboard";
 import { getBudgetItems } from "@/lib/budget-items";
 import { getCreditCardTransactions } from "@/lib/credit-card-transactions";
 import { getExpenseAutomationRules } from "@/lib/expense-automation-rules";
+import { getExpenseTags } from "@/lib/expense-tags";
 
 export const metadata: Metadata = {
   title: "Automations",
 };
 
 export default async function AutomationsPage() {
-  const [budgetItems, creditCardTransactions, rules] = await Promise.all([
+  const [budgetItems, creditCardTransactions, rules, expenseTags] = await Promise.all([
     getBudgetItems(),
     getCreditCardTransactions(),
     getExpenseAutomationRules(),
+    getExpenseTags(),
   ]);
 
   return (
@@ -22,6 +24,7 @@ export default async function AutomationsPage() {
         initialBudgetItems={budgetItems}
         initialCreditCardTransactions={creditCardTransactions}
         initialRules={rules}
+        initialTags={expenseTags}
       />
     </div>
   );

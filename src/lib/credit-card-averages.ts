@@ -12,6 +12,11 @@ function dateValue(value: string) {
   return Date.parse(`${value}T00:00:00Z`);
 }
 
+export function effectiveCreditCardTransactionAmount(transaction: CreditCardTransaction) {
+  if (transaction.include === false) return 0;
+  return Number(transaction.amount) / (transaction.split === true ? 2 : 1);
+}
+
 function coveredCalendarDays(
   transactions: CreditCardTransaction[],
   cutoff: string,
@@ -53,10 +58,11 @@ export function creditCardExpenditureAverages(
     (transaction) =>
       transaction.transaction_date >= cutoff &&
       transaction.transaction_date <= today &&
+      transaction.include !== false &&
       ["purchase", "fee", "interest"].includes(transaction.transaction_type),
   );
   const total = expenditures.reduce(
-    (sum, transaction) => sum + Number(transaction.amount),
+    (sum, transaction) => sum + effectiveCreditCardTransactionAmount(transaction),
     0,
   );
   const days = coveredCalendarDays(expenditures, cutoff, today);

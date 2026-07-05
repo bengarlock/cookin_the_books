@@ -154,9 +154,12 @@ function DescriptionSelector({
     setOpen(true);
   }
   function apply() {
-    onChange(
-      Array.from(new Set(draft.map((item) => item.trim()).filter(Boolean))),
-    );
+    const unique = new Map<string, string>();
+    draft.map((item) => item.trim()).filter(Boolean).forEach((item) => {
+      const key = item.toLocaleLowerCase();
+      if (!unique.has(key)) unique.set(key, item);
+    });
+    onChange(Array.from(unique.values()).sort((left, right) => left.localeCompare(right, undefined, { sensitivity: "base" })));
     setOpen(false);
   }
   return (
@@ -484,6 +487,18 @@ export function AutomationSelectorBuilder({
                       · {transaction.issuer} ••••{" "}
                       {transaction.account_last_four}
                     </p>
+                    {transaction.tags?.length ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {transaction.tags.map((tag) => (
+                          <span
+                            className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2 py-0.5 text-[10px] font-medium text-sky-100"
+                            key={tag.id}
+                          >
+                            {tag.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                   <span className="whitespace-nowrap font-mono text-sm text-white">
                     {currencyFormatter.format(Number(transaction.amount))}
