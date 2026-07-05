@@ -188,7 +188,7 @@ export function AutomationsDashboard({
       created_at: "",
       updated_at: "",
       conditions: form.conditions,
-      actions: form.actions.map((action) => action.type === "create_expense" ? { type: action.type, budget_item: action.budget_item, note: action.note, exclude_from_credit_card: action.exclude_from_credit_card } : action.type === "assign_tag" ? { type: action.type, tag: action.tag } : { type: action.type, category: action.category }),
+      actions: form.actions.map((action) => action.type === "create_expense" ? { type: action.type, budget_item: action.budget_item, note: action.note, exclude_from_credit_card: action.exclude_from_credit_card } : action.type === "assign_tag" ? { type: action.type, tag: action.tag } : { type: action.type, category: action.category, category_label: action.category_label }),
       logic_operator: form.logic_operator,
     };
 
@@ -200,7 +200,6 @@ export function AutomationsDashboard({
   }, [form, initialCreditCardTransactions]);
 
   function openCreateForm() {
-    setFormHost(null);
     setEditingRuleId(null);
     setForm(emptyRuleForm);
     setFormOpen(true);
@@ -253,7 +252,7 @@ export function AutomationsDashboard({
       exclude_from_credit_card: form.exclude_from_credit_card,
       conditions: form.conditions.map(({ field, operator, value }) => ({ field, operator, value })),
       logic_operator: form.logic_operator,
-      actions: form.actions.map((action) => action.type === "create_expense" ? { type: action.type, budget_item: action.budget_item, note: action.note, exclude_from_credit_card: action.exclude_from_credit_card } : action.type === "assign_tag" ? { type: action.type, tag: action.tag } : { type: action.type, category: action.category }),
+      actions: form.actions.map((action) => action.type === "create_expense" ? { type: action.type, budget_item: action.budget_item, note: action.note, exclude_from_credit_card: action.exclude_from_credit_card } : action.type === "assign_tag" ? { type: action.type, tag: action.tag } : { type: action.type, category: action.category, category_label: action.category_label }),
     };
 
     setSavingForm(true);

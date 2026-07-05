@@ -11,7 +11,7 @@ const choices = [
   { type: "create_expense", label: "Create Expense" },
 ] as const;
 
-const categories = [
+export const defaultAutomationCategories = [
   { value: "dining", label: "Dining" },
   { value: "groceries", label: "Groceries" },
   { value: "transportation", label: "Transportation" },
@@ -40,6 +40,22 @@ export function AutomationActionBuilder({
 }) {
   const [creatingTagFor, setCreatingTagFor] = useState<string | null>(null);
   const [newTagName, setNewTagName] = useState("");
+  const [creatingCategoryFor, setCreatingCategoryFor] = useState<string | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState("");
+
+  const customCategories = actions.flatMap((action) =>
+    action.type === "assign_category" && action.category
+      ? [{ value: action.category, label: action.category_label || action.category }]
+      : [],
+  );
+  const categories = Array.from(
+    new Map(
+      [...defaultAutomationCategories, ...customCategories].map((category) => [
+        category.value,
+        category,
+      ]),
+    ).values(),
+  ).sort((left, right) => left.label.localeCompare(right.label));
 
   function add(type: ExpenseAutomationAction["type"]) {
     const id = crypto.randomUUID();
@@ -69,6 +85,27 @@ export function AutomationActionBuilder({
     update(actionId, { tag: createdTag });
     setNewTagName("");
     setCreatingTagFor(null);
+  }
+
+  function createCategory(actionId: string) {
+    const label = newCategoryName.trim().replace(/\s+/g, " ");
+    const category = label
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 60);
+    if (!label || !category) return;
+    const existing = categories.find(
+      (option) => option.value === category || option.label.toLowerCase() === label.toLowerCase(),
+    );
+    update(actionId, {
+      category: existing?.value || category,
+      category_label: existing?.label || label,
+    });
+    setNewCategoryName("");
+    setCreatingCategoryFor(null);
   }
 
   return (
@@ -153,20 +190,65 @@ export function AutomationActionBuilder({
                   </label>
                 </div>
               ) : action.type === "assign_category" ? (
-                <select
-                  className="mt-3 w-full rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-sm text-white"
-                  onChange={(event) =>
-                    update(action.id, { category: event.target.value })
-                  }
-                  value={action.category}
-                >
-                  <option value="">Select a category</option>
-                  {categories.map((category) => (
-                    <option key={category.value} value={category.value}>
-                      {category.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-3">
+                  <div className="flex items-center gap-2">
+                    <select
+                      className="min-w-0 flex-1 rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-sm text-white"
+                      onChange={(event) => {
+                        const selected = categories.find((category) => category.value === event.target.value);
+                        update(action.id, {
+                          category: event.target.value,
+                          category_label: selected?.label,
+                        });
+                      }}
+                      value={action.category}
+                    >
+                      <option value="">Select a category</option>
+                      {categories.map((category) => (
+                        <option key={category.value} value={category.value}>
+                          {category.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      aria-label="Create a new category"
+                      className="grid size-9 shrink-0 place-items-center rounded-full border border-white/10 text-lg text-white/60 transition hover:border-sky-300/30 hover:text-sky-100"
+                      onClick={() => {
+                        setCreatingCategoryFor(creatingCategoryFor === action.id ? null : action.id);
+                        setNewCategoryName("");
+                      }}
+                      title="Create a new category"
+                      type="button"
+                    >
+                      +
+                    </button>
+                  </div>
+                  {creatingCategoryFor === action.id ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <input
+                        autoFocus
+                        className="h-9 min-w-48 flex-1 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
+                        maxLength={60}
+                        onChange={(event) => setNewCategoryName(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            createCategory(action.id);
+                          }
+                        }}
+                        placeholder="Create a category"
+                        value={newCategoryName}
+                      />
+                      <button
+                        className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70"
+                        onClick={() => createCategory(action.id)}
+                        type="button"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               ) : (
                 <div className="mt-3">
                   <div className="mb-2 flex items-center gap-2">

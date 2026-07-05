@@ -13,7 +13,7 @@ export type ExpenseAutomationCondition = {
 export type ExpenseAutomationAction =
   | { id: string; type: "create_expense"; budget_item: string; note: string; exclude_from_credit_card: boolean }
   | { id: string; type: "assign_tag"; tag: string }
-  | { id: string; type: "assign_category"; category: string };
+  | { id: string; type: "assign_category"; category: string; category_label?: string };
 
 export type ExpenseAutomationRule = {
   id: number;
@@ -26,7 +26,7 @@ export type ExpenseAutomationRule = {
   actions: Array<
     | { type: "create_expense"; budget_item: string | number; note: string; exclude_from_credit_card: boolean }
     | { type: "assign_tag"; tag: string }
-    | { type: "assign_category"; category: string }
+    | { type: "assign_category"; category: string; category_label?: string }
   >;
   logic_operator: "and" | "or";
   target_budget_item: number;

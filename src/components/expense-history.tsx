@@ -94,6 +94,7 @@ export function ExpenseHistory({
   const [expandedSpendingCategory, setExpandedSpendingCategory] = useState<
     string | null
   >(null);
+  const [transactionSearch, setTransactionSearch] = useState("");
   const [correctingTransactionId, setCorrectingTransactionId] = useState<
     number | null
   >(null);
@@ -133,12 +134,29 @@ export function ExpenseHistory({
     entertainment: "Entertainment", travel: "Travel", subscriptions: "Subscriptions",
     fees_interest: "Fees & interest", needs_review: "Needs review",
   };
-  const categorizedTransactions = creditCardTransactions.filter((item) =>
-    item.category &&
-    ["purchase", "fee", "interest"].includes(item.transaction_type) &&
-    item.transaction_date >= spendingDateRange.start &&
-    item.transaction_date <= spendingDateRange.end
-  );
+  const normalizedTransactionSearch = transactionSearch.trim().toLocaleLowerCase();
+  const categorizedTransactions = creditCardTransactions.filter((item) => {
+    if (
+      !item.category ||
+      !["purchase", "fee", "interest"].includes(item.transaction_type) ||
+      item.transaction_date < spendingDateRange.start ||
+      item.transaction_date > spendingDateRange.end
+    ) {
+      return false;
+    }
+    if (!normalizedTransactionSearch) return true;
+    return [
+      item.description,
+      item.issuer,
+      item.account_last_four,
+      item.transaction_date,
+      item.amount,
+      item.note,
+      item.category,
+      categoryLabels[item.category],
+      ...(item.tags || []).map((tag) => tag.name),
+    ].some((value) => String(value || "").toLocaleLowerCase().includes(normalizedTransactionSearch));
+  });
   const categoryTotals = Object.entries(
     categorizedTransactions
       .reduce<Record<string, number>>((totals, item) => {
@@ -256,7 +274,9 @@ export function ExpenseHistory({
 
   async function saveTransactionEditor(transactionId: number) {
     if (await saveTransactionNote(transactionId)) {
-      await correctTransactionCategory(transactionId);
+      if (await correctTransactionCategory(transactionId)) {
+        closeTransactionEditor();
+      }
     }
   }
 
@@ -269,7 +289,7 @@ export function ExpenseHistory({
   }
 
   async function correctTransactionCategory(transactionId: number) {
-    if (!correctionRuleForm.category || !correctionRuleForm.match_value.trim()) return;
+    if (!correctionRuleForm.category || !correctionRuleForm.match_value.trim()) return false;
     setSavingCorrectionId(transactionId);
     setError("");
     try {
@@ -306,14 +326,15 @@ export function ExpenseHistory({
       setImportMessage(
         `Category corrected and learned for ${result.updated_count} matching ${result.updated_count === 1 ? "transaction" : "transactions"}.`,
       );
-      setCorrectingTransactionId(null);
       setCorrectionRuleForm({ match_type: "exact", match_value: "", category: "dining" });
+      return true;
     } catch (correctionError) {
       setError(
         correctionError instanceof Error
           ? correctionError.message
           : "Unable to correct the category.",
       );
+      return false;
     } finally {
       setSavingCorrectionId(null);
     }
@@ -649,6 +670,26 @@ export function ExpenseHistory({
             <h2 className="mt-1 text-lg font-semibold text-white">Categorized expenses</h2>
             <p className="mt-1 text-sm text-muted">{currencyFormatter.format(categorizedTotal)} across {categoryTotals.length} categories</p></div>
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <label className="relative min-w-56 flex-1 sm:flex-none">
+              <span className="sr-only">Search transactions</span>
+              <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white/35">⌕</span>
+              <input
+                className="h-9 w-full rounded-lg border border-white/10 bg-black/20 pl-8 pr-8 text-xs text-white outline-none placeholder:text-white/35 focus:border-accent/40 sm:w-64"
+                onChange={(event) => {
+                  setTransactionSearch(event.target.value);
+                  setExpandedSpendingCategory(null);
+                }}
+                placeholder="Search transactions"
+                type="search"
+                value={transactionSearch}
+              />
+              {transactionSearch ? <button
+                aria-label="Clear transaction search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-1 text-sm text-white/40 hover:text-white"
+                onClick={() => setTransactionSearch("")}
+                type="button"
+              >×</button> : null}
+            </label>
             <DateRangePicker
               allTimeStart={earliestTransactionDate || undefined}
               dialogLabel="Select spending graph date range"
@@ -745,7 +786,7 @@ export function ExpenseHistory({
               </div> : null}
             </div>;
           })}
-        </div> : <p className="mt-5 rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-muted">No categorized expenses were found in this date range.</p>}
+        </div> : <p className="mt-5 rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-muted">{normalizedTransactionSearch ? `No transactions match “${transactionSearch.trim()}” in this date range.` : "No categorized expenses were found in this date range."}</p>}
       </section>
 
       <div className="grid gap-5 xl:grid-cols-2">

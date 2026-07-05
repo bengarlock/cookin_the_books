@@ -46,7 +46,7 @@ export function formatAutomationActionSummary(
     actions.map((action) => {
       if (action.type === "assign_tag") return `Assign tag: ${action.tag}`;
       if (action.type === "assign_category") {
-        const label = categoryLabels[action.category] || action.category;
+        const label = action.category_label || categoryLabels[action.category] || action.category;
         return action.category === "transfer"
           ? "Mark as Transfer"
           : `Categorize as ${label}`;
