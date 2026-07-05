@@ -5,17 +5,19 @@ import { ExpenseHistory } from "@/components/expense-history";
 import { getBudgetItems } from "@/lib/budget-items";
 import { getCreditCardTransactions } from "@/lib/credit-card-transactions";
 import { getExpenseEntries } from "@/lib/expense-entries";
+import { getExpenseTags } from "@/lib/expense-tags";
 
 export const metadata: Metadata = {
   title: "Expenses",
 };
 
 export default async function ExpensesPage() {
-  const [budgetItems, expenseEntries, creditCardTransactions] =
+  const [budgetItems, expenseEntries, creditCardTransactions, expenseTags] =
     await Promise.all([
       getBudgetItems(),
       getExpenseEntries(),
       getCreditCardTransactions(),
+      getExpenseTags(),
     ]);
 
   return (
@@ -28,6 +30,7 @@ export default async function ExpensesPage() {
         budgetItems={budgetItems}
         initialCreditCardTransactions={creditCardTransactions}
         initialEntries={expenseEntries}
+        initialTags={expenseTags}
       />
     </div>
   );

@@ -1,3 +1,5 @@
+export type ExpenseTag = { id: number; name: string };
+
 export type CreditCardTransaction = {
   id: number;
   budget_item: number;
@@ -15,6 +17,6 @@ export type CreditCardTransaction = {
   category_confidence: string | null;
   category_source: "ai" | "rules" | "";
   categorized_at: string | null;
-  tags: Array<{ id: number; name: string }>;
+  tags: ExpenseTag[];
   created_at: string;
 };

@@ -5,7 +5,7 @@ import { FormEvent, useState } from "react";
 import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
 import { creditCardExpenditureAverages } from "@/lib/credit-card-averages";
-import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import type { CreditCardTransaction, ExpenseTag } from "@/lib/credit-card-transaction-types";
 import {
   budgetItemExpenseAverages,
   effectiveExpenseAmount,
@@ -56,16 +56,19 @@ export function ExpenseHistory({
   budgetItems,
   initialCreditCardTransactions,
   initialEntries,
+  initialTags,
 }: {
   budgetItems: BudgetItem[];
   initialCreditCardTransactions: CreditCardTransaction[];
   initialEntries: ExpenseEntry[];
+  initialTags: ExpenseTag[];
 }) {
   const [items, setItems] = useState(budgetItems);
   const [entries, setEntries] = useState(initialEntries);
   const [creditCardTransactions, setCreditCardTransactions] = useState(
     initialCreditCardTransactions,
   );
+  const [tagLibrary, setTagLibrary] = useState(initialTags);
   const [openItemId, setOpenItemId] = useState<number | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(
     null,
@@ -106,6 +109,7 @@ export function ExpenseHistory({
   const [savingTagsId, setSavingTagsId] = useState<number | null>(null);
   const [tagDraft, setTagDraft] = useState<string[]>([]);
   const [newTagName, setNewTagName] = useState("");
+  const [newTagFormOpen, setNewTagFormOpen] = useState(false);
   const [error, setError] = useState("");
   const [entryForm, setEntryForm] = useState({
     incurredOn: todayString(),
@@ -147,13 +151,9 @@ export function ExpenseHistory({
         : earliest,
     "",
   );
-  const availableTagNames = Array.from(
-    new Set(
-      creditCardTransactions.flatMap((transaction) =>
-        (transaction.tags || []).map((tag) => tag.name),
-      ),
-    ),
-  ).sort((left, right) => left.localeCompare(right));
+  const availableTagNames = tagLibrary
+    .map((tag) => tag.name)
+    .sort((left, right) => left.localeCompare(right));
 
   function addTagToDraft(name: string) {
     const cleaned = name.trim();
@@ -164,6 +164,25 @@ export function ExpenseHistory({
         : [...current, cleaned],
     );
     setNewTagName("");
+    setNewTagFormOpen(false);
+  }
+
+  function openTransactionEditor(transaction: CreditCardTransaction) {
+    setTaggingTransactionId(transaction.id);
+    setTagDraft((transaction.tags || []).map((tag) => tag.name));
+    setNewTagName("");
+    setNewTagFormOpen(false);
+    setCorrectingTransactionId(transaction.id);
+    setCorrectionRuleForm({
+      match_type: "exact",
+      match_value: transaction.description,
+      category: transaction.category,
+    });
+  }
+
+  function closeTransactionEditor() {
+    setTaggingTransactionId(null);
+    setCorrectingTransactionId(null);
   }
 
   async function saveTransactionTags(transactionId: number) {
@@ -181,6 +200,11 @@ export function ExpenseHistory({
       const updated = await response.json().catch(() => null) as CreditCardTransaction | { message?: string } | null;
       if (!response.ok || !updated || !("id" in updated)) throw new Error(updated && "message" in updated ? updated.message : "Unable to save tags.");
       setCreditCardTransactions((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setTagLibrary((current) => {
+        const byName = new Map(current.map((tag) => [tag.name.toLowerCase(), tag]));
+        updated.tags.forEach((tag) => byName.set(tag.name.toLowerCase(), tag));
+        return Array.from(byName.values());
+      });
       setTaggingTransactionId(null);
     } catch (tagError) {
       setError(tagError instanceof Error ? tagError.message : "Unable to save tags.");
@@ -619,12 +643,15 @@ export function ExpenseHistory({
                     {transaction.tags?.length ? <div className="mt-2 flex flex-wrap gap-1.5">{transaction.tags.map((tag) => <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2 py-0.5 text-[10px] font-medium text-sky-100" key={tag.id}>{tag.name}</span>)}</div> : null}
                     {taggingTransactionId === transaction.id ? <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/10 p-3">
                       <div className="flex flex-wrap gap-2">{tagDraft.map((tag) => <button className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[11px] text-sky-100" key={tag} onClick={() => setTagDraft((current) => current.filter((item) => item !== tag))} title="Remove tag" type="button">{tag} ×</button>)}</div>
-                      {availableTagNames.filter((tag) => !tagDraft.some((selected) => selected.toLowerCase() === tag.toLowerCase())).length ? <div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-[10px] uppercase tracking-[0.12em] text-muted">Existing</span>{availableTagNames.filter((tag) => !tagDraft.some((selected) => selected.toLowerCase() === tag.toLowerCase())).map((tag) => <button className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:border-sky-300/20 hover:text-sky-100" key={tag} onClick={() => addTagToDraft(tag)} type="button">+ {tag}</button>)}</div> : null}
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="mt-3 flex items-center gap-2"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Available tags</p><button aria-label="Create a new tag" className="grid size-6 place-items-center rounded-full border border-white/10 text-sm text-white/60 transition hover:border-sky-300/30 hover:text-sky-100" onClick={() => setNewTagFormOpen((current) => !current)} title="Create a new tag" type="button">+</button></div>
+                      {availableTagNames.filter((tag) => !tagDraft.some((selected) => selected.toLowerCase() === tag.toLowerCase())).length ? <div className="mt-2 flex flex-wrap gap-2">{availableTagNames.filter((tag) => !tagDraft.some((selected) => selected.toLowerCase() === tag.toLowerCase())).map((tag) => <button className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:border-sky-300/20 hover:text-sky-100" key={tag} onClick={() => addTagToDraft(tag)} type="button">+ {tag}</button>)}</div> : <p className="mt-2 text-[11px] text-muted">No other saved tags.</p>}
+                      {newTagFormOpen ? <div className="mt-3 flex flex-wrap gap-2">
                         <input className="h-9 min-w-48 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" maxLength={40} onChange={(event) => setNewTagName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addTagToDraft(newTagName); } }} placeholder="Create a tag" value={newTagName} />
                         <button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70" onClick={() => addTagToDraft(newTagName)} type="button">Add</button>
+                      </div> : null}
+                      <div className="mt-3 flex flex-wrap gap-2">
                         <button className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50" disabled={savingTagsId === transaction.id} onClick={() => void saveTransactionTags(transaction.id)} type="button">{savingTagsId === transaction.id ? "Saving…" : "Save tags"}</button>
-                        <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={() => setTaggingTransactionId(null)} type="button">Cancel</button>
+                        <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={closeTransactionEditor} type="button">Cancel</button>
                       </div>
                     </div> : null}
                     {correctingTransactionId === transaction.id ? <div className="mt-3 grid items-center gap-2 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_auto_auto]">
@@ -646,26 +673,18 @@ export function ExpenseHistory({
                         onClick={() => void correctTransactionCategory(transaction.id)}
                         type="button"
                       >{savingCorrectionId === transaction.id ? "Learning…" : "Save & learn"}</button>
-                      <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={() => setCorrectingTransactionId(null)} type="button">Cancel</button>
+                      <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={closeTransactionEditor} type="button">Cancel</button>
                       </div>
                       <p className="text-[11px] text-muted sm:col-span-5">Creates an editable automation rule, updates matching history, and remembers it for future imports.</p>
                     </div> : null}
                   </div>
                   <div className="flex items-center gap-3 self-start">
                     <p className="font-mono text-sm font-semibold text-white">{currencyFormatter.format(Number(transaction.amount))}</p>
-                    <button className="text-xs font-medium text-white/50 hover:text-sky-200" onClick={() => { setTaggingTransactionId(transaction.id); setTagDraft((transaction.tags || []).map((tag) => tag.name)); setNewTagName(""); }} type="button">Tags</button>
                     <button
                       className="text-xs font-medium text-white/50 hover:text-accent"
-                      onClick={() => {
-                        setCorrectingTransactionId(transaction.id);
-                        setCorrectionRuleForm({
-                          match_type: "exact",
-                          match_value: transaction.description,
-                          category: transaction.category,
-                        });
-                      }}
+                      onClick={() => openTransactionEditor(transaction)}
                       type="button"
-                    >Correct</button>
+                    >Edit</button>
                   </div>
                 </div>)}
               </div> : null}

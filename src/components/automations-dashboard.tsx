@@ -4,11 +4,13 @@ import { FormEvent, useMemo, useState } from "react";
 
 import type { BudgetItem } from "@/lib/budget-item-types";
 import type {
+  ExpenseAutomationCondition,
   ExpenseAutomationMatchField,
   ExpenseAutomationMatchOperator,
   ExpenseAutomationRule,
   ExpenseAutomationRunResult,
 } from "@/lib/expense-automation-rule-types";
+import { AutomationSelectorBuilder } from "@/components/automation-selector-builder";
 import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
 import { extractApiErrorDetail, extractApiErrorMessage } from "@/lib/api-error-message";
 import { APP_BASE_PATH } from "@/lib/config";
@@ -45,6 +47,8 @@ const emptyRuleForm = {
   target_budget_item: "",
   note_template: "",
   exclude_from_credit_card: true,
+  conditions: [] as ExpenseAutomationCondition[],
+  logic_operator: "and" as "and" | "or",
 };
 
 function ruleToForm(rule: ExpenseAutomationRule) {
@@ -56,6 +60,11 @@ function ruleToForm(rule: ExpenseAutomationRule) {
     target_budget_item: String(rule.target_budget_item),
     note_template: rule.note_template,
     exclude_from_credit_card: rule.exclude_from_credit_card ?? true,
+    conditions: (rule.conditions?.length ? rule.conditions : [{
+      id: crypto.randomUUID(), field: rule.match_field, operator: rule.match_operator,
+      value: rule.match_value,
+    }]).map((condition) => ({ ...condition, id: condition.id || crypto.randomUUID() })),
+    logic_operator: rule.logic_operator || "and",
   };
 }
 
@@ -76,26 +85,40 @@ function ruleSummary(
   return `When ${matchFieldLabels[rule.match_field]} ${matchOperatorLabels[rule.match_operator]} "${rule.match_value}", create ${target}`;
 }
 
-function transactionMatchesRule(
+function transactionMatchesCondition(
   transaction: CreditCardTransaction,
-  rule: ExpenseAutomationRule,
+  condition: ExpenseAutomationCondition,
 ) {
   if (!["purchase", "fee", "interest"].includes(transaction.transaction_type)) {
     return false;
   }
 
   const fieldValue =
-    rule.match_field === "description"
+    condition.field === "description"
       ? transaction.description
-      : rule.match_field === "issuer"
+      : condition.field === "issuer"
         ? transaction.issuer
-        : transaction.transaction_type;
+        : condition.field === "transaction_type" ? transaction.transaction_type
+          : condition.field === "account_last_four" ? transaction.account_last_four
+            : condition.field === "amount" ? transaction.amount
+              : condition.field === "transaction_date" ? transaction.transaction_date
+                : (transaction.tags || []).map((tag) => tag.name).join(" ");
 
-  if (rule.match_operator === "contains") {
-    return fieldValue.toLowerCase().includes(rule.match_value.toLowerCase());
+  if (condition.field === "account_last_four") {
+    return Array.isArray(condition.value) && condition.value.includes(transaction.account_last_four);
   }
-
-  return fieldValue.toLowerCase() === rule.match_value.toLowerCase();
+  const value = fieldValue.toLowerCase();
+  const target = String(condition.value).toLowerCase();
+  if (condition.operator === "contains") return value.includes(target);
+  if (condition.operator === "not_contains") return !value.includes(target);
+  if (condition.operator === "equals") return value === target;
+  if (condition.operator === "not_equals") return value !== target;
+  if (condition.operator === "starts_with") return value.startsWith(target);
+  if (condition.operator === "greater_than") return Number(fieldValue) > Number(condition.value);
+  if (condition.operator === "less_than") return Number(fieldValue) < Number(condition.value);
+  if (condition.operator === "on_or_after") return fieldValue >= condition.value;
+  if (condition.operator === "on_or_before") return fieldValue <= condition.value;
+  return false;
 }
 
 export function AutomationsDashboard({
@@ -212,9 +235,26 @@ export function AutomationsDashboard({
         .sort((left, right) => left.sort_order - right.sort_order),
     [initialBudgetItems],
   );
+  const accountOptions = useMemo(() => {
+    const accounts = new Map<string, string>();
+    initialCreditCardTransactions.forEach((transaction) => {
+      if (transaction.account_last_four) {
+        accounts.set(
+          transaction.account_last_four,
+          `${transaction.issuer} •••• ${transaction.account_last_four}`,
+        );
+      }
+    });
+    return Array.from(accounts, ([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [initialCreditCardTransactions]);
+
+  const conditionIsEmpty = (condition: ExpenseAutomationCondition) =>
+    Array.isArray(condition.value)
+      ? !condition.value.length
+      : !condition.value.trim();
 
   const previewMatches = useMemo(() => {
-    if (!form.match_value.trim()) return [];
+    if (!form.conditions.length || form.conditions.some(conditionIsEmpty)) return [];
 
     const draftRule: ExpenseAutomationRule = {
       id: 0,
@@ -228,10 +268,15 @@ export function AutomationsDashboard({
       exclude_from_credit_card: form.exclude_from_credit_card,
       created_at: "",
       updated_at: "",
+      conditions: form.conditions,
+      logic_operator: form.logic_operator,
     };
 
     return initialCreditCardTransactions
-      .filter((transaction) => transactionMatchesRule(transaction, draftRule))
+      .filter((transaction) => {
+        const results = draftRule.conditions.map((condition) => transactionMatchesCondition(transaction, condition));
+        return draftRule.logic_operator === "or" ? results.some(Boolean) : results.every(Boolean);
+      })
       .slice(0, 5);
   }, [form, initialCreditCardTransactions]);
 
@@ -261,7 +306,7 @@ export function AutomationsDashboard({
     const targetBudgetItem = Number(form.target_budget_item);
     if (
       !form.name.trim() ||
-      !form.match_value.trim() ||
+      !form.conditions.length || form.conditions.some(conditionIsEmpty) ||
       !Number.isFinite(targetBudgetItem)
     ) {
       setError("Enter a rule name, match text, and target expense.");
@@ -276,6 +321,8 @@ export function AutomationsDashboard({
       target_budget_item: targetBudgetItem,
       note_template: form.note_template.trim(),
       exclude_from_credit_card: form.exclude_from_credit_card,
+      conditions: form.conditions.map(({ field, operator, value }) => ({ field, operator, value })),
+      logic_operator: form.logic_operator,
     };
 
     setSavingForm(true);
@@ -551,60 +598,16 @@ export function AutomationsDashboard({
                 value={form.name}
               />
             </label>
-            <label>
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-                Match field
-              </span>
-              <select
-                className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-accent/40"
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    match_field: event.target.value as ExpenseAutomationMatchField,
-                  }))
-                }
-                value={form.match_field}
-              >
-                <option value="description">Description</option>
-                <option value="issuer">Issuer</option>
-                <option value="transaction_type">Transaction type</option>
-              </select>
-            </label>
-            <label>
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-                Match operator
-              </span>
-              <select
-                className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-accent/40"
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    match_operator:
-                      event.target.value as ExpenseAutomationMatchOperator,
-                  }))
-                }
-                value={form.match_operator}
-              >
-                <option value="contains">Contains</option>
-                <option value="equals">Equals</option>
-              </select>
-            </label>
-            <label className="sm:col-span-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-                Match value
-              </span>
-              <input
-                className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-accent/40"
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    match_value: event.target.value,
-                  }))
-                }
-                placeholder="MERCHANT KEYWORD"
-                value={form.match_value}
+            <div className="sm:col-span-2">
+              <AutomationSelectorBuilder
+                accounts={accountOptions}
+                conditions={form.conditions}
+                logic={form.logic_operator}
+                matchCount={previewMatches.length}
+                onChange={(conditions) => setForm((current) => ({ ...current, conditions }))}
+                onLogicChange={(logic_operator) => setForm((current) => ({ ...current, logic_operator }))}
               />
-            </label>
+            </div>
             <label className="sm:col-span-2">
               <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
                 Create expense
