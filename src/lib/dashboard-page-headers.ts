@@ -53,6 +53,12 @@ export const dashboardPageHeaders: Record<string, DashboardPageHeader> = {
     description:
       "Create rules that turn imported credit-card transactions into expense entries automatically.",
   },
+  "/dashboard/reports": {
+    eyebrow: "Reports",
+    title: "Transaction reporting",
+    description:
+      "Build custom transaction views and compare spending, activity, and cost trends year over year.",
+  },
 };
 
 const fallbackHeader: DashboardPageHeader = {

@@ -19,6 +19,7 @@ import { extractApiErrorDetail, extractApiErrorMessage } from "@/lib/api-error-m
 import { APP_BASE_PATH } from "@/lib/config";
 import { formatAutomationRunMessage } from "@/lib/format-automation-run-message";
 import { formatAutomationActionSummary } from "@/lib/expense-automation-summary";
+import { conditionIsEmpty, transactionMatchesCondition } from "@/lib/transaction-selector";
 
 
 const emptyRuleForm = {
@@ -50,44 +51,6 @@ function ruleToForm(rule: ExpenseAutomationRule) {
     actions: (rule.actions?.length ? rule.actions : rule.target_budget_item ? [{ type: "create_expense" as const, budget_item: String(rule.target_budget_item), note: rule.note_template, exclude_from_credit_card: rule.exclude_from_credit_card }] : []).map((action) => ({ ...action, budget_item: action.type === "create_expense" ? String(action.budget_item) : undefined, id: crypto.randomUUID() })) as ExpenseAutomationAction[],
     logic_operator: rule.logic_operator || "and",
   };
-}
-
-function transactionMatchesCondition(
-  transaction: CreditCardTransaction,
-  condition: ExpenseAutomationCondition,
-) {
-  if (!["purchase", "fee", "interest"].includes(transaction.transaction_type)) {
-    return false;
-  }
-
-  const fieldValue =
-    condition.field === "description"
-      ? transaction.description
-      : condition.field === "issuer"
-        ? transaction.issuer
-        : condition.field === "transaction_type" ? transaction.transaction_type
-          : condition.field === "account_last_four" ? transaction.account_last_four
-            : condition.field === "amount" ? transaction.amount
-              : condition.field === "transaction_date" ? transaction.transaction_date
-                : (transaction.tags || []).map((tag) => tag.name).join(" ");
-
-  if (condition.field === "account_last_four") {
-    return Array.isArray(condition.value) && condition.value.includes(transaction.account_last_four);
-  }
-  const normalizeDescription = (text: string) => text.toLowerCase().match(/[a-z0-9]+/g)?.filter((token) => !["null", "none", "nan"].includes(token) && !/^x{4,}\d{0,4}$/.test(token)).join(" ") || "";
-  const value = condition.field === "description" ? normalizeDescription(fieldValue) : fieldValue.toLowerCase();
-  const targets = (Array.isArray(condition.value) ? condition.value : [condition.value]).map((item) => condition.field === "description" ? normalizeDescription(String(item)) : String(item).toLowerCase());
-  const contains = (target: string) => condition.field === "description" ? value === target || ` ${value} `.includes(` ${target} `) : value.includes(target);
-  if (condition.operator === "contains") return targets.some(contains);
-  if (condition.operator === "not_contains") return targets.every((target) => !contains(target));
-  if (condition.operator === "equals") return targets.some((target) => value === target);
-  if (condition.operator === "not_equals") return targets.every((target) => value !== target);
-  if (condition.operator === "starts_with") return targets.some((target) => value.startsWith(target));
-  if (condition.operator === "greater_than") return Number(fieldValue) > Number(condition.value);
-  if (condition.operator === "less_than") return Number(fieldValue) < Number(condition.value);
-  if (condition.operator === "on_or_after") return fieldValue >= condition.value;
-  if (condition.operator === "on_or_before") return fieldValue <= condition.value;
-  return false;
 }
 
 export function AutomationsDashboard({
@@ -166,11 +129,6 @@ export function AutomationsDashboard({
     }
     return selected;
   }
-
-  const conditionIsEmpty = (condition: ExpenseAutomationCondition) =>
-    Array.isArray(condition.value)
-      ? !condition.value.length
-      : !condition.value.trim();
 
   const previewMatches = useMemo(() => {
     if (!form.conditions.length || form.conditions.some(conditionIsEmpty)) return [];
@@ -494,6 +452,7 @@ export function AutomationsDashboard({
                 accounts={accountOptions}
                 conditions={form.conditions}
                 descriptions={descriptionOptions}
+                tags={availableTags}
                 logic={form.logic_operator}
                 matches={previewMatches}
                 onChange={(conditions) => setForm((current) => ({ ...current, conditions }))}

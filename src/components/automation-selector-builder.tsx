@@ -21,7 +21,13 @@ const selectors = [
   {
     field: "amount",
     label: "Amount",
-    operators: ["equals", "greater_than", "less_than"],
+    operators: [
+      "equals",
+      "greater_than",
+      "greater_than_or_equal",
+      "less_than",
+      "less_than_or_equal",
+    ],
   },
   {
     field: "description",
@@ -69,7 +75,9 @@ const operatorLabels: Record<string, string> = {
   not_equals: "Does not equal",
   starts_with: "Starts with",
   greater_than: "Greater than",
+  greater_than_or_equal: "Greater than or equal to",
   less_than: "Less than",
+  less_than_or_equal: "Less than or equal to",
   on_or_after: "On or after",
   on_or_before: "On or before",
 };
@@ -129,14 +137,16 @@ function AccountSelector({
   );
 }
 
-function DescriptionSelector({
+function ExistingValueSelector({
   options,
   value,
   onChange,
+  label,
 }: {
   options: string[];
   value: string[];
   onChange: (value: string[]) => void;
+  label: string;
 }) {
   const [open, setOpen] = useState(false);
   const [textMode, setTextMode] = useState(false);
@@ -169,7 +179,7 @@ function DescriptionSelector({
         onClick={begin}
         type="button"
       >
-        {value.length ? `${value.length} selected` : "Select descriptions"}
+        {value.length ? `${value.length} selected` : `Select ${label.toLowerCase()}`}
       </button>
       {open ? (
         <div className="absolute right-0 z-30 mt-2 flex max-h-[min(32rem,70vh)] w-full min-w-80 flex-col overflow-hidden rounded-xl border border-white/15 bg-[#0b1714] p-4 shadow-2xl">
@@ -190,7 +200,7 @@ function DescriptionSelector({
                 autoFocus
                 className="mt-3 w-full shrink-0 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white"
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search transaction descriptions"
+                placeholder={`Search existing ${label.toLowerCase()}`}
                 value={query}
               />
               <div className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain">
@@ -253,6 +263,7 @@ export function AutomationSelectorBuilder({
   logic,
   accounts,
   descriptions,
+  tags,
   matches,
   onChange,
   onLogicChange,
@@ -261,6 +272,7 @@ export function AutomationSelectorBuilder({
   logic: "and" | "or";
   accounts: Array<{ value: string; label: string }>;
   descriptions: string[];
+  tags: string[];
   matches: CreditCardTransaction[];
   onChange: (conditions: ExpenseAutomationCondition[]) => void;
   onLogicChange: (logic: "and" | "or") => void;
@@ -411,10 +423,11 @@ export function AutomationSelectorBuilder({
                               : []
                           }
                         />
-                      ) : condition.field === "description" ? (
-                        <DescriptionSelector
+                      ) : condition.field === "description" || condition.field === "tags" ? (
+                        <ExistingValueSelector
+                          label={condition.field === "tags" ? "Tags" : "Descriptions"}
                           onChange={(value) => update(condition.id, { value })}
-                          options={descriptions}
+                          options={condition.field === "tags" ? tags : descriptions}
                           value={
                             Array.isArray(condition.value)
                               ? condition.value

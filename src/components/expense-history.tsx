@@ -138,24 +138,27 @@ export function ExpenseHistory({
   const categorizedTransactions = creditCardTransactions.filter((item) => {
     if (
       !item.category ||
-      !["purchase", "fee", "interest"].includes(item.transaction_type) ||
-      item.transaction_date < spendingDateRange.start ||
-      item.transaction_date > spendingDateRange.end
+      !["purchase", "fee", "interest"].includes(item.transaction_type)
     ) {
       return false;
     }
-    if (!normalizedTransactionSearch) return true;
-    return [
-      item.description,
-      item.issuer,
-      item.account_last_four,
-      item.transaction_date,
-      item.amount,
-      item.note,
-      item.category,
-      categoryLabels[item.category],
-      ...(item.tags || []).map((tag) => tag.name),
-    ].some((value) => String(value || "").toLocaleLowerCase().includes(normalizedTransactionSearch));
+    if (normalizedTransactionSearch) {
+      return [
+        item.description,
+        item.issuer,
+        item.account_last_four,
+        item.transaction_date,
+        item.amount,
+        item.note,
+        item.category,
+        categoryLabels[item.category],
+        ...(item.tags || []).map((tag) => tag.name),
+      ].some((value) => String(value || "").toLocaleLowerCase().includes(normalizedTransactionSearch));
+    }
+    return (
+      item.transaction_date >= spendingDateRange.start &&
+      item.transaction_date <= spendingDateRange.end
+    );
   });
   const categoryTotals = Object.entries(
     categorizedTransactions
@@ -786,7 +789,7 @@ export function ExpenseHistory({
               </div> : null}
             </div>;
           })}
-        </div> : <p className="mt-5 rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-muted">{normalizedTransactionSearch ? `No transactions match “${transactionSearch.trim()}” in this date range.` : "No categorized expenses were found in this date range."}</p>}
+        </div> : <p className="mt-5 rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-muted">{normalizedTransactionSearch ? `No transactions match “${transactionSearch.trim()}”.` : "No categorized expenses were found in this date range."}</p>}
       </section>
 
       <div className="grid gap-5 xl:grid-cols-2">

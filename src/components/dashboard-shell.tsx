@@ -37,6 +37,7 @@ const navigation: Array<{
     parent: "/dashboard/budget",
   },
   { name: "Snapshots", href: "/dashboard/snapshots" },
+  { name: "Reports", href: "/dashboard/reports" },
   { name: "Automations", href: "/dashboard/automations" },
 ];
 
