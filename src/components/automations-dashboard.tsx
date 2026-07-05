@@ -5,12 +5,14 @@ import { FormEvent, useMemo, useState } from "react";
 import type { BudgetItem } from "@/lib/budget-item-types";
 import type {
   ExpenseAutomationCondition,
+  ExpenseAutomationAction,
   ExpenseAutomationMatchField,
   ExpenseAutomationMatchOperator,
   ExpenseAutomationRule,
   ExpenseAutomationRunResult,
 } from "@/lib/expense-automation-rule-types";
 import { AutomationSelectorBuilder } from "@/components/automation-selector-builder";
+import { AutomationActionBuilder } from "@/components/automation-action-builder";
 import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
 import { extractApiErrorDetail, extractApiErrorMessage } from "@/lib/api-error-message";
 import { APP_BASE_PATH } from "@/lib/config";
@@ -48,6 +50,7 @@ const emptyRuleForm = {
   note_template: "",
   exclude_from_credit_card: true,
   conditions: [] as ExpenseAutomationCondition[],
+  actions: [] as ExpenseAutomationAction[],
   logic_operator: "and" as "and" | "or",
 };
 
@@ -64,6 +67,7 @@ function ruleToForm(rule: ExpenseAutomationRule) {
       id: crypto.randomUUID(), field: rule.match_field, operator: rule.match_operator,
       value: rule.match_value,
     }]).map((condition) => ({ ...condition, id: condition.id || crypto.randomUUID() })),
+    actions: (rule.actions?.length ? rule.actions : rule.target_budget_item ? [{ type: "create_expense" as const, budget_item: String(rule.target_budget_item), note: rule.note_template, exclude_from_credit_card: rule.exclude_from_credit_card }] : []).map((action) => ({ ...action, budget_item: action.type === "create_expense" ? String(action.budget_item) : undefined, id: crypto.randomUUID() })) as ExpenseAutomationAction[],
     logic_operator: rule.logic_operator || "and",
   };
 }
@@ -238,7 +242,10 @@ export function AutomationsDashboard({
   const accountOptions = useMemo(() => {
     const accounts = new Map<string, string>();
     initialCreditCardTransactions.forEach((transaction) => {
-      if (transaction.account_last_four) {
+      if (
+        /^\d{4}$/.test(transaction.account_last_four) &&
+        ["purchase", "fee", "interest"].includes(transaction.transaction_type)
+      ) {
         accounts.set(
           transaction.account_last_four,
           `${transaction.issuer} •••• ${transaction.account_last_four}`,
@@ -247,6 +254,7 @@ export function AutomationsDashboard({
     });
     return Array.from(accounts, ([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
   }, [initialCreditCardTransactions]);
+  const tagOptions = useMemo(() => Array.from(new Set(initialCreditCardTransactions.flatMap((transaction) => (transaction.tags || []).map((tag) => tag.name)))).sort((a, b) => a.localeCompare(b)), [initialCreditCardTransactions]);
 
   const conditionIsEmpty = (condition: ExpenseAutomationCondition) =>
     Array.isArray(condition.value)
@@ -269,6 +277,7 @@ export function AutomationsDashboard({
       created_at: "",
       updated_at: "",
       conditions: form.conditions,
+      actions: form.actions.map((action) => action.type === "create_expense" ? { type: action.type, budget_item: action.budget_item, note: action.note, exclude_from_credit_card: action.exclude_from_credit_card } : { type: action.type, tag: action.tag }),
       logic_operator: form.logic_operator,
     };
 
@@ -276,8 +285,7 @@ export function AutomationsDashboard({
       .filter((transaction) => {
         const results = draftRule.conditions.map((condition) => transactionMatchesCondition(transaction, condition));
         return draftRule.logic_operator === "or" ? results.some(Boolean) : results.every(Boolean);
-      })
-      .slice(0, 5);
+      });
   }, [form, initialCreditCardTransactions]);
 
   function openCreateForm() {
@@ -303,11 +311,10 @@ export function AutomationsDashboard({
 
   async function saveRule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const targetBudgetItem = Number(form.target_budget_item);
     if (
       !form.name.trim() ||
       !form.conditions.length || form.conditions.some(conditionIsEmpty) ||
-      !Number.isFinite(targetBudgetItem)
+      !form.actions.length || form.actions.some((action) => action.type === "create_expense" ? !action.budget_item : !action.tag.trim())
     ) {
       setError("Enter a rule name, match text, and target expense.");
       return;
@@ -318,11 +325,12 @@ export function AutomationsDashboard({
       match_field: form.match_field,
       match_operator: form.match_operator,
       match_value: form.match_value.trim(),
-      target_budget_item: targetBudgetItem,
+      target_budget_item: form.actions.find((action) => action.type === "create_expense")?.budget_item || null,
       note_template: form.note_template.trim(),
       exclude_from_credit_card: form.exclude_from_credit_card,
       conditions: form.conditions.map(({ field, operator, value }) => ({ field, operator, value })),
       logic_operator: form.logic_operator,
+      actions: form.actions.map((action) => action.type === "create_expense" ? { type: action.type, budget_item: action.budget_item, note: action.note, exclude_from_credit_card: action.exclude_from_credit_card } : { type: action.type, tag: action.tag }),
     };
 
     setSavingForm(true);
@@ -608,7 +616,9 @@ export function AutomationsDashboard({
                 onLogicChange={(logic_operator) => setForm((current) => ({ ...current, logic_operator }))}
               />
             </div>
-            <label className="sm:col-span-2">
+            <div className="sm:col-span-2"><AutomationActionBuilder actions={form.actions} expenses={expenseTargets} tags={tagOptions} onChange={(actions) => setForm((current) => ({ ...current, actions }))} /></div>
+            {/* Legacy fields are represented by staged Create Expense actions. */}
+            {false ? <label className="sm:col-span-2">
               <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
                 Create expense
               </span>
@@ -630,8 +640,8 @@ export function AutomationsDashboard({
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="sm:col-span-2">
+            </label> : null}
+            {false ? <label className="sm:col-span-2">
               <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
                 Expense note (optional)
               </span>
@@ -646,8 +656,8 @@ export function AutomationsDashboard({
                 placeholder="Leave blank to use the transaction description"
                 value={form.note_template}
               />
-            </label>
-            <label
+            </label> : null}
+            {false ? <label
               className="flex items-start gap-3 rounded-xl border border-white/10 bg-black/15 px-3 py-3 sm:col-span-2"
               title="Deduct created expenses from the credit card total so they are not double counted"
             >
@@ -671,7 +681,7 @@ export function AutomationsDashboard({
                   deducted from the credit card total.
                 </span>
               </span>
-            </label>
+            </label> : null}
           </div>
           {previewMatches.length ? (
             <div className="border-t border-white/10 px-4 py-4 sm:px-5">
@@ -679,7 +689,7 @@ export function AutomationsDashboard({
                 Matching transactions
               </p>
               <div className="mt-3 space-y-2">
-                {previewMatches.map((transaction) => (
+                {previewMatches.slice(0, 5).map((transaction) => (
                   <div
                     className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2"
                     key={transaction.id}
@@ -699,6 +709,7 @@ export function AutomationsDashboard({
                   </div>
                 ))}
               </div>
+              {previewMatches.length > 5 ? <p className="mt-3 text-xs text-muted">Showing 5 of {previewMatches.length} matching transactions.</p> : null}
             </div>
           ) : form.match_value.trim() ? (
             <p className="border-t border-white/10 px-4 py-4 text-sm text-muted sm:px-5">

@@ -10,6 +10,9 @@ export type ExpenseAutomationCondition = {
   operator: "contains" | "not_contains" | "equals" | "not_equals" | "starts_with" | "greater_than" | "less_than" | "on_or_after" | "on_or_before";
   value: string | string[];
 };
+export type ExpenseAutomationAction =
+  | { id: string; type: "create_expense"; budget_item: string; note: string; exclude_from_credit_card: boolean }
+  | { id: string; type: "assign_tag"; tag: string };
 
 export type ExpenseAutomationRule = {
   id: number;
@@ -19,6 +22,10 @@ export type ExpenseAutomationRule = {
   match_operator: ExpenseAutomationMatchOperator;
   match_value: string;
   conditions: ExpenseAutomationCondition[];
+  actions: Array<
+    | { type: "create_expense"; budget_item: string | number; note: string; exclude_from_credit_card: boolean }
+    | { type: "assign_tag"; tag: string }
+  >;
   logic_operator: "and" | "or";
   target_budget_item: number;
   note_template: string;
