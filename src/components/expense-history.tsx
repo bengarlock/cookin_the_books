@@ -97,7 +97,15 @@ export function ExpenseHistory({
   const [savingCorrectionId, setSavingCorrectionId] = useState<number | null>(
     null,
   );
-  const [correctedCategory, setCorrectedCategory] = useState("");
+  const [correctionRuleForm, setCorrectionRuleForm] = useState({
+    match_type: "exact" as "exact" | "starts_with",
+    match_value: "",
+    category: "other",
+  });
+  const [taggingTransactionId, setTaggingTransactionId] = useState<number | null>(null);
+  const [savingTagsId, setSavingTagsId] = useState<number | null>(null);
+  const [tagDraft, setTagDraft] = useState<string[]>([]);
+  const [newTagName, setNewTagName] = useState("");
   const [error, setError] = useState("");
   const [entryForm, setEntryForm] = useState({
     incurredOn: todayString(),
@@ -139,9 +147,50 @@ export function ExpenseHistory({
         : earliest,
     "",
   );
+  const availableTagNames = Array.from(
+    new Set(
+      creditCardTransactions.flatMap((transaction) =>
+        (transaction.tags || []).map((tag) => tag.name),
+      ),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+
+  function addTagToDraft(name: string) {
+    const cleaned = name.trim();
+    if (!cleaned) return;
+    setTagDraft((current) =>
+      current.some((tag) => tag.toLowerCase() === cleaned.toLowerCase())
+        ? current
+        : [...current, cleaned],
+    );
+    setNewTagName("");
+  }
+
+  async function saveTransactionTags(transactionId: number) {
+    setSavingTagsId(transactionId);
+    setError("");
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transactionId}/update-tags`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tags: tagDraft }),
+        },
+      );
+      const updated = await response.json().catch(() => null) as CreditCardTransaction | { message?: string } | null;
+      if (!response.ok || !updated || !("id" in updated)) throw new Error(updated && "message" in updated ? updated.message : "Unable to save tags.");
+      setCreditCardTransactions((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setTaggingTransactionId(null);
+    } catch (tagError) {
+      setError(tagError instanceof Error ? tagError.message : "Unable to save tags.");
+    } finally {
+      setSavingTagsId(null);
+    }
+  }
 
   async function correctTransactionCategory(transactionId: number) {
-    if (!correctedCategory) return;
+    if (!correctionRuleForm.category || !correctionRuleForm.match_value.trim()) return;
     setSavingCorrectionId(transactionId);
     setError("");
     try {
@@ -150,7 +199,7 @@ export function ExpenseHistory({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ category: correctedCategory }),
+          body: JSON.stringify(correctionRuleForm),
         },
       );
       const result = (await response.json().catch(() => null)) as
@@ -163,15 +212,23 @@ export function ExpenseHistory({
       if (!response.ok || !result?.transactions) {
         throw new Error(result?.message || "Unable to correct the category.");
       }
-      const updates = new Map(result.transactions.map((item) => [item.id, item]));
-      setCreditCardTransactions((current) =>
-        current.map((item) => updates.get(item.id) || item),
+      const refreshed = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions`,
+        { cache: "no-store" },
+      );
+      if (!refreshed.ok) {
+        throw new Error(
+          "The rule was saved, but the updated transactions could not be refreshed.",
+        );
+      }
+      setCreditCardTransactions(
+        (await refreshed.json()) as CreditCardTransaction[],
       );
       setImportMessage(
         `Category corrected and learned for ${result.updated_count} matching ${result.updated_count === 1 ? "transaction" : "transactions"}.`,
       );
       setCorrectingTransactionId(null);
-      setCorrectedCategory("");
+      setCorrectionRuleForm({ match_type: "exact", match_value: "", category: "other" });
     } catch (correctionError) {
       setError(
         correctionError instanceof Error
@@ -559,15 +616,30 @@ export function ExpenseHistory({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-white">{transaction.description}</p>
                     <p className="mt-1 text-xs text-muted">{formatDate(transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}</p>
-                    {correctingTransactionId === transaction.id ? <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {transaction.tags?.length ? <div className="mt-2 flex flex-wrap gap-1.5">{transaction.tags.map((tag) => <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2 py-0.5 text-[10px] font-medium text-sky-100" key={tag.id}>{tag.name}</span>)}</div> : null}
+                    {taggingTransactionId === transaction.id ? <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/10 p-3">
+                      <div className="flex flex-wrap gap-2">{tagDraft.map((tag) => <button className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[11px] text-sky-100" key={tag} onClick={() => setTagDraft((current) => current.filter((item) => item !== tag))} title="Remove tag" type="button">{tag} ×</button>)}</div>
+                      {availableTagNames.filter((tag) => !tagDraft.some((selected) => selected.toLowerCase() === tag.toLowerCase())).length ? <div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-[10px] uppercase tracking-[0.12em] text-muted">Existing</span>{availableTagNames.filter((tag) => !tagDraft.some((selected) => selected.toLowerCase() === tag.toLowerCase())).map((tag) => <button className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:border-sky-300/20 hover:text-sky-100" key={tag} onClick={() => addTagToDraft(tag)} type="button">+ {tag}</button>)}</div> : null}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <input className="h-9 min-w-48 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" maxLength={40} onChange={(event) => setNewTagName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addTagToDraft(newTagName); } }} placeholder="Create a tag" value={newTagName} />
+                        <button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70" onClick={() => addTagToDraft(newTagName)} type="button">Add</button>
+                        <button className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50" disabled={savingTagsId === transaction.id} onClick={() => void saveTransactionTags(transaction.id)} type="button">{savingTagsId === transaction.id ? "Saving…" : "Save tags"}</button>
+                        <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={() => setTaggingTransactionId(null)} type="button">Cancel</button>
+                      </div>
+                    </div> : null}
+                    {correctingTransactionId === transaction.id ? <div className="mt-3 grid items-center gap-2 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_auto_auto]">
                       <select
-                        aria-label={`Correct category for ${transaction.description}`}
+                        aria-label="Match condition"
                         className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
-                        onChange={(event) => setCorrectedCategory(event.target.value)}
-                        value={correctedCategory}
+                        onChange={(event) => setCorrectionRuleForm((current) => ({ ...current, match_type: event.target.value as "exact" | "starts_with" }))}
+                        value={correctionRuleForm.match_type}
                       >
-                        {Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                        <option value="exact">Equals</option><option value="starts_with">Starts with</option>
                       </select>
+                      <input aria-label="Match value" className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" onChange={(event) => setCorrectionRuleForm((current) => ({ ...current, match_value: event.target.value }))} value={correctionRuleForm.match_value} />
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Set category</span>
+                      <select aria-label={`Correct category for ${transaction.description}`} className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" onChange={(event) => setCorrectionRuleForm((current) => ({ ...current, category: event.target.value }))} value={correctionRuleForm.category}>{Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+                      <div className="flex items-center gap-2">
                       <button
                         className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
                         disabled={savingCorrectionId === transaction.id}
@@ -575,16 +647,22 @@ export function ExpenseHistory({
                         type="button"
                       >{savingCorrectionId === transaction.id ? "Learning…" : "Save & learn"}</button>
                       <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={() => setCorrectingTransactionId(null)} type="button">Cancel</button>
-                      <p className="basis-full text-[11px] text-muted">Updates every transaction with this identical description and remembers it for future imports.</p>
+                      </div>
+                      <p className="text-[11px] text-muted sm:col-span-5">Creates an editable automation rule, updates matching history, and remembers it for future imports.</p>
                     </div> : null}
                   </div>
                   <div className="flex items-center gap-3 self-start">
                     <p className="font-mono text-sm font-semibold text-white">{currencyFormatter.format(Number(transaction.amount))}</p>
+                    <button className="text-xs font-medium text-white/50 hover:text-sky-200" onClick={() => { setTaggingTransactionId(transaction.id); setTagDraft((transaction.tags || []).map((tag) => tag.name)); setNewTagName(""); }} type="button">Tags</button>
                     <button
                       className="text-xs font-medium text-white/50 hover:text-accent"
                       onClick={() => {
                         setCorrectingTransactionId(transaction.id);
-                        setCorrectedCategory(transaction.category);
+                        setCorrectionRuleForm({
+                          match_type: "exact",
+                          match_value: transaction.description,
+                          category: transaction.category,
+                        });
                       }}
                       type="button"
                     >Correct</button>

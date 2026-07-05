@@ -15,5 +15,6 @@ export type CreditCardTransaction = {
   category_confidence: string | null;
   category_source: "ai" | "rules" | "";
   categorized_at: string | null;
+  tags: Array<{ id: number; name: string }>;
   created_at: string;
 };
