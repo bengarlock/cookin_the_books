@@ -91,10 +91,12 @@ function transactionMatchesCondition(
   if (condition.field === "account_last_four") {
     return Array.isArray(condition.value) && condition.value.includes(transaction.account_last_four);
   }
-  const value = fieldValue.toLowerCase();
-  const targets = (Array.isArray(condition.value) ? condition.value : [condition.value]).map((item) => String(item).toLowerCase());
-  if (condition.operator === "contains") return targets.some((target) => value.includes(target));
-  if (condition.operator === "not_contains") return targets.every((target) => !value.includes(target));
+  const normalizeDescription = (text: string) => text.toLowerCase().match(/[a-z0-9]+/g)?.filter((token) => !["null", "none", "nan"].includes(token) && !/^x{4,}\d{0,4}$/.test(token)).join(" ") || "";
+  const value = condition.field === "description" ? normalizeDescription(fieldValue) : fieldValue.toLowerCase();
+  const targets = (Array.isArray(condition.value) ? condition.value : [condition.value]).map((item) => condition.field === "description" ? normalizeDescription(String(item)) : String(item).toLowerCase());
+  const contains = (target: string) => condition.field === "description" ? value === target || ` ${value} `.includes(` ${target} `) : value.includes(target);
+  if (condition.operator === "contains") return targets.some(contains);
+  if (condition.operator === "not_contains") return targets.every((target) => !contains(target));
   if (condition.operator === "equals") return targets.some((target) => value === target);
   if (condition.operator === "not_equals") return targets.every((target) => value !== target);
   if (condition.operator === "starts_with") return targets.some((target) => value.startsWith(target));

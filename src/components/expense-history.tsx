@@ -103,7 +103,7 @@ export function ExpenseHistory({
   const [correctionRuleForm, setCorrectionRuleForm] = useState({
     match_type: "exact" as "exact" | "starts_with",
     match_value: "",
-    category: "other",
+    category: "dining",
   });
   const [taggingTransactionId, setTaggingTransactionId] = useState<number | null>(null);
   const [savingTagsId, setSavingTagsId] = useState<number | null>(null);
@@ -128,7 +128,7 @@ export function ExpenseHistory({
     dining: "Dining", groceries: "Groceries", transportation: "Transportation",
     housing: "Housing", utilities: "Utilities", shopping: "Shopping", health: "Health",
     entertainment: "Entertainment", travel: "Travel", subscriptions: "Subscriptions",
-    fees_interest: "Fees & interest", other: "Other",
+    fees_interest: "Fees & interest", needs_review: "Needs review",
   };
   const categorizedTransactions = creditCardTransactions.filter((item) =>
     item.category &&
@@ -142,7 +142,7 @@ export function ExpenseHistory({
         totals[item.category] = (totals[item.category] || 0) + Number(item.amount);
         return totals;
       }, {}),
-  ).sort((left, right) => right[1] - left[1]);
+  ).sort((left, right) => left[0] === "needs_review" ? -1 : right[0] === "needs_review" ? 1 : right[1] - left[1]);
   const categorizedTotal = categoryTotals.reduce((sum, [, amount]) => sum + amount, 0);
   const earliestTransactionDate = creditCardTransactions.reduce(
     (earliest, item) =>
@@ -176,7 +176,7 @@ export function ExpenseHistory({
     setCorrectionRuleForm({
       match_type: "exact",
       match_value: transaction.description,
-      category: transaction.category,
+      category: transaction.category === "needs_review" ? "dining" : transaction.category,
     });
   }
 
@@ -252,7 +252,7 @@ export function ExpenseHistory({
         `Category corrected and learned for ${result.updated_count} matching ${result.updated_count === 1 ? "transaction" : "transactions"}.`,
       );
       setCorrectingTransactionId(null);
-      setCorrectionRuleForm({ match_type: "exact", match_value: "", category: "other" });
+      setCorrectionRuleForm({ match_type: "exact", match_value: "", category: "dining" });
     } catch (correctionError) {
       setError(
         correctionError instanceof Error
@@ -665,7 +665,7 @@ export function ExpenseHistory({
                       </select>
                       <input aria-label="Match value" className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" onChange={(event) => setCorrectionRuleForm((current) => ({ ...current, match_value: event.target.value }))} value={correctionRuleForm.match_value} />
                       <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Set category</span>
-                      <select aria-label={`Correct category for ${transaction.description}`} className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" onChange={(event) => setCorrectionRuleForm((current) => ({ ...current, category: event.target.value }))} value={correctionRuleForm.category}>{Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+                      <select aria-label={`Correct category for ${transaction.description}`} className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" onChange={(event) => setCorrectionRuleForm((current) => ({ ...current, category: event.target.value }))} value={correctionRuleForm.category}>{Object.entries(categoryLabels).filter(([value]) => value !== "needs_review").map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
                       <div className="flex items-center gap-2">
                       <button
                         className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"

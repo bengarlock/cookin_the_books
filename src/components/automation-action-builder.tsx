@@ -4,7 +4,7 @@ import type { BudgetItem } from "@/lib/budget-item-types";
 import type { ExpenseAutomationAction } from "@/lib/expense-automation-rule-types";
 
 const choices = [{ type: "assign_category", label: "Assign Category" }, { type: "assign_tag", label: "Assign Tag" }, { type: "create_expense", label: "Create Expense" }] as const;
-const categories = [{ value: "dining", label: "Dining" }, { value: "groceries", label: "Groceries" }, { value: "transportation", label: "Transportation" }, { value: "housing", label: "Housing" }, { value: "utilities", label: "Utilities" }, { value: "shopping", label: "Shopping" }, { value: "health", label: "Health" }, { value: "entertainment", label: "Entertainment" }, { value: "travel", label: "Travel" }, { value: "subscriptions", label: "Subscriptions" }, { value: "fees_interest", label: "Fees & interest" }, { value: "other", label: "Other" }];
+const categories = [{ value: "dining", label: "Dining" }, { value: "groceries", label: "Groceries" }, { value: "transportation", label: "Transportation" }, { value: "housing", label: "Housing" }, { value: "utilities", label: "Utilities" }, { value: "shopping", label: "Shopping" }, { value: "health", label: "Health" }, { value: "entertainment", label: "Entertainment" }, { value: "travel", label: "Travel" }, { value: "subscriptions", label: "Subscriptions" }, { value: "fees_interest", label: "Fees & interest" }];
 
 export function AutomationActionBuilder({ actions, expenses, tags, onChange }: { actions: ExpenseAutomationAction[]; expenses: BudgetItem[]; tags: string[]; onChange: (actions: ExpenseAutomationAction[]) => void }) {
   function add(type: ExpenseAutomationAction["type"]) {

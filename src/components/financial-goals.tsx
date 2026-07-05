@@ -214,7 +214,7 @@ export function FinancialGoals({
                   ["Daily allowance", currency(metrics.dailyAllowance)],
                   ["Projected finish", currency(metrics.projectedSpend)],
                   ["Projected paycheck", currency(metrics.projectedPaycheck)],
-                  ["Projected cycle expenses", currency(metrics.projectedCycleExpenses)],
+                  ["Projected Expenses", currency(metrics.projectedCycleExpenses)],
                   ["Projected Savings", currency(metrics.projectedSavings)],
                 ].map(([label, value]) => <div className="bg-panel px-4 py-3" key={label}><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">{label}</p><p className="mt-1 whitespace-nowrap font-mono text-sm font-semibold text-white">{value}</p></div>)}
               </div>
