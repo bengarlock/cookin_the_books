@@ -59,10 +59,22 @@ function AccountSelector({ accounts, value, onChange }: {
   </details>;
 }
 
-export function AutomationSelectorBuilder({ conditions, logic, accounts, matches, onChange, onLogicChange }: {
+function DescriptionSelector({ options, value, onChange }: { options: string[]; value: string[]; onChange: (value: string[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const [textMode, setTextMode] = useState(false);
+  const [query, setQuery] = useState("");
+  const [draft, setDraft] = useState(value);
+  const filtered = query.trim() ? options.filter((option) => option.toLowerCase().includes(query.toLowerCase())).slice(0, 50) : options.slice(0, 50);
+  function begin() { setDraft(value); setQuery(""); setTextMode(false); setOpen(true); }
+  function apply() { onChange(Array.from(new Set(draft.map((item) => item.trim()).filter(Boolean)))); setOpen(false); }
+  return <div className="relative"><button className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-left text-sm text-white" onClick={begin} type="button">{value.length ? `${value.length} selected` : "Select descriptions"}</button>{open ? <div className="absolute right-0 z-30 mt-2 flex max-h-[min(32rem,70vh)] w-full min-w-80 flex-col overflow-hidden rounded-xl border border-white/15 bg-[#0b1714] p-4 shadow-2xl"><p className="shrink-0 text-sm font-semibold text-white">{draft.length} selected {draft.length === 1 ? "value" : "values"}</p>{textMode ? <textarea autoFocus className="mt-3 min-h-0 w-full flex-1 resize-none rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-white" onChange={(event) => setDraft(event.target.value.split(","))} placeholder="Amazon, Home Depot, ShopRite" value={draft.join(", ")} /> : <><input autoFocus className="mt-3 w-full shrink-0 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white" onChange={(event) => setQuery(event.target.value)} placeholder="Search transaction descriptions" value={query} /><div className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain">{filtered.map((option) => { const selected = draft.includes(option); return <button className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs ${selected ? "bg-accent/10 text-accent" : "text-white/70 hover:bg-white/[0.05]"}`} key={option} onClick={() => setDraft(selected ? draft.filter((item) => item !== option) : [...draft, option])} type="button"><span className="truncate">{option}</span><span>{selected ? "✓" : "+"}</span></button>; })}</div></>}<div className="mt-4 flex shrink-0 items-center justify-between gap-3 border-t border-white/10 pt-3"><button className="text-xs text-accent" onClick={() => setTextMode(!textMode)} type="button">Switch to {textMode ? "search" : "text"} view</button><div className="flex gap-2"><button className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white" onClick={() => setOpen(false)} type="button">Cancel</button><button className="rounded-lg border border-accent/30 bg-accent/15 px-3 py-1.5 text-xs text-accent" onClick={apply} type="button">Apply</button></div></div></div> : null}</div>;
+}
+
+export function AutomationSelectorBuilder({ conditions, logic, accounts, descriptions, matches, onChange, onLogicChange }: {
   conditions: ExpenseAutomationCondition[];
   logic: "and" | "or";
   accounts: Array<{ value: string; label: string }>;
+  descriptions: string[];
   matches: CreditCardTransaction[];
   onChange: (conditions: ExpenseAutomationCondition[]) => void;
   onLogicChange: (logic: "and" | "or") => void;
@@ -93,7 +105,7 @@ export function AutomationSelectorBuilder({ conditions, logic, accounts, matches
           <div className="grid items-center gap-2 sm:grid-cols-[1fr_auto_minmax(10rem,1fr)_auto]">
             <span className="text-sm font-medium text-white">{selector.label}</span>
             <select className="rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white" value={condition.operator} onChange={(event) => update(condition.id, { operator: event.target.value as ExpenseAutomationCondition["operator"] })}>{selector.operators.map((operator) => <option key={operator} value={operator}>{operatorLabels[operator]}</option>)}</select>
-            {condition.field === "account_last_four" ? <AccountSelector accounts={accounts} onChange={(value) => update(condition.id, { value })} value={Array.isArray(condition.value) ? condition.value : []} /> : <input className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-accent/40" onChange={(event) => update(condition.id, { value: event.target.value })} placeholder={condition.field === "transaction_date" ? "YYYY-MM-DD" : "Value"} type={condition.field === "amount" ? "number" : condition.field === "transaction_date" ? "date" : "text"} value={condition.value as string} />}
+            {condition.field === "account_last_four" ? <AccountSelector accounts={accounts} onChange={(value) => update(condition.id, { value })} value={Array.isArray(condition.value) ? condition.value : []} /> : condition.field === "description" ? <DescriptionSelector onChange={(value) => update(condition.id, { value })} options={descriptions} value={Array.isArray(condition.value) ? condition.value : condition.value ? [condition.value] : []} /> : <input className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-accent/40" onChange={(event) => update(condition.id, { value: event.target.value })} placeholder={condition.field === "transaction_date" ? "YYYY-MM-DD" : "Value"} type={condition.field === "amount" ? "number" : condition.field === "transaction_date" ? "date" : "text"} value={condition.value as string} />}
             <button aria-label={`Remove ${selector.label}`} className="px-2 text-lg text-white/35 hover:text-rose-200" onClick={() => onChange(conditions.filter((item) => item.id !== condition.id))} type="button">×</button>
           </div>
         </div>;

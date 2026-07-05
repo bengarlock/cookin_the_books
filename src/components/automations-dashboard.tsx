@@ -93,12 +93,12 @@ function transactionMatchesCondition(
     return Array.isArray(condition.value) && condition.value.includes(transaction.account_last_four);
   }
   const value = fieldValue.toLowerCase();
-  const target = String(condition.value).toLowerCase();
-  if (condition.operator === "contains") return value.includes(target);
-  if (condition.operator === "not_contains") return !value.includes(target);
-  if (condition.operator === "equals") return value === target;
-  if (condition.operator === "not_equals") return value !== target;
-  if (condition.operator === "starts_with") return value.startsWith(target);
+  const targets = (Array.isArray(condition.value) ? condition.value : [condition.value]).map((item) => String(item).toLowerCase());
+  if (condition.operator === "contains") return targets.some((target) => value.includes(target));
+  if (condition.operator === "not_contains") return targets.every((target) => !value.includes(target));
+  if (condition.operator === "equals") return targets.some((target) => value === target);
+  if (condition.operator === "not_equals") return targets.every((target) => value !== target);
+  if (condition.operator === "starts_with") return targets.some((target) => value.startsWith(target));
   if (condition.operator === "greater_than") return Number(fieldValue) > Number(condition.value);
   if (condition.operator === "less_than") return Number(fieldValue) < Number(condition.value);
   if (condition.operator === "on_or_after") return fieldValue >= condition.value;
@@ -236,6 +236,7 @@ export function AutomationsDashboard({
     return Array.from(accounts, ([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
   }, [initialCreditCardTransactions]);
   const tagOptions = useMemo(() => Array.from(new Set(initialCreditCardTransactions.flatMap((transaction) => (transaction.tags || []).map((tag) => tag.name)))).sort((a, b) => a.localeCompare(b)), [initialCreditCardTransactions]);
+  const descriptionOptions = useMemo(() => Array.from(new Set(initialCreditCardTransactions.map((transaction) => transaction.description).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [initialCreditCardTransactions]);
 
   const conditionIsEmpty = (condition: ExpenseAutomationCondition) =>
     Array.isArray(condition.value)
@@ -258,7 +259,7 @@ export function AutomationsDashboard({
       created_at: "",
       updated_at: "",
       conditions: form.conditions,
-      actions: form.actions.map((action) => action.type === "create_expense" ? { type: action.type, budget_item: action.budget_item, note: action.note, exclude_from_credit_card: action.exclude_from_credit_card } : { type: action.type, tag: action.tag }),
+      actions: form.actions.map((action) => action.type === "create_expense" ? { type: action.type, budget_item: action.budget_item, note: action.note, exclude_from_credit_card: action.exclude_from_credit_card } : action.type === "assign_tag" ? { type: action.type, tag: action.tag } : { type: action.type, category: action.category }),
       logic_operator: form.logic_operator,
     };
 
@@ -295,7 +296,7 @@ export function AutomationsDashboard({
     if (
       !form.name.trim() ||
       !form.conditions.length || form.conditions.some(conditionIsEmpty) ||
-      !form.actions.length || form.actions.some((action) => action.type === "create_expense" ? !action.budget_item : !action.tag.trim())
+      !form.actions.length || form.actions.some((action) => action.type === "create_expense" ? !action.budget_item : action.type === "assign_tag" ? !action.tag.trim() : !action.category)
     ) {
       setError("Enter a rule name, match text, and target expense.");
       return;
@@ -321,7 +322,7 @@ export function AutomationsDashboard({
       exclude_from_credit_card: form.exclude_from_credit_card,
       conditions: form.conditions.map(({ field, operator, value }) => ({ field, operator, value })),
       logic_operator: form.logic_operator,
-      actions: form.actions.map((action) => action.type === "create_expense" ? { type: action.type, budget_item: action.budget_item, note: action.note, exclude_from_credit_card: action.exclude_from_credit_card } : { type: action.type, tag: action.tag }),
+      actions: form.actions.map((action) => action.type === "create_expense" ? { type: action.type, budget_item: action.budget_item, note: action.note, exclude_from_credit_card: action.exclude_from_credit_card } : action.type === "assign_tag" ? { type: action.type, tag: action.tag } : { type: action.type, category: action.category }),
     };
 
     setSavingForm(true);
@@ -601,6 +602,7 @@ export function AutomationsDashboard({
               <AutomationSelectorBuilder
                 accounts={accountOptions}
                 conditions={form.conditions}
+                descriptions={descriptionOptions}
                 logic={form.logic_operator}
                 matches={previewMatches}
                 onChange={(conditions) => setForm((current) => ({ ...current, conditions }))}
