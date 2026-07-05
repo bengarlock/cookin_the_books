@@ -108,6 +108,8 @@ export function ExpenseHistory({
   const [taggingTransactionId, setTaggingTransactionId] = useState<number | null>(null);
   const [savingTagsId, setSavingTagsId] = useState<number | null>(null);
   const [savingBudgetFlagsId, setSavingBudgetFlagsId] = useState<number | null>(null);
+  const [savingNoteId, setSavingNoteId] = useState<number | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
   const [tagDraft, setTagDraft] = useState<string[]>([]);
   const [newTagName, setNewTagName] = useState("");
   const [newTagFormOpen, setNewTagFormOpen] = useState(false);
@@ -132,7 +134,7 @@ export function ExpenseHistory({
     fees_interest: "Fees & interest", needs_review: "Needs review",
   };
   const categorizedTransactions = creditCardTransactions.filter((item) =>
-    item.category && item.include &&
+    item.category &&
     ["purchase", "fee", "interest"].includes(item.transaction_type) &&
     item.transaction_date >= spendingDateRange.start &&
     item.transaction_date <= spendingDateRange.end
@@ -173,6 +175,7 @@ export function ExpenseHistory({
     setTagDraft((transaction.tags || []).map((tag) => tag.name));
     setNewTagName("");
     setNewTagFormOpen(false);
+    setNoteDraft(transaction.note || "");
     setCorrectingTransactionId(transaction.id);
     setCorrectionRuleForm({
       match_type: "exact",
@@ -228,6 +231,32 @@ export function ExpenseHistory({
       setError(updateError instanceof Error ? updateError.message : "Unable to update this transaction.");
     } finally {
       setSavingBudgetFlagsId(null);
+    }
+  }
+
+  async function saveTransactionNote(transactionId: number) {
+    setSavingNoteId(transactionId);
+    setError("");
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions/${transactionId}/update-note`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: noteDraft }),
+      });
+      const updated = await response.json().catch(() => null) as CreditCardTransaction | { message?: string } | null;
+      if (!response.ok || !updated || !("id" in updated)) throw new Error(updated && "message" in updated ? updated.message : "Unable to save the transaction note.");
+      setCreditCardTransactions((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setNoteDraft(updated.note);
+      return true;
+    } catch (noteError) {
+      setError(noteError instanceof Error ? noteError.message : "Unable to save the transaction note.");
+      return false;
+    } finally {
+      setSavingNoteId(null);
+    }
+  }
+
+  async function saveTransactionEditor(transactionId: number) {
+    if (await saveTransactionNote(transactionId)) {
+      await correctTransactionCategory(transactionId);
     }
   }
 
@@ -666,9 +695,10 @@ export function ExpenseHistory({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-white">{transaction.description}</p>
                     <p className="mt-1 text-xs text-muted">{formatDate(transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}</p>
+                    {transaction.note ? <p className="mt-2 text-xs italic text-white/60">{transaction.note}</p> : null}
                     {transaction.tags?.length ? <div className="mt-2 flex flex-wrap gap-1.5">{transaction.tags.map((tag) => <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2 py-0.5 text-[10px] font-medium text-sky-100" key={tag.id}>{tag.name}</span>)}</div> : null}
                     {taggingTransactionId === transaction.id ? <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/10 p-3">
-                      <div className="flex flex-wrap gap-2">{tagDraft.map((tag) => <button className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[11px] text-sky-100 disabled:opacity-50" disabled={savingTagsId === transaction.id} key={tag} onClick={() => updateTransactionTag(transaction.id, tag, false)} title="Remove tag" type="button">{tag} ×</button>)}</div>
+                      <div className="mt-3 flex flex-wrap gap-2">{tagDraft.map((tag) => <button className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[11px] text-sky-100 disabled:opacity-50" disabled={savingTagsId === transaction.id} key={tag} onClick={() => updateTransactionTag(transaction.id, tag, false)} title="Remove tag" type="button">{tag} ×</button>)}</div>
                       <div className="mt-3 flex items-center gap-2"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Available tags</p><button aria-label="Create a new tag" className="grid size-6 place-items-center rounded-full border border-white/10 text-sm text-white/60 transition hover:border-sky-300/30 hover:text-sky-100" onClick={() => setNewTagFormOpen((current) => !current)} title="Create a new tag" type="button">+</button></div>
                       {availableTagNames.filter((tag) => !tagDraft.some((selected) => selected.toLowerCase() === tag.toLowerCase())).length ? <div className="mt-2 flex flex-wrap gap-2">{availableTagNames.filter((tag) => !tagDraft.some((selected) => selected.toLowerCase() === tag.toLowerCase())).map((tag) => <button className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:border-sky-300/20 hover:text-sky-100 disabled:opacity-50" disabled={savingTagsId === transaction.id} key={tag} onClick={() => updateTransactionTag(transaction.id, tag, true)} type="button">+ {tag}</button>)}</div> : <p className="mt-2 text-[11px] text-muted">No other saved tags.</p>}
                       {newTagFormOpen ? <div className="mt-3 flex flex-wrap gap-2">
@@ -676,6 +706,8 @@ export function ExpenseHistory({
                         <button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70" onClick={() => updateTransactionTag(transaction.id, newTagName, true)} type="button">Add</button>
                       </div> : null}
                       {savingTagsId === transaction.id ? <p className="mt-3 text-xs text-muted">Saving tag changes…</p> : null}
+                      <label className="mt-4 block border-t border-white/[0.07] pt-3"><span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Transaction note</span><textarea className="mt-2 min-h-20 w-full resize-y rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white outline-none focus:border-accent/50" maxLength={2000} onChange={(event) => setNoteDraft(event.target.value)} placeholder="Add context about this transaction" value={noteDraft} /></label>
+                      <div className="mt-3"><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Budget treatment</p>{transactionBudgetControls(transaction)}</div>
                     </div> : null}
                     {correctingTransactionId === transaction.id ? <div className="mt-3 grid items-center gap-2 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_auto_auto]">
                       <select
@@ -692,17 +724,16 @@ export function ExpenseHistory({
                       <div className="flex items-center gap-2">
                       <button
                         className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
-                        disabled={savingCorrectionId === transaction.id}
-                        onClick={() => void correctTransactionCategory(transaction.id)}
+                        disabled={savingCorrectionId === transaction.id || savingNoteId === transaction.id}
+                        onClick={() => void saveTransactionEditor(transaction.id)}
                         type="button"
-                      >{savingCorrectionId === transaction.id ? "Learning…" : "Save & learn"}</button>
+                      >{savingCorrectionId === transaction.id || savingNoteId === transaction.id ? "Saving…" : "Save"}</button>
                       <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={closeTransactionEditor} type="button">Cancel</button>
                       </div>
                       <p className="text-[11px] text-muted sm:col-span-5">Creates an editable automation rule, updates matching history, and remembers it for future imports.</p>
                     </div> : null}
                   </div>
                   <div className="flex items-center gap-3 self-start">
-                    {transactionBudgetControls(transaction)}
                     <p className="font-mono text-sm font-semibold text-white">{currencyFormatter.format(effectiveCreditCardTransactionAmount(transaction))}</p>
                     <button
                       className="text-xs font-medium text-white/50 hover:text-accent"
@@ -1078,9 +1109,9 @@ export function ExpenseHistory({
                                 {entry.transaction_type}
                               </span>
                             </p>
+                            {entry.note ? <p className="mt-1 text-xs italic text-white/55">{entry.note}</p> : null}
                           </div>
                           <div className="flex flex-wrap items-center justify-end gap-2">
-                          {transactionBudgetControls(entry)}
                           <span
                             className={`whitespace-nowrap font-mono text-sm font-semibold ${
                               Number(entry.amount) < 0

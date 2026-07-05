@@ -20,5 +20,6 @@ export type CreditCardTransaction = {
   tags: ExpenseTag[];
   split: boolean;
   include: boolean;
+  note: string;
   created_at: string;
 };
