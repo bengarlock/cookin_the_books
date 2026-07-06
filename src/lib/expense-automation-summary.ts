@@ -51,6 +51,9 @@ export function formatAutomationActionSummary(
           ? "Mark as Transfer"
           : `Categorize as ${label}`;
       }
+      if (action.type === "set_budget_treatment") {
+        return `Budget treatment: ${action.split ? "Split" : "Not split"}, ${action.include ? "Included" : "Excluded"}`;
+      }
       const target =
         budgetItemsById.get(Number(action.budget_item))?.label || "Expense";
       return `Categorize as ${target}${action.note.trim() ? " and set note" : ""}`;

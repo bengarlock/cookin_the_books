@@ -8,6 +8,7 @@ import type { ExpenseAutomationAction } from "@/lib/expense-automation-rule-type
 const choices = [
   { type: "assign_category", label: "Assign Category" },
   { type: "assign_tag", label: "Assign Tag" },
+  { type: "set_budget_treatment", label: "Budget Treatment" },
   { type: "create_expense", label: "Create Expense" },
 ] as const;
 
@@ -65,7 +66,9 @@ export function AutomationActionBuilder({
         ? { id, type, budget_item: "", note: "", exclude_from_credit_card: true }
         : type === "assign_tag"
           ? { id, type, tag: "" }
-          : { id, type, category: "" },
+          : type === "assign_category"
+            ? { id, type, category: "" }
+            : { id, type, split: false, include: true },
     ]);
   }
 
@@ -140,7 +143,9 @@ export function AutomationActionBuilder({
                     ? "Create Expense"
                     : action.type === "assign_tag"
                       ? "Assign Tag"
-                      : "Assign Category"}
+                      : action.type === "assign_category"
+                        ? "Assign Category"
+                        : "Budget Treatment"}
                 </span>
                 <button
                   className="text-lg text-white/35 hover:text-rose-200"
@@ -188,6 +193,28 @@ export function AutomationActionBuilder({
                     />
                     Exclude from credit card
                   </label>
+                </div>
+              ) : action.type === "set_budget_treatment" ? (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    aria-pressed={action.split}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${action.split ? "border-violet-300/30 bg-violet-400/15 text-violet-100" : "border-white/10 text-white/45 hover:text-white/70"}`}
+                    onClick={() => update(action.id, { split: !action.split })}
+                    type="button"
+                  >
+                    Split
+                  </button>
+                  <button
+                    aria-pressed={action.include}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${action.include ? "border-accent/25 bg-accent/10 text-accent" : "border-rose-300/20 bg-rose-400/10 text-rose-100"}`}
+                    onClick={() => update(action.id, { include: !action.include })}
+                    type="button"
+                  >
+                    {action.include ? "Included" : "Excluded"}
+                  </button>
+                  <p className="w-full text-xs text-muted">
+                    Set how matching transactions contribute to budget totals.
+                  </p>
                 </div>
               ) : action.type === "assign_category" ? (
                 <div className="mt-3">

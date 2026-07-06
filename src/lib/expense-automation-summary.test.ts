@@ -66,4 +66,22 @@ describe("formatAutomationActionSummary", () => {
       ),
     ).toBe("Assign tag: Dining and categorize as Utilities");
   });
+
+  it("summarizes budget treatment", () => {
+    expect(
+      formatAutomationActionSummary(
+        {
+          ...baseRule,
+          actions: [
+            {
+              type: "set_budget_treatment",
+              split: true,
+              include: false,
+            },
+          ],
+        },
+        budgetItems,
+      ),
+    ).toBe("Budget treatment: Split, Excluded");
+  });
 });
