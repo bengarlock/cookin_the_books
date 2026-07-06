@@ -2,14 +2,10 @@
 
 import { type ReactNode, useMemo, useState } from "react";
 
+import { useBudgetData } from "@/components/budget-data-provider";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
-import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
-import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
-import type { ExpenseEntry } from "@/lib/expense-entry-types";
-import type { IncomeEntry } from "@/lib/income-entry-types";
-import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import {
   followingPayday,
   formatPayday,
@@ -126,25 +122,18 @@ function SummaryRow({
   );
 }
 
-export function ProjectionsDashboard({
-  budgetItems,
-  creditCardTransactions,
-  expenseEntries,
-  initialBudgetPlanSettings,
-  initialIncomeEntries,
-  initialPendingTransactions,
-}: {
-  budgetItems: BudgetItem[];
-  creditCardTransactions: CreditCardTransaction[];
-  expenseEntries: ExpenseEntry[];
-  initialBudgetPlanSettings: BudgetPlanSettings;
-  initialIncomeEntries: IncomeEntry[];
-  initialPendingTransactions: PendingTransaction[];
-}) {
+export function ProjectionsDashboard() {
   const { snapshot } = useLiveSnapshot();
-  const [nextPaydayOverride, setNextPaydayOverride] = useState(
-    initialBudgetPlanSettings.next_payday_override,
-  );
+  const {
+    budgetItems,
+    creditCardTransactions,
+    expenseEntries,
+    incomeEntries: initialIncomeEntries,
+    pendingTransactions: initialPendingTransactions,
+    budgetPlanSettings,
+    setBudgetPlanSettings,
+  } = useBudgetData();
+  const nextPaydayOverride = budgetPlanSettings.next_payday_override;
   const [confirmingFastForward, setConfirmingFastForward] = useState(false);
   const [isFastForwarding, setIsFastForwarding] = useState(false);
   const [fastForwardError, setFastForwardError] = useState("");
@@ -233,7 +222,7 @@ export function ProjectionsDashboard({
         );
       }
 
-      setNextPaydayOverride(data.next_payday_override);
+      setBudgetPlanSettings(data as BudgetPlanSettings);
       setConfirmingFastForward(false);
     } catch (error) {
       setFastForwardError(

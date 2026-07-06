@@ -22,6 +22,7 @@ import {
   validateCreditCardImportFiles,
   validatePdfImportFiles,
 } from "@/lib/pdf-import";
+import { useBudgetData } from "@/components/budget-data-provider";
 import { DateRangePicker } from "@/components/date-range-picker";
 import {
   normalizeCurrencyInput,
@@ -53,21 +54,18 @@ function todayString() {
 }
 
 export function ExpenseHistory({
-  budgetItems,
-  initialCreditCardTransactions,
-  initialEntries,
   initialTags,
 }: {
-  budgetItems: BudgetItem[];
-  initialCreditCardTransactions: CreditCardTransaction[];
-  initialEntries: ExpenseEntry[];
   initialTags: ExpenseTag[];
 }) {
-  const [items, setItems] = useState(budgetItems);
-  const [entries, setEntries] = useState(initialEntries);
-  const [creditCardTransactions, setCreditCardTransactions] = useState(
-    initialCreditCardTransactions,
-  );
+  const {
+    budgetItems: items,
+    setBudgetItems: setItems,
+    expenseEntries: entries,
+    setExpenseEntries: setEntries,
+    creditCardTransactions,
+    setCreditCardTransactions,
+  } = useBudgetData();
   const [tagLibrary, setTagLibrary] = useState(initialTags);
   const [openItemId, setOpenItemId] = useState<number | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(

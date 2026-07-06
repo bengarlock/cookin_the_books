@@ -1,12 +1,13 @@
 import "server-only";
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 
 import { AUTH_COOKIE_NAME } from "@/lib/auth";
 import type { ExpenseTag } from "@/lib/credit-card-transaction-types";
 import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
-export async function getExpenseTags(): Promise<ExpenseTag[]> {
+export const getExpenseTags = cache(async (): Promise<ExpenseTag[]> => {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
   if (!token) return [];
   try {
@@ -21,4 +22,4 @@ export async function getExpenseTags(): Promise<ExpenseTag[]> {
   } catch {
     return [];
   }
-}
+});

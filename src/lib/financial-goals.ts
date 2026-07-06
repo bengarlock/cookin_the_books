@@ -1,12 +1,13 @@
 import "server-only";
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 
 import { AUTH_COOKIE_NAME } from "@/lib/auth";
 import type { FinancialGoal } from "@/lib/financial-goal-types";
 import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
-export async function getFinancialGoals(): Promise<FinancialGoal[]> {
+export const getFinancialGoals = cache(async (): Promise<FinancialGoal[]> => {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
   if (!token) return [];
 
@@ -23,4 +24,4 @@ export async function getFinancialGoals(): Promise<FinancialGoal[]> {
   } catch {
     return [];
   }
-}
+});

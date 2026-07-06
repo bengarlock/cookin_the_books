@@ -2,17 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 
+import { useBudgetData } from "@/components/budget-data-provider";
 import { APP_BASE_PATH } from "@/lib/config";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import type { FinancialGoal, FinancialGoalInput } from "@/lib/financial-goal-types";
 import { calculateFinancialGoalMetrics } from "@/lib/financial-goal-metrics";
 import { getCurrentPayPeriod, localPaydayString } from "@/lib/pay-cycle";
-import type { PendingTransaction } from "@/lib/pending-transaction-types";
-import type { IncomeEntry } from "@/lib/income-entry-types";
 import { dailyExpenseAverage, projectRevenueAfterPayCycle } from "@/lib/projections";
-import type { BudgetItem } from "@/lib/budget-item-types";
-import type { ExpenseEntry } from "@/lib/expense-entry-types";
-import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
 
 const emptyGoal: FinancialGoalInput = {
   goal_type: "spending",
@@ -87,22 +83,19 @@ function GoalFields({
 
 export function FinancialGoals({
   initialGoals,
-  nextPaydayOverride,
-  pendingTransactions,
-  incomeEntries,
-  budgetItems,
-  expenseEntries,
-  creditCardTransactions,
 }: {
   initialGoals: FinancialGoal[];
-  nextPaydayOverride?: string | null;
-  pendingTransactions: PendingTransaction[];
-  incomeEntries: IncomeEntry[];
-  budgetItems: BudgetItem[];
-  expenseEntries: ExpenseEntry[];
-  creditCardTransactions: CreditCardTransaction[];
 }) {
   const { snapshot } = useLiveSnapshot();
+  const {
+    budgetItems,
+    expenseEntries,
+    creditCardTransactions,
+    incomeEntries,
+    pendingTransactions,
+    budgetPlanSettings,
+  } = useBudgetData();
+  const nextPaydayOverride = budgetPlanSettings.next_payday_override;
   const projection = projectRevenueAfterPayCycle({
     incomeEntries,
     budgetItems,

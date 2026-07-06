@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 
+import { useOptionalBudgetData } from "@/components/budget-data-provider";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import { APP_BASE_PATH } from "@/lib/config";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
@@ -488,14 +489,27 @@ export function LiveBankValues({
   initialPendingTransactions,
   view = "overview",
 }: {
-  initialBudgetPlanSettings: BudgetPlanSettings;
-  initialPendingTransactions: PendingTransaction[];
+  initialBudgetPlanSettings?: BudgetPlanSettings;
+  initialPendingTransactions?: PendingTransaction[];
   view?: FinancialView;
 }) {
+  const budgetData = useOptionalBudgetData();
   const { snapshot } = useLiveSnapshot();
-  const [pendingTransactions, setPendingTransactions] = useState(
-    initialPendingTransactions,
+  const [localPendingTransactions, setLocalPendingTransactions] = useState(
+    initialPendingTransactions ?? [],
   );
+  const pendingTransactions =
+    budgetData?.pendingTransactions ?? localPendingTransactions;
+  const setPendingTransactions =
+    budgetData?.setPendingTransactions ?? setLocalPendingTransactions;
+  const budgetPlanSettings =
+    budgetData?.budgetPlanSettings ?? initialBudgetPlanSettings;
+
+  if (!budgetPlanSettings) {
+    throw new Error(
+      "LiveBankValues requires budget plan settings from props or BudgetDataProvider.",
+    );
+  }
   const [formOpen, setFormOpen] = useState(false);
   const [formError, setFormError] = useState("");
   const [registerError, setRegisterError] = useState("");
@@ -513,7 +527,7 @@ export function LiveBankValues({
     expected_post_date: nextBusinessDayString(),
   });
   const [currentDate, setCurrentDate] = useState(() => new Date());
-  const initialBudgetOffset = Number(initialBudgetPlanSettings.budget_offset);
+  const initialBudgetOffset = Number(budgetPlanSettings.budget_offset);
   const [budgetOffset, setBudgetOffset] = useState(
     Number.isFinite(initialBudgetOffset) ? initialBudgetOffset : 0,
   );
@@ -527,7 +541,7 @@ export function LiveBankValues({
     useState<keyof BankValueSnapshot | null>(null);
   const payCycle = getNextPayCycle(
     currentDate,
-    initialBudgetPlanSettings.next_payday_override,
+    budgetPlanSettings.next_payday_override,
   );
 
   useEffect(() => {
@@ -661,6 +675,7 @@ export function LiveBankValues({
       setBudgetOffset(normalizedSavedValue);
       setBudgetOffsetDraft(normalizedSavedValue.toFixed(2));
       setIsBudgetOffsetEditing(false);
+      budgetData?.setBudgetPlanSettings(data as BudgetPlanSettings);
     } catch (error) {
       setBudgetOffsetError(
         error instanceof Error

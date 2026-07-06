@@ -3,16 +3,14 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { useBudgetData } from "@/components/budget-data-provider";
 import { DateRangePicker } from "@/components/date-range-picker";
-import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
-import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
 import { budgetItemExpenseAverages } from "@/lib/expense-averages";
 import {
   defaultExpenseDateRange,
   formatExpenseDateRange,
 } from "@/lib/expense-date-range";
-import type { ExpenseEntry } from "@/lib/expense-entry-types";
 import {
   amountForBudgetPeriod,
   budgetPeriods,
@@ -37,15 +35,9 @@ function todayString() {
   ].join("-");
 }
 
-export function RecurringExpenses({
-  budgetItems,
-  expenseEntries,
-  creditCardTransactions,
-}: {
-  budgetItems: BudgetItem[];
-  expenseEntries: ExpenseEntry[];
-  creditCardTransactions: CreditCardTransaction[];
-}) {
+export function RecurringExpenses() {
+  const { budgetItems, expenseEntries, creditCardTransactions } =
+    useBudgetData();
   const [dateRange, setDateRange] = useState(defaultExpenseDateRange);
   const today = todayString();
 

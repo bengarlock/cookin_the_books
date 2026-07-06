@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 
+import { useBudgetData } from "@/components/budget-data-provider";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { APP_BASE_PATH } from "@/lib/config";
 import {
@@ -138,12 +139,9 @@ function statementEntries(
     .filter(([, value]) => Math.abs(value) > 0);
 }
 
-export function IncomeHistory({
-  initialEntries,
-}: {
-  initialEntries: IncomeEntry[];
-}) {
-  const [entries, setEntries] = useState(initialEntries);
+export function IncomeHistory() {
+  const { incomeEntries: entries, setIncomeEntries: setEntries } =
+    useBudgetData();
   const [dateRange, setDateRange] = useState<ExpenseDateRange>(
     defaultExpenseDateRange(),
   );

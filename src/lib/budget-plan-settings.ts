@@ -1,12 +1,13 @@
 import "server-only";
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 
 import { AUTH_COOKIE_NAME } from "@/lib/auth";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
-export async function getBudgetPlanSettings(): Promise<BudgetPlanSettings> {
+export const getBudgetPlanSettings = cache(async (): Promise<BudgetPlanSettings> => {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
   if (!token) return { budget_offset: "0.00", next_payday_override: null };
 
@@ -28,4 +29,4 @@ export async function getBudgetPlanSettings(): Promise<BudgetPlanSettings> {
   } catch {
     return { budget_offset: "0.00", next_payday_override: null };
   }
-}
+});

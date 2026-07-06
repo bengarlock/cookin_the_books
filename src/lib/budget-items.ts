@@ -1,12 +1,13 @@
 import "server-only";
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 
 import { AUTH_COOKIE_NAME } from "@/lib/auth";
 import type { BudgetItem } from "@/lib/budget-item-types";
 import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
-export async function getBudgetItems(): Promise<BudgetItem[]> {
+export const getBudgetItems = cache(async (): Promise<BudgetItem[]> => {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
   if (!token) return [];
 
@@ -27,4 +28,4 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   } catch {
     return [];
   }
-}
+});
