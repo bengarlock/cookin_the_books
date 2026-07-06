@@ -18,6 +18,19 @@ const LIABILITY_ACCOUNTS: SnapshotAccountKey[] = [
   "barclays_card",
 ];
 
+const LIQUID_ASSET_ACCOUNTS: SnapshotAccountKey[] = [
+  "chase_checking",
+  "chase_savings",
+  "etrade",
+  "betterment_general",
+  "betterment_safety",
+];
+
+const RETIREMENT_ACCOUNTS: SnapshotAccountKey[] = [
+  "betterment_retirement",
+  "fidelity_retirement",
+];
+
 const LIABILITY_LABELS: Record<SnapshotAccountKey, string> = {
   chase_checking: "Chase Checking",
   chase_savings: "Chase Savings",
@@ -78,6 +91,18 @@ export type CurrentYearProjection = {
   predictedPaycheck: number;
   remainingDays: number;
 };
+
+export type UnemploymentRunwayProjection = {
+  grossLiquidAssets: number;
+  liabilities: number;
+  liquidReserves: number;
+  dailyBurnRate: number;
+  monthlyBurnRate: number;
+  runwayDays: number | null;
+  runwayYears: number | null;
+};
+
+const DAYS_PER_YEAR = 365.2425;
 
 function oneYearAgo(currentDate: Date) {
   const past = new Date(
@@ -420,4 +445,109 @@ export function dailyExpenseAverage({
       ).daily,
     0,
   );
+}
+
+export function liquidReservesFromSnapshot(
+  snapshot: BankValueSnapshot | null,
+  pendingTransactions: PendingTransaction[],
+) {
+  const grossLiquidAssets = LIQUID_ASSET_ACCOUNTS.reduce(
+    (sum, account) =>
+      sum + adjustedAccountValue(snapshot, pendingTransactions, account),
+    0,
+  );
+  const liabilities = liabilityBreakdownFromSnapshot(
+    snapshot,
+    pendingTransactions,
+  ).total;
+  const retirementAssets = RETIREMENT_ACCOUNTS.reduce(
+    (sum, account) =>
+      sum + adjustedAccountValue(snapshot, pendingTransactions, account),
+    0,
+  );
+
+  return {
+    grossLiquidAssets,
+    liabilities,
+    liquidReserves: grossLiquidAssets - liabilities,
+    retirementAssets,
+  };
+}
+
+export function projectUnemploymentRunway({
+  budgetItems,
+  expenseEntries,
+  creditCardTransactions,
+  snapshot,
+  pendingTransactions,
+  currentDate = new Date(),
+}: {
+  budgetItems: BudgetItem[];
+  expenseEntries: ExpenseEntry[];
+  creditCardTransactions: CreditCardTransaction[];
+  snapshot: BankValueSnapshot | null;
+  pendingTransactions: PendingTransaction[];
+  currentDate?: Date;
+}): UnemploymentRunwayProjection {
+  const { grossLiquidAssets, liabilities, liquidReserves } =
+    liquidReservesFromSnapshot(snapshot, pendingTransactions);
+  const dailyBurnRate = dailyExpenseAverage({
+    budgetItems,
+    expenseEntries,
+    creditCardTransactions,
+    currentDate,
+  });
+  const monthlyBurnRate = dailyBurnRate * AVERAGE_DAYS_PER_MONTH;
+
+  if (dailyBurnRate <= 0) {
+    return {
+      grossLiquidAssets,
+      liabilities,
+      liquidReserves,
+      dailyBurnRate,
+      monthlyBurnRate,
+      runwayDays: null,
+      runwayYears: null,
+    };
+  }
+
+  const runwayDays = liquidReserves > 0 ? liquidReserves / dailyBurnRate : 0;
+
+  return {
+    grossLiquidAssets,
+    liabilities,
+    liquidReserves,
+    dailyBurnRate,
+    monthlyBurnRate,
+    runwayDays,
+    runwayYears: runwayDays / DAYS_PER_YEAR,
+  };
+}
+
+export function formatRunwayDuration(
+  runwayDays: number | null,
+  runwayYears: number | null,
+) {
+  if (runwayDays === null || runwayYears === null) {
+    return "No expense data";
+  }
+  if (runwayDays <= 0) {
+    return "Depleted";
+  }
+  if (runwayYears < 1) {
+    const months = Math.max(1, Math.round(runwayDays / (DAYS_PER_YEAR / 12)));
+    return `${months} month${months === 1 ? "" : "s"}`;
+  }
+
+  const wholeYears = Math.floor(runwayYears);
+  const remainingMonths = Math.round((runwayYears - wholeYears) * 12);
+
+  if (remainingMonths === 0 || remainingMonths === 12) {
+    const years = remainingMonths === 12 ? wholeYears + 1 : wholeYears;
+    return `${years} year${years === 1 ? "" : "s"}`;
+  }
+
+  return `${wholeYears} year${wholeYears === 1 ? "" : "s"}, ${remainingMonths} month${
+    remainingMonths === 1 ? "" : "s"
+  }`;
 }

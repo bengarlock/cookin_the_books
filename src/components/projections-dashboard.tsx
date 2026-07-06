@@ -16,8 +16,10 @@ import {
   localPaydayString,
 } from "@/lib/pay-cycle";
 import {
+  formatRunwayDuration,
   projectCurrentYear,
   projectRevenueAfterPayCycle,
+  projectUnemploymentRunway,
 } from "@/lib/projections";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -187,6 +189,24 @@ export function ProjectionsDashboard({
     ],
   );
 
+  const unemploymentRunway = useMemo(
+    () =>
+      projectUnemploymentRunway({
+        budgetItems,
+        expenseEntries,
+        creditCardTransactions,
+        snapshot,
+        pendingTransactions: initialPendingTransactions,
+      }),
+    [
+      budgetItems,
+      creditCardTransactions,
+      expenseEntries,
+      initialPendingTransactions,
+      snapshot,
+    ],
+  );
+
   const fastForwardPayday = followingPayday(projection.nextPayday);
 
   async function fastForwardPayCycle() {
@@ -233,7 +253,7 @@ export function ProjectionsDashboard({
 
   return (
     <div className="mt-10 space-y-8">
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label={`${yearProjection.year} projected income`}
           value={formatCurrency(yearProjection.projectedIncome)}
@@ -259,6 +279,26 @@ export function ProjectionsDashboard({
           negative={yearProjection.projectedNet < 0}
           value={formatCurrency(yearProjection.projectedNet)}
           description="Projected income minus projected expenses for the calendar year."
+        />
+        <MetricCard
+          label="Unemployment runway"
+          value={formatRunwayDuration(
+            unemploymentRunway.runwayDays,
+            unemploymentRunway.runwayYears,
+          )}
+          description={
+            unemploymentRunway.dailyBurnRate > 0
+              ? `${formatCurrency(unemploymentRunway.liquidReserves)} in liquid reserves (cash and taxable investments, excluding retirement and 401(k)) minus ${formatCurrency(
+                  unemploymentRunway.liabilities,
+                )} liabilities, at ${formatCurrency(
+                  unemploymentRunway.dailyBurnRate,
+                )}/day average expenses.`
+              : `${formatCurrency(unemploymentRunway.liquidReserves)} in liquid reserves. Add expense history to estimate runway.`
+          }
+          negative={
+            unemploymentRunway.runwayDays !== null &&
+            unemploymentRunway.runwayDays <= 0
+          }
         />
       </section>
 

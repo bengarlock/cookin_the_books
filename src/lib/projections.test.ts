@@ -8,9 +8,12 @@ import type { PendingTransaction } from "./pending-transaction-types";
 import { remainingPaydaysInYear } from "./pay-cycle";
 import {
   classifyPaychecks,
+  formatRunwayDuration,
   incomeEntriesInLookback,
+  liquidReservesFromSnapshot,
   projectCurrentYear,
   projectRevenueAfterPayCycle,
+  projectUnemploymentRunway,
   yearToDateIncome,
 } from "./projections";
 
@@ -256,5 +259,64 @@ describe("projectRevenueAfterPayCycle", () => {
     });
 
     expect(result.creditCardPayoff).toBe(47.99);
+  });
+});
+
+describe("projectUnemploymentRunway", () => {
+  it("excludes retirement accounts and divides liquid reserves by daily expenses", () => {
+    const item = budgetItem();
+    const result = projectUnemploymentRunway({
+      budgetItems: [item],
+      expenseEntries: [expenseEntry("1780.00", "2026-06-01")],
+      creditCardTransactions: [],
+      snapshot: snapshot({
+        betterment_retirement: "120000.00",
+        fidelity_retirement: "450000.00",
+      }),
+      pendingTransactions: [],
+      currentDate: new Date(2026, 5, 27),
+    });
+
+    const reserves = liquidReservesFromSnapshot(
+      snapshot({
+        betterment_retirement: "120000.00",
+        fidelity_retirement: "450000.00",
+      }),
+      [],
+    );
+
+    expect(reserves.retirementAssets).toBe(570000);
+    expect(reserves.grossLiquidAssets).toBe(32500);
+    expect(result.liabilities).toBe(1100);
+    expect(result.liquidReserves).toBe(31400);
+    expect(result.dailyBurnRate).toBe(10);
+    expect(result.runwayDays).toBe(3140);
+    expect(result.runwayYears).toBeCloseTo(3140 / 365.2425, 5);
+    expect(formatRunwayDuration(result.runwayDays, result.runwayYears)).toBe(
+      "8 years, 7 months",
+    );
+  });
+
+  it("reports depleted runway when liabilities exceed liquid assets", () => {
+    const result = projectUnemploymentRunway({
+      budgetItems: [budgetItem()],
+      expenseEntries: [expenseEntry("100.00", "2026-06-01")],
+      creditCardTransactions: [],
+      snapshot: snapshot({
+        chase_checking: "100.00",
+        chase_savings: "0.00",
+        chase_credit: "5000.00",
+        citi_current: "0.00",
+        citi_pending: "0.00",
+      }),
+      pendingTransactions: [],
+      currentDate: new Date(2026, 5, 27),
+    });
+
+    expect(result.liquidReserves).toBeLessThan(0);
+    expect(result.runwayDays).toBe(0);
+    expect(formatRunwayDuration(result.runwayDays, result.runwayYears)).toBe(
+      "Depleted",
+    );
   });
 });
