@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 
-import { AUTH_COOKIE_NAME } from "@/lib/auth";
+import { AUTH_COOKIE_NAME, LEGACY_AUTH_COOKIE_NAMES } from "@/lib/auth";
 import { APP_BASE_PATH } from "@/lib/config";
 
 function clearAuthCookie(response: NextResponse) {
-  response.cookies.set(AUTH_COOKIE_NAME, "", {
+  [AUTH_COOKIE_NAME, ...LEGACY_AUTH_COOKIE_NAMES].forEach((name) => response.cookies.set(name, "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: 0,
     path: "/",
-  });
+    ...(process.env.NODE_ENV === "production" ? { domain: ".bengarlock.com" } : {}),
+  }));
   return response;
 }
 

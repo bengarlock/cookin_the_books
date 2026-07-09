@@ -6,10 +6,12 @@ import { cookies } from "next/headers";
 import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
 export const AUTH_COOKIE_NAME =
-  process.env.AUTH_COOKIE_NAME || "cookinTheBooksToken";
+  process.env.AUTH_COOKIE_NAME || "portfolioAuthToken";
+
+export const LEGACY_AUTH_COOKIE_NAMES = ["cookinTheBooksToken"];
 
 export const AUTH_COOKIE_MAX_AGE = Number(
-  process.env.AUTH_COOKIE_MAX_AGE_SECONDS || 60 * 60 * 24,
+  process.env.AUTH_COOKIE_MAX_AGE_SECONDS || 60 * 60 * 24 * 30,
 );
 
 type VerificationResult = {

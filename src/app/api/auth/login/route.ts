@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
   AUTH_COOKIE_MAX_AGE,
   AUTH_COOKIE_NAME,
+  LEGACY_AUTH_COOKIE_NAMES,
 } from "@/lib/auth";
 import {
   getPortfolioApiBaseUrl,
@@ -70,6 +71,18 @@ export async function POST(request: Request) {
       maxAge: AUTH_COOKIE_MAX_AGE,
       path: "/",
       priority: "high",
+      ...(process.env.NODE_ENV === "production" ? { domain: ".bengarlock.com" } : {}),
+    });
+    LEGACY_AUTH_COOKIE_NAMES.forEach((name) => {
+      response.cookies.set(name, "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 0,
+        path: "/",
+        priority: "high",
+        ...(process.env.NODE_ENV === "production" ? { domain: ".bengarlock.com" } : {}),
+      });
     });
 
     return response;
