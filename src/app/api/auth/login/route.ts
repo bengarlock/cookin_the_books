@@ -73,17 +73,19 @@ export async function POST(request: Request) {
       priority: "high",
       ...(process.env.NODE_ENV === "production" ? { domain: ".bengarlock.com" } : {}),
     });
-    LEGACY_AUTH_COOKIE_NAMES.forEach((name) => {
-      response.cookies.set(name, "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 0,
-        path: "/",
-        priority: "high",
-        ...(process.env.NODE_ENV === "production" ? { domain: ".bengarlock.com" } : {}),
-      });
-    });
+    LEGACY_AUTH_COOKIE_NAMES.filter((name) => name !== AUTH_COOKIE_NAME).forEach(
+      (name) => {
+        response.cookies.set(name, "", {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 0,
+          path: "/",
+          priority: "high",
+          ...(process.env.NODE_ENV === "production" ? { domain: ".bengarlock.com" } : {}),
+        });
+      },
+    );
 
     return response;
   } catch (error) {
