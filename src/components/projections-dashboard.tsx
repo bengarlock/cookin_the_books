@@ -358,9 +358,11 @@ export function ProjectionsDashboard() {
         <MetricCard
           label="Projected Spend"
           value={formatCurrency(-projection.predictedSpend)}
-          description={`Daily average expense of ${formatCurrency(
-            projection.dailyAverageExpense,
-          )} over ${projection.daysRemaining} day${
+          description={`${formatCurrency(
+            projection.spentThisPayCycle,
+          )} spent so far plus ${formatCurrency(
+            projection.predictedAdditionalSpend,
+          )} expected over the remaining ${projection.daysRemaining} day${
             projection.daysRemaining === 1 ? "" : "s"
           }.`}
           negative={projection.predictedSpend > 0}
@@ -368,7 +370,7 @@ export function ProjectionsDashboard() {
         <MetricCard
           label="Projected cash after pay cycle"
           value={formatCurrency(projection.projectedCashAfterPayCycle)}
-          description="Projected income minus projected spend."
+          description="Projected income minus spending already incurred and expected for the rest of this pay cycle."
           featured
           negative={projection.projectedCashAfterPayCycle < 0}
         />
@@ -380,7 +382,8 @@ export function ProjectionsDashboard() {
             Projection breakdown
           </p>
           <p className="mt-2 text-sm text-muted">
-            Starting from projected income, then subtracting projected spend.
+            Starting from projected income, then subtracting spending already
+            incurred and expected for the rest of this pay cycle.
           </p>
         </div>
         <SummaryRow
@@ -389,11 +392,23 @@ export function ProjectionsDashboard() {
           value={`+${formatCurrency(projection.predictedNextPaycheck)}`}
         />
         <SummaryRow
+          detail="Expenses recorded since the current pay cycle began."
+          label="Spent this pay cycle"
+          negative={projection.spentThisPayCycle > 0}
+          value={`-${formatCurrency(projection.spentThisPayCycle)}`}
+        />
+        <SummaryRow
           detail={`${formatCurrency(
             projection.dailyAverageExpense,
           )} daily average expense multiplied by ${projection.daysRemaining} day${
             projection.daysRemaining === 1 ? "" : "s"
           } until the pay cycle.`}
+          label="Expected additional spend"
+          negative={projection.predictedAdditionalSpend > 0}
+          value={`-${formatCurrency(projection.predictedAdditionalSpend)}`}
+        />
+        <SummaryRow
+          detail="Spending already incurred plus expected additional spend."
           label="Projected spend"
           negative={projection.predictedSpend > 0}
           value={`-${formatCurrency(projection.predictedSpend)}`}

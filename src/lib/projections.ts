@@ -1,7 +1,13 @@
 import type { IncomeEntry } from "./income-entry-types";
 import { defaultExpenseDateRange, localDateString } from "./expense-date-range";
 import type { PendingTransaction } from "./pending-transaction-types";
-import { formatPayday, getNextPayCycle, remainingPaydaysInYear } from "./pay-cycle";
+import {
+  formatPayday,
+  getCurrentPayPeriod,
+  getNextPayCycle,
+  localPaydayString,
+  remainingPaydaysInYear,
+} from "./pay-cycle";
 import type { BankValueSnapshot, SnapshotAccountKey } from "./snapshot-types";
 import type { BudgetItem } from "./budget-item-types";
 import {
@@ -71,6 +77,8 @@ export type PayCycleProjection = {
   daysRemaining: number;
   predictedNextPaycheck: number;
   dailyAverageExpense: number;
+  spentThisPayCycle: number;
+  predictedAdditionalSpend: number;
   predictedSpend: number;
   creditCardPayoff: number;
   liabilityBreakdown: LiabilityBreakdown[];
@@ -393,7 +401,31 @@ export function projectRevenueAfterPayCycle({
     creditCardTransactions,
     currentDate,
   });
-  const predictedSpend = dailyAverageExpense * payCycle.daysRemaining;
+  const today = localDateString(currentDate);
+  const currentPayPeriod = getCurrentPayPeriod(
+    currentDate,
+    nextPaydayOverride,
+  );
+  const currentPayCycleDateRange = {
+    start: localPaydayString(currentPayPeriod.start),
+    end: today,
+  };
+  const spentThisPayCycle = budgetItems.reduce(
+    (total, item) =>
+      total +
+      budgetItemExpenseAverages(
+        item,
+        expenseEntries,
+        creditCardTransactions,
+        currentPayCycleDateRange,
+        today,
+        budgetItems,
+      ).total,
+    0,
+  );
+  const predictedAdditionalSpend =
+    dailyAverageExpense * payCycle.daysRemaining;
+  const predictedSpend = spentThisPayCycle + predictedAdditionalSpend;
   const liabilities = liabilityBreakdownFromSnapshot(
     snapshot,
     pendingTransactions,
@@ -407,6 +439,8 @@ export function projectRevenueAfterPayCycle({
     daysRemaining: payCycle.daysRemaining,
     predictedNextPaycheck: paycheckProjection.predictedNetPay,
     dailyAverageExpense,
+    spentThisPayCycle,
+    predictedAdditionalSpend,
     predictedSpend,
     creditCardPayoff: liabilities.total,
     liabilityBreakdown: liabilities.breakdown,

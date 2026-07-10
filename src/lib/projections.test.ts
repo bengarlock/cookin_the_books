@@ -236,10 +236,40 @@ describe("projectRevenueAfterPayCycle", () => {
 
     expect(result.predictedNextPaycheck).toBe(3190);
     expect(result.dailyAverageExpense).toBe(10);
+    expect(result.spentThisPayCycle).toBe(0);
+    expect(result.predictedAdditionalSpend).toBe(40);
     expect(result.predictedSpend).toBe(40);
     expect(result.creditCardPayoff).toBe(1100);
     expect(result.projectedCashAfterPayCycle).toBe(3150);
     expect(result.daysRemaining).toBeGreaterThan(0);
+  });
+
+  it("includes spending already incurred in the current pay cycle", () => {
+    const result = projectRevenueAfterPayCycle({
+      incomeEntries: [
+        incomeEntry({ id: 1, pay_date: "2026-06-15", net_pay: "3000.00" }),
+      ],
+      budgetItems: [budgetItem()],
+      expenseEntries: [
+        expenseEntry("1780.00", "2026-06-01"),
+        expenseEntry("250.00", "2026-06-20"),
+      ],
+      creditCardTransactions: [],
+      snapshot: snapshot(),
+      pendingTransactions: [],
+      currentDate: new Date(2026, 5, 27),
+    });
+
+    expect(result.spentThisPayCycle).toBe(250);
+    expect(result.predictedAdditionalSpend).toBe(
+      result.dailyAverageExpense * result.daysRemaining,
+    );
+    expect(result.predictedSpend).toBe(
+      result.spentThisPayCycle + result.predictedAdditionalSpend,
+    );
+    expect(result.projectedCashAfterPayCycle).toBe(
+      result.predictedNextPaycheck - result.predictedSpend,
+    );
   });
 
   it("keeps Citi pending charges after the current balance is marked paid", () => {
