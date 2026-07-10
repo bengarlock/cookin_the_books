@@ -26,6 +26,27 @@ type LiveSnapshotContextValue = {
 const LiveSnapshotContext =
   createContext<LiveSnapshotContextValue | null>(null);
 
+function snapshotTimestamp(snapshot: BankValueSnapshot | null) {
+  if (!snapshot) return 0;
+  const updatedAt = Date.parse(snapshot.updated_at || "");
+  if (Number.isFinite(updatedAt)) return updatedAt;
+  const sourceUpdatedAt = Date.parse(snapshot.source_updated_at || "");
+  return Number.isFinite(sourceUpdatedAt) ? sourceUpdatedAt : 0;
+}
+
+function freshestSnapshot(
+  current: BankValueSnapshot | null,
+  next: BankValueSnapshot | null,
+) {
+  if (!next) return current;
+  if (!current) return next;
+  const currentTimestamp = snapshotTimestamp(current);
+  const nextTimestamp = snapshotTimestamp(next);
+  if (nextTimestamp > currentTimestamp) return next;
+  if (nextTimestamp === currentTimestamp && next.id >= current.id) return next;
+  return current;
+}
+
 export function LiveSnapshotProvider({
   children,
   initialSnapshot,
@@ -33,7 +54,8 @@ export function LiveSnapshotProvider({
   children: ReactNode;
   initialSnapshot: BankValueSnapshot | null;
 }) {
-  const [snapshot, setSnapshot] = useState(initialSnapshot);
+  const [clientSnapshot, setClientSnapshot] = useState(initialSnapshot);
+  const snapshot = freshestSnapshot(clientSnapshot, initialSnapshot);
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("connecting");
 
@@ -75,7 +97,7 @@ export function LiveSnapshotProvider({
               message.type === "snapshot.updated") &&
             message.snapshot
           ) {
-            setSnapshot(message.snapshot);
+            setClientSnapshot(message.snapshot);
           }
         };
         socket.onerror = () => socket?.close();
@@ -111,7 +133,7 @@ export function LiveSnapshotProvider({
 
   return (
     <LiveSnapshotContext.Provider
-      value={{ connectionState, snapshot, setSnapshot }}
+      value={{ connectionState, snapshot, setSnapshot: setClientSnapshot }}
     >
       {children}
     </LiveSnapshotContext.Provider>
