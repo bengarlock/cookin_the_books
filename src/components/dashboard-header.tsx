@@ -91,6 +91,14 @@ export function DashboardHeader() {
     return () => window.clearInterval(refreshDate);
   }, []);
 
+  async function fetchLatestSnapshot() {
+    const response = await fetch(`${APP_BASE_PATH}/api/snapshots/latest`, {
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    return (await response.json().catch(() => null)) as BankValueSnapshot | null;
+  }
+
   async function refreshAccountData() {
     setIsRefreshing(true);
     setRefreshError("");
@@ -106,8 +114,10 @@ export function DashboardHeader() {
       if (!response.ok) {
         throw new Error(data?.message || "Account data could not be refreshed.");
       }
-      if (data?.snapshot) {
-        setSnapshot(data.snapshot);
+      const latestSnapshot = await fetchLatestSnapshot();
+      const nextSnapshot = latestSnapshot || data?.snapshot;
+      if (nextSnapshot) {
+        setSnapshot(nextSnapshot);
         setCurrentDate(new Date());
       }
       if (data?.errors?.length) {
