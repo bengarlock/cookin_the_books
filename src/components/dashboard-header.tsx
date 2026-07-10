@@ -24,6 +24,22 @@ function normalizeDashboardPath(pathname: string) {
   return withoutBase.replace(/\/$/, "");
 }
 
+function readableErrorMessage(data: unknown, fallback: string) {
+  const rawMessage =
+    data && typeof data === "object" && !Array.isArray(data)
+      ? "message" in data && typeof data.message === "string"
+        ? data.message
+        : "detail" in data && typeof data.detail === "string"
+          ? data.detail
+          : fallback
+      : fallback;
+
+  return rawMessage
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 const freshnessStyles: Record<
   SnapshotFreshness,
   { container: string; dot: string }
@@ -56,8 +72,17 @@ function DataFreshnessIndicator({
   currentDate: Date;
 }) {
   const freshness = getSnapshotFreshness(updatedAt, currentDate);
-  const styles = freshnessStyles[freshness];
-  const label = isRefreshing ? "Refreshing…" : snapshotFreshnessLabels[freshness];
+  const styles = error
+    ? {
+        container: "border-rose-300/25 bg-rose-500/10 text-rose-200",
+        dot: "bg-rose-300",
+      }
+    : freshnessStyles[freshness];
+  const label = error
+    ? "Refresh failed"
+    : isRefreshing
+      ? "Refreshing…"
+      : snapshotFreshnessLabels[freshness];
   const title = error
     ? `${error} Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`
     : `${snapshotFreshnessDescriptions[freshness]} Click to refresh account data. Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`;
@@ -95,8 +120,16 @@ export function DashboardHeader() {
     const response = await fetch(`${APP_BASE_PATH}/api/snapshots/latest`, {
       cache: "no-store",
     });
-    if (!response.ok) return null;
-    return (await response.json().catch(() => null)) as BankValueSnapshot | null;
+    const data = (await response.json().catch(() => null)) as
+      | BankValueSnapshot
+      | { message?: string; detail?: string }
+      | null;
+    if (!response.ok) {
+      throw new Error(
+        readableErrorMessage(data, "Latest account data could not be loaded."),
+      );
+    }
+    return data && "id" in data ? data : null;
   }
 
   async function refreshAccountData() {
@@ -112,7 +145,9 @@ export function DashboardHeader() {
         snapshot?: BankValueSnapshot | null;
       } | null;
       if (!response.ok) {
-        throw new Error(data?.message || "Account data could not be refreshed.");
+        throw new Error(
+          readableErrorMessage(data, "Account data could not be refreshed."),
+        );
       }
       const latestSnapshot = await fetchLatestSnapshot();
       const nextSnapshot = latestSnapshot || data?.snapshot;
@@ -157,13 +192,24 @@ export function DashboardHeader() {
         </p>
       </div>
       <div className="absolute right-5 top-1/2 -translate-y-1/2 sm:right-8 lg:right-10">
-        <DataFreshnessIndicator
-          currentDate={currentDate}
-          error={refreshError}
-          isRefreshing={isRefreshing}
-          onRefresh={() => void refreshAccountData()}
-          updatedAt={snapshot?.source_updated_at}
-        />
+        <div className="flex max-w-[18rem] flex-col items-end gap-2">
+          <DataFreshnessIndicator
+            currentDate={currentDate}
+            error={refreshError}
+            isRefreshing={isRefreshing}
+            onRefresh={() => void refreshAccountData()}
+            updatedAt={snapshot?.source_updated_at}
+          />
+          {refreshError ? (
+            <p
+              className="line-clamp-2 rounded-xl border border-rose-300/20 bg-rose-500/10 px-3 py-2 text-right text-xs leading-5 text-rose-100"
+              role="alert"
+              title={refreshError}
+            >
+              {refreshError}
+            </p>
+          ) : null}
+        </div>
       </div>
     </header>
   );
