@@ -19,16 +19,25 @@ function messageFrom(data: unknown, fallback: string) {
 }
 
 function PlaidLauncher({
+  connectionId,
   token,
   onConnected,
+  onUpdated,
   onFinished,
 }: {
+  connectionId?: number;
   token: string;
   onConnected: (result: PlaidSyncResult) => void;
+  onUpdated: (connectionId: number) => Promise<void>;
   onFinished: (error?: string) => void;
 }) {
   const onSuccess: PlaidLinkOnSuccess = async (publicToken, metadata) => {
     try {
+      if (connectionId) {
+        await onUpdated(connectionId);
+        onFinished();
+        return;
+      }
       const response = await fetch(`${APP_BASE_PATH}/api/plaid/exchange-public-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -56,7 +65,7 @@ function PlaidLauncher({
 
 export function PlaidConnections({ initialConnections }: { initialConnections: PlaidConnection[] }) {
   const [connections, setConnections] = useState(initialConnections);
-  const [linkToken, setLinkToken] = useState("");
+  const [linkRequest, setLinkRequest] = useState<{ token: string; connectionId?: number } | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -71,10 +80,31 @@ export function PlaidConnections({ initialConnections }: { initialConnections: P
       setError(messageFrom(data, "Plaid Link could not be started."));
       return;
     }
-    setLinkToken(data.link_token);
+    setLinkRequest({ token: data.link_token });
   }
 
-  async function syncConnection(id: number) {
+  async function enableInvestments(connectionId: number) {
+    setBusyId(connectionId);
+    setError("");
+    setStatus("");
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/plaid/link-token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ connection_id: connectionId }),
+      });
+      const data = (await response.json().catch(() => null)) as { link_token?: string } | null;
+      if (!response.ok || !data?.link_token) {
+        throw new Error(messageFrom(data, "Plaid Link could not be started."));
+      }
+      setLinkRequest({ token: data.link_token, connectionId });
+    } catch (linkError) {
+      setBusyId(null);
+      setError(linkError instanceof Error ? linkError.message : "Plaid Link could not be started.");
+    }
+  }
+
+  async function syncConnection(id: number, statusMessage?: string) {
     setBusyId(id);
     setError("");
     setStatus("");
@@ -83,7 +113,7 @@ export function PlaidConnections({ initialConnections }: { initialConnections: P
       const data = (await response.json().catch(() => null)) as PlaidSyncResult | null;
       if (!response.ok || !data?.connection) throw new Error(messageFrom(data, "Sync failed."));
       setConnections((current) => current.map((item) => item.id === id ? data.connection : item));
-      setStatus(`${data.sync.created_count} added, ${data.sync.updated_count} updated, ${data.sync.removed_count} removed.`);
+      setStatus(statusMessage || `${data.sync.created_count} added, ${data.sync.updated_count} updated, ${data.sync.removed_count} removed.`);
     } catch (syncError) {
       setError(syncError instanceof Error ? syncError.message : "Sync failed.");
     } finally {
@@ -111,15 +141,20 @@ export function PlaidConnections({ initialConnections }: { initialConnections: P
 
   return (
     <section className="surface overflow-hidden rounded-2xl">
-      {linkToken ? (
+      {linkRequest ? (
         <PlaidLauncher
-          token={linkToken}
+          connectionId={linkRequest.connectionId}
+          token={linkRequest.token}
           onConnected={(result) => {
             setConnections((current) => [result.connection, ...current.filter((item) => item.id !== result.connection.id)]);
             setStatus(`${result.connection.institution_name || "Institution"} connected; ${result.sync.created_count} transactions imported.`);
           }}
+          onUpdated={async (connectionId) => {
+            await syncConnection(connectionId, "Investment access enabled and account data refreshed.");
+          }}
           onFinished={(nextError) => {
-            setLinkToken("");
+            setLinkRequest(null);
+            setBusyId(null);
             if (nextError) setError(nextError);
           }}
         />
@@ -130,8 +165,8 @@ export function PlaidConnections({ initialConnections }: { initialConnections: P
           <h2 className="mt-2 text-lg font-semibold text-white">Connected institutions</h2>
           <p className="mt-1 text-sm text-muted">Plaid imports recent card activity, including pending transactions.</p>
         </div>
-        <button className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-[#07100f] disabled:opacity-60" disabled={Boolean(linkToken)} onClick={connectInstitution} type="button">
-          {linkToken ? "Opening Plaid…" : "Connect institution"}
+        <button className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-[#07100f] disabled:opacity-60" disabled={Boolean(linkRequest)} onClick={connectInstitution} type="button">
+          {linkRequest ? "Opening Plaid…" : "Connect institution"}
         </button>
       </div>
       {error ? <p className="border-b border-rose-300/15 bg-rose-300/10 px-5 py-3 text-sm text-rose-200" role="alert">{error}</p> : null}
@@ -150,6 +185,16 @@ export function PlaidConnections({ initialConnections }: { initialConnections: P
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              {connection.accounts.some((account) => account.account_type === "investment") ? (
+                <button
+                  className="rounded-lg border border-gold/35 px-3 py-2 text-xs font-semibold text-gold disabled:opacity-50"
+                  disabled={busyId === connection.id || Boolean(linkRequest)}
+                  onClick={() => void enableInvestments(connection.id)}
+                  type="button"
+                >
+                  {busyId === connection.id ? "Working…" : "Enable investments"}
+                </button>
+              ) : null}
               <button className="rounded-lg border border-accent/25 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50" disabled={busyId === connection.id} onClick={() => syncConnection(connection.id)} type="button">{busyId === connection.id ? "Working…" : "Sync"}</button>
               {confirmingDeleteId === connection.id ? (
                 <><button className="rounded-lg bg-rose-300 px-3 py-2 text-xs font-semibold text-[#22090f] disabled:opacity-50" disabled={busyId === connection.id} onClick={() => disconnect(connection.id)} type="button">Confirm disconnect</button><button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-muted" onClick={() => setConfirmingDeleteId(null)} type="button">Cancel</button></>
