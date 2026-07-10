@@ -53,6 +53,48 @@ function GridIcon() {
   );
 }
 
+function GearIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden="true">
+      <path
+        d="M12 14.9a2.9 2.9 0 1 0 0-5.8 2.9 2.9 0 0 0 0 5.8Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <path
+        d="m13.05 3.75.45 2.05a6.48 6.48 0 0 1 1.35.56l1.77-1.13 2.15 2.15-1.13 1.77c.24.43.43.88.56 1.35l2.05.45v2.1l-2.05.45a6.48 6.48 0 0 1-.56 1.35l1.13 1.77-2.15 2.15-1.77-1.13a6.48 6.48 0 0 1-1.35.56l-.45 2.05h-2.1l-.45-2.05a6.48 6.48 0 0 1-1.35-.56l-1.77 1.13-2.15-2.15 1.13-1.77a6.48 6.48 0 0 1-.56-1.35l-2.05-.45v-2.1l2.05-.45c.13-.47.32-.92.56-1.35L5.23 7.38l2.15-2.15 1.77 1.13c.43-.24.88-.43 1.35-.56l.45-2.05h2.1Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </svg>
+  );
+}
+
+function SettingsLink() {
+  const pathname = usePathname();
+  const isActive = pathname === "/dashboard/settings";
+
+  return (
+    <Link
+      aria-label="Settings"
+      title="Settings"
+      href="/dashboard/settings"
+      className={`flex size-11 items-center justify-center rounded-xl border text-sm font-medium transition ${
+        isActive
+          ? "border-accent/15 bg-accent/10 text-accent"
+          : "border-transparent text-white/60 hover:border-white/10 hover:bg-white/[0.04] hover:text-white"
+      }`}
+    >
+      <GearIcon />
+      <span className="sr-only">Settings</span>
+    </Link>
+  );
+}
+
 export function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
@@ -69,7 +111,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               <p className="text-xs text-muted">Financial command center</p>
             </div>
           </div>
-          <div className="lg:hidden">
+          <div className="flex items-center gap-2 lg:hidden">
+            <SettingsLink />
             <LogoutButton />
           </div>
         </div>
@@ -108,7 +151,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           )}
         </nav>
 
-        <div className="absolute bottom-7 left-6 right-6 hidden lg:block">
+        <div className="absolute bottom-7 left-6 hidden space-y-2 lg:block">
+          <SettingsLink />
           <LogoutButton />
         </div>
       </aside>

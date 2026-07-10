@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import { APP_BASE_PATH } from "@/lib/config";
 import { getDashboardPageHeader } from "@/lib/dashboard-page-headers";
+import type { BankValueSnapshot } from "@/lib/snapshot-types";
 import {
   formatSnapshotUpdatedAt,
   getSnapshotFreshness,
@@ -42,37 +43,95 @@ const freshnessStyles: Record<
 };
 
 function DataFreshnessIndicator({
+  error,
+  isRefreshing,
+  onRefresh,
   updatedAt,
   currentDate,
 }: {
+  error: string;
+  isRefreshing: boolean;
+  onRefresh: () => void;
   updatedAt?: string;
   currentDate: Date;
 }) {
   const freshness = getSnapshotFreshness(updatedAt, currentDate);
   const styles = freshnessStyles[freshness];
+  const label = isRefreshing ? "Refreshing…" : snapshotFreshnessLabels[freshness];
+  const title = error
+    ? `${error} Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`
+    : `${snapshotFreshnessDescriptions[freshness]} Click to refresh account data. Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`;
 
   return (
-    <div
-      className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${styles.container}`}
-      role="status"
-      title={`${snapshotFreshnessDescriptions[freshness]} Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`}
+    <button
+      aria-label="Refresh account data"
+      className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition hover:brightness-110 disabled:cursor-wait disabled:opacity-80 ${styles.container}`}
+      disabled={isRefreshing}
+      onClick={onRefresh}
+      title={title}
+      type="button"
     >
       <span className={`size-2 rounded-full ${styles.dot}`} />
-      {snapshotFreshnessLabels[freshness]}
-    </div>
+      {label}
+    </button>
   );
 }
 
 export function DashboardHeader() {
   const pathname = usePathname();
-  const { snapshot } = useLiveSnapshot();
+  const router = useRouter();
+  const { snapshot, setSnapshot } = useLiveSnapshot();
   const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState("");
   const header = getDashboardPageHeader(normalizeDashboardPath(pathname));
 
   useEffect(() => {
     const refreshDate = window.setInterval(() => setCurrentDate(new Date()), 60_000);
     return () => window.clearInterval(refreshDate);
   }, []);
+
+  async function refreshAccountData() {
+    setIsRefreshing(true);
+    setRefreshError("");
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/plaid/connections/sync-all`, {
+        method: "POST",
+      });
+      const data = (await response.json().catch(() => null)) as {
+        errors?: Array<{ institution_name?: string; detail?: string }>;
+        message?: string;
+        snapshot?: BankValueSnapshot | null;
+      } | null;
+      if (!response.ok) {
+        throw new Error(data?.message || "Account data could not be refreshed.");
+      }
+      if (data?.snapshot) {
+        setSnapshot(data.snapshot);
+        setCurrentDate(new Date());
+      }
+      if (data?.errors?.length) {
+        const institutions = data.errors
+          .map((error) => error.institution_name || error.detail)
+          .filter(Boolean)
+          .join(", ");
+        setRefreshError(
+          institutions
+            ? `Some connections could not refresh: ${institutions}.`
+            : "Some connections could not refresh.",
+        );
+      }
+      router.refresh();
+    } catch (error) {
+      setRefreshError(
+        error instanceof Error
+          ? error.message
+          : "Account data could not be refreshed.",
+      );
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
 
   return (
     <header className="relative h-[9.5rem] shrink-0 border-b border-white/10 bg-[#07100f]/70 px-5 backdrop-blur sm:px-8 lg:px-10">
@@ -90,6 +149,9 @@ export function DashboardHeader() {
       <div className="absolute right-5 top-1/2 -translate-y-1/2 sm:right-8 lg:right-10">
         <DataFreshnessIndicator
           currentDate={currentDate}
+          error={refreshError}
+          isRefreshing={isRefreshing}
+          onRefresh={() => void refreshAccountData()}
           updatedAt={snapshot?.source_updated_at}
         />
       </div>
