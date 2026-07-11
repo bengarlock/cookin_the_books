@@ -32,5 +32,6 @@ export type CreditCardTransaction = {
   plaid_counterparty_name: string;
   plaid_counterparty_type: string;
   plaid_counterparty_entity_id: string;
+  pending: boolean;
   created_at: string;
 };

@@ -86,42 +86,104 @@ function DataFreshnessIndicator({
   error,
   isRefreshing,
   onRefresh,
+  statusMessage,
   updatedAt,
   currentDate,
 }: {
   error: string;
   isRefreshing: boolean;
   onRefresh: () => void;
+  statusMessage: string;
   updatedAt?: string;
   currentDate: Date;
 }) {
   const freshness = getSnapshotFreshness(updatedAt, currentDate);
-  const styles = error
-    ? {
-        container: "border-rose-300/25 bg-rose-500/10 text-rose-200",
-        dot: "bg-rose-300",
-      }
-    : freshnessStyles[freshness];
-  const label = error
-    ? "Refresh failed"
+  const status = error
+    ? "failed"
     : isRefreshing
-      ? "Refreshing…"
-      : snapshotFreshnessLabels[freshness];
+      ? "syncing"
+      : statusMessage
+        ? "success"
+        : "normal";
+  const styles =
+    status === "failed"
+      ? {
+          container: "border-rose-300/25 bg-rose-500/10 text-rose-200",
+          dot: "bg-rose-300",
+        }
+      : status === "success"
+        ? freshnessStyles.fresh
+        : status === "syncing"
+          ? {
+              container: "border-accent/20 bg-accent/10 text-accent",
+              dot: "bg-accent",
+            }
+          : freshnessStyles[freshness];
+  const label =
+    status === "failed"
+      ? "Failed"
+      : status === "syncing"
+        ? "Syncing"
+        : status === "success"
+          ? "Success"
+          : freshness === "fresh"
+            ? "Data Current"
+            : snapshotFreshnessLabels[freshness];
   const title = error
     ? `${error} Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`
+    : statusMessage
+      ? `${statusMessage} Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`
     : `${snapshotFreshnessDescriptions[freshness]} Click to refresh account data. Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`;
+  const icon =
+    status === "syncing" ? (
+      <span
+        aria-hidden="true"
+        className="size-3.5 animate-spin rounded-full border-2 border-current border-r-transparent"
+      />
+    ) : status === "success" ? (
+      <svg
+        aria-hidden="true"
+        className="size-3.5"
+        fill="none"
+        viewBox="0 0 16 16"
+      >
+        <path
+          d="m3.2 8.2 2.8 2.8 6.8-6.9"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2.2"
+        />
+      </svg>
+    ) : status === "failed" ? (
+      <svg
+        aria-hidden="true"
+        className="size-3.5"
+        fill="none"
+        viewBox="0 0 16 16"
+      >
+        <path
+          d="m4.2 4.2 7.6 7.6m0-7.6-7.6 7.6"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeWidth="2.2"
+        />
+      </svg>
+    ) : (
+      <span className={`size-2 rounded-full ${styles.dot}`} />
+    );
 
   return (
     <button
       aria-label="Refresh account data"
-      className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition hover:brightness-110 disabled:cursor-wait disabled:opacity-80 ${styles.container}`}
+      className={`flex h-9 w-36 shrink-0 items-center justify-center gap-2 rounded-full border px-3 text-xs font-medium transition hover:brightness-110 disabled:cursor-wait disabled:opacity-80 ${styles.container}`}
       disabled={isRefreshing}
       onClick={onRefresh}
       title={title}
       type="button"
     >
-      <span className={`size-2 rounded-full ${styles.dot}`} />
-      {label}
+      {icon}
+      <span className="whitespace-nowrap">{label}</span>
     </button>
   );
 }
@@ -140,6 +202,17 @@ export function DashboardHeader() {
     const refreshDate = window.setInterval(() => setCurrentDate(new Date()), 60_000);
     return () => window.clearInterval(refreshDate);
   }, []);
+
+  useEffect(() => {
+    if (isRefreshing || (!refreshError && !refreshMessage)) return;
+
+    const clearStatus = window.setTimeout(() => {
+      setRefreshError("");
+      setRefreshMessage("");
+    }, 5_000);
+
+    return () => window.clearTimeout(clearStatus);
+  }, [isRefreshing, refreshError, refreshMessage]);
 
   async function fetchLatestSnapshot() {
     const response = await fetch(`${APP_BASE_PATH}/api/snapshots/latest`, {
@@ -236,7 +309,7 @@ export function DashboardHeader() {
   async function refreshAccountData() {
     setIsRefreshing(true);
     setRefreshError("");
-    setRefreshMessage("Plaid refresh queued. Waiting for sync jobs…");
+    setRefreshMessage("");
     try {
       const response = await fetch(`${APP_BASE_PATH}/api/plaid/connections/sync-all`, {
         method: "POST",
@@ -301,32 +374,15 @@ export function DashboardHeader() {
         </p>
       </div>
       <div className="absolute right-5 top-1/2 -translate-y-1/2 sm:right-8 lg:right-10">
-        <div className="flex max-w-[18rem] flex-col items-end gap-2">
+        <div className="flex max-w-[28rem] flex-col items-end gap-2">
           <DataFreshnessIndicator
             currentDate={currentDate}
             error={refreshError}
             isRefreshing={isRefreshing}
             onRefresh={() => void refreshAccountData()}
+            statusMessage={refreshMessage}
             updatedAt={snapshot?.source_updated_at}
           />
-          {refreshError ? (
-            <p
-              className="line-clamp-2 rounded-xl border border-rose-300/20 bg-rose-500/10 px-3 py-2 text-right text-xs leading-5 text-rose-100"
-              role="alert"
-              title={refreshError}
-            >
-              {refreshError}
-            </p>
-          ) : null}
-          {!refreshError && refreshMessage ? (
-            <p
-              className="line-clamp-2 rounded-xl border border-accent/20 bg-accent/10 px-3 py-2 text-right text-xs leading-5 text-accent"
-              role="status"
-              title={refreshMessage}
-            >
-              {refreshMessage}
-            </p>
-          ) : null}
         </div>
       </div>
     </header>
