@@ -5,15 +5,16 @@ import { AUTH_COOKIE_NAME } from "@/lib/auth";
 import { portfolioApiJsonResponse } from "@/lib/auth-responses";
 import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
-export async function GET() {
+export async function GET(request: Request) {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
   if (!token) {
     return NextResponse.json({ message: "Not authenticated." }, { status: 401 });
   }
 
   try {
+    const search = new URL(request.url).search;
     const response = await fetch(
-      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/credit-card-transactions/`,
+      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/credit-card-transactions/${search}`,
       {
         headers: {
           Accept: "application/json",

@@ -11,6 +11,7 @@ import {
 import { useOptionalBudgetData } from "@/components/budget-data-provider";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import { APP_BASE_PATH } from "@/lib/config";
+import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
@@ -80,6 +81,14 @@ const accountLoginUrls: Partial<
     "https://workplaceservices.fidelity.com/mybenefits/navstation/navigation#/",
 };
 
+const transactionAccountFilters: Partial<
+  Record<keyof BankValueSnapshot, { issuer: string; accountLastFour: string }>
+> = {
+  chase_credit: { issuer: "Chase", accountLastFour: "9125" },
+  citi_current: { issuer: "Citibank Online", accountLastFour: "4596" },
+  barclays_card: { issuer: "Barclays - Cards", accountLastFour: "2028" },
+};
+
 const accountSections: Array<{
   title: string;
   description: string;
@@ -123,6 +132,11 @@ const budgetSettings = {
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
+});
+
+const compactDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
 });
 
 function formatCurrency(value: string | number | undefined) {
@@ -484,6 +498,122 @@ function PaidActionButton({
   );
 }
 
+function formatTransactionDate(value: string | null | undefined) {
+  if (!value) return "No post date";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return compactDateFormatter.format(date);
+}
+
+function signedTransactionAmount(transaction: CreditCardTransaction) {
+  const amount = Number(transaction.amount);
+  if (!Number.isFinite(amount)) return "—";
+  const sign =
+    transaction.transaction_type === "payment" ||
+    transaction.transaction_type === "credit"
+      ? -1
+      : 1;
+  return formatCurrency(amount * sign);
+}
+
+function AccountTransactionList({
+  error,
+  isLoading,
+  transactions,
+}: {
+  error: string;
+  isLoading: boolean;
+  transactions: CreditCardTransaction[];
+}) {
+  const pending = transactions.filter((transaction) => transaction.pending);
+  const posted = transactions.filter((transaction) => !transaction.pending);
+
+  function transactionRows(items: CreditCardTransaction[]) {
+    if (!items.length) {
+      return (
+        <p className="rounded-xl border border-white/10 bg-black/10 px-3 py-3 text-sm text-muted">
+          No transactions found.
+        </p>
+      );
+    }
+
+    return (
+      <div className="overflow-hidden rounded-xl border border-white/10">
+        {items.map((transaction) => {
+          const isCredit =
+            transaction.transaction_type === "payment" ||
+            transaction.transaction_type === "credit";
+          return (
+            <div
+              className="grid grid-cols-[4rem_minmax(0,1fr)_auto] gap-3 border-b border-white/[0.07] px-3 py-2.5 last:border-b-0"
+              key={transaction.id}
+            >
+              <span className="text-xs text-muted">
+                {formatTransactionDate(
+                  transaction.posting_date || transaction.transaction_date,
+                )}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm text-white/80">
+                  {transaction.description}
+                </p>
+                <p className="mt-0.5 text-[11px] uppercase tracking-[0.12em] text-muted">
+                  {transaction.category || transaction.transaction_type}
+                </p>
+              </div>
+              <span
+                className={`whitespace-nowrap text-right font-mono text-sm ${
+                  isCredit ? "text-accent" : "text-white"
+                }`}
+              >
+                {signedTransactionAmount(transaction)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div className="col-span-full border-b border-white/[0.07] bg-black/10 px-4 pb-4 sm:px-5">
+      {isLoading ? (
+        <p className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm text-muted">
+          Loading recent transactions…
+        </p>
+      ) : error ? (
+        <p
+          className="rounded-xl border border-rose-300/20 bg-rose-500/10 px-3 py-3 text-sm text-rose-100"
+          role="alert"
+        >
+          {error}
+        </p>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-100">
+                Pending
+              </p>
+              <span className="text-xs text-muted">{pending.length}</span>
+            </div>
+            {transactionRows(pending)}
+          </div>
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/65">
+                Posted
+              </p>
+              <span className="text-xs text-muted">{posted.length}</span>
+            </div>
+            {transactionRows(posted)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function LiveBankValues({
   initialBudgetPlanSettings,
   initialPendingTransactions,
@@ -520,6 +650,20 @@ export function LiveBankValues({
     null,
   );
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [expandedAccount, setExpandedAccount] =
+    useState<keyof BankValueSnapshot | null>(null);
+  const [accountTransactions, setAccountTransactions] = useState<
+    Partial<
+      Record<
+        keyof BankValueSnapshot,
+        {
+          isLoading: boolean;
+          error: string;
+          transactions: CreditCardTransaction[];
+        }
+      >
+    >
+  >({});
   const [transactionForm, setTransactionForm] = useState({
     note: "",
     amount: "",
@@ -800,6 +944,70 @@ export function LiveBankValues({
     }
   }
 
+  async function loadAccountTransactions(accountKey: keyof BankValueSnapshot) {
+    const filters = transactionAccountFilters[accountKey];
+    if (!filters) return;
+
+    setAccountTransactions((current) => ({
+      ...current,
+      [accountKey]: {
+        isLoading: true,
+        error: "",
+        transactions: current[accountKey]?.transactions || [],
+      },
+    }));
+
+    try {
+      const params = new URLSearchParams({
+        issuer: filters.issuer,
+        account_last_four: filters.accountLastFour,
+        limit: "60",
+      });
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions?${params.toString()}`,
+        { cache: "no-store" },
+      );
+      const data = (await response.json().catch(() => null)) as
+        | CreditCardTransaction[]
+        | { message?: string; detail?: string }
+        | null;
+      if (!response.ok || !Array.isArray(data)) {
+        throw new Error(
+          (data && !Array.isArray(data) && (data.message || data.detail)) ||
+            "Unable to load account transactions.",
+        );
+      }
+      setAccountTransactions((current) => ({
+        ...current,
+        [accountKey]: {
+          isLoading: false,
+          error: "",
+          transactions: data,
+        },
+      }));
+    } catch (error) {
+      setAccountTransactions((current) => ({
+        ...current,
+        [accountKey]: {
+          isLoading: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unable to load account transactions.",
+          transactions: current[accountKey]?.transactions || [],
+        },
+      }));
+    }
+  }
+
+  function toggleAccountTransactions(accountKey: keyof BankValueSnapshot) {
+    const nextAccount = expandedAccount === accountKey ? null : accountKey;
+    setExpandedAccount(nextAccount);
+    if (nextAccount && !accountTransactions[nextAccount]) {
+      void loadAccountTransactions(nextAccount);
+    }
+  }
+
   async function markCleared(transaction: PendingTransaction) {
     setRegisterError("");
     const response = await fetch(
@@ -1073,11 +1281,11 @@ export function LiveBankValues({
                 const citiSettled =
                   calculations.settledAccounts.has("citi_current");
 
+                const citiTransactions = accountTransactions.citi_current;
+                const citiExpanded = expandedAccount === "citi_current";
                 return (
-                  <div
-                    key="citi_card"
-                    className="grid grid-cols-[minmax(0,1fr)_8rem] items-center gap-x-5 border-b border-white/[0.07] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_8rem] sm:px-5"
-                  >
+                  <div key="citi_card">
+                    <div className="grid grid-cols-[minmax(0,1fr)_8rem] items-center gap-x-5 border-b border-white/[0.07] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_8rem] sm:px-5">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-white/75">Citi Card</span>
@@ -1085,6 +1293,13 @@ export function LiveBankValues({
                           accountKey="citi_current"
                           label="Citi Card"
                         />
+                        <button
+                          className="rounded-lg border border-white/10 px-2 py-1 text-[11px] font-semibold text-white/55 transition hover:border-accent/25 hover:bg-accent/10 hover:text-accent"
+                          onClick={() => toggleAccountTransactions("citi_current")}
+                          type="button"
+                        >
+                          {citiExpanded ? "Hide transactions" : "Transactions"}
+                        </button>
                         <PaidActionButton
                           disabled={
                             citiSettled || currentPosted <= 0 || !!payingAccount
@@ -1126,6 +1341,14 @@ export function LiveBankValues({
                         {formatCurrency(adjusted)}
                       </p>
                     </div>
+                    </div>
+                    {citiExpanded ? (
+                      <AccountTransactionList
+                        error={citiTransactions?.error || ""}
+                        isLoading={citiTransactions?.isLoading ?? true}
+                        transactions={citiTransactions?.transactions || []}
+                      />
+                    ) : null}
                   </div>
                 );
                   }
@@ -1144,19 +1367,24 @@ export function LiveBankValues({
                   );
                   const isInvestmentSection =
                     section.title === "Investments & retirement";
+                  const canShowTransactions = Boolean(
+                    transactionAccountFilters[account.key],
+                  );
+                  const isExpanded = expandedAccount === account.key;
+                  const transactionState = accountTransactions[account.key];
                   return (
-                    <div
-                      key={account.key}
-                      className={`grid grid-cols-[minmax(0,1fr)_8rem] items-center gap-x-5 gap-y-1 border-b px-4 py-3.5 sm:px-5 ${
-                        isInvestmentSection
-                          ? "sm:grid-cols-[minmax(0,1fr)_8rem]"
-                          : "sm:grid-cols-[minmax(0,1fr)_8rem_8rem_8rem]"
-                      } ${
-                        overdrawn
-                          ? "border-rose-300/15 bg-rose-500/10"
-                          : "border-white/[0.07]"
-                      }`}
-                    >
+                    <div key={account.key}>
+                      <div
+                        className={`grid grid-cols-[minmax(0,1fr)_8rem] items-center gap-x-5 gap-y-1 border-b px-4 py-3.5 sm:px-5 ${
+                          isInvestmentSection
+                            ? "sm:grid-cols-[minmax(0,1fr)_8rem]"
+                            : "sm:grid-cols-[minmax(0,1fr)_8rem_8rem_8rem]"
+                        } ${
+                          overdrawn
+                            ? "border-rose-300/15 bg-rose-500/10"
+                            : "border-white/[0.07]"
+                        }`}
+                      >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span
@@ -1172,6 +1400,15 @@ export function LiveBankValues({
                             accountKey={account.key}
                             label={account.label}
                           />
+                          {canShowTransactions ? (
+                            <button
+                              className="rounded-lg border border-white/10 px-2 py-1 text-[11px] font-semibold text-white/55 transition hover:border-accent/25 hover:bg-accent/10 hover:text-accent"
+                              onClick={() => toggleAccountTransactions(account.key)}
+                              type="button"
+                            >
+                              {isExpanded ? "Hide transactions" : "Transactions"}
+                            </button>
+                          ) : null}
                           {account.key === "chase_checking" ? (
                             <AdjustedReserveCopyButton
                               copied={
@@ -1240,6 +1477,14 @@ export function LiveBankValues({
                             </p>
                           </div>
                         </>
+                      ) : null}
+                      </div>
+                      {isExpanded ? (
+                        <AccountTransactionList
+                          error={transactionState?.error || ""}
+                          isLoading={transactionState?.isLoading ?? true}
+                          transactions={transactionState?.transactions || []}
+                        />
                       ) : null}
                     </div>
                   );
