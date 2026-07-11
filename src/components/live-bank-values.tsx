@@ -516,6 +516,30 @@ function signedTransactionAmount(transaction: CreditCardTransaction) {
   return formatCurrency(amount * sign);
 }
 
+function AccountTransactionToggle({
+  accountLabel,
+  isExpanded,
+  onClick,
+}: {
+  accountLabel: string;
+  isExpanded: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-expanded={isExpanded}
+      aria-label={`${isExpanded ? "Hide" : "Show"} ${accountLabel} transactions`}
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-base leading-none text-white/60 transition hover:border-accent/35 hover:bg-accent/10 hover:text-accent"
+      onClick={onClick}
+      type="button"
+    >
+      <span aria-hidden="true" className="-mt-px">
+        {isExpanded ? "−" : "+"}
+      </span>
+    </button>
+  );
+}
+
 function AccountTransactionList({
   error,
   isLoading,
@@ -576,7 +600,7 @@ function AccountTransactionList({
   }
 
   return (
-    <div className="col-span-full border-b border-white/[0.07] bg-black/10 px-4 pb-4 sm:px-5">
+    <div className="col-span-full border-b border-white/[0.07] bg-black/10 px-4 py-4 sm:px-5">
       {isLoading ? (
         <p className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm text-muted">
           Loading recent transactions…
@@ -589,7 +613,7 @@ function AccountTransactionList({
           {error}
         </p>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-5">
           <div>
             <div className="mb-2 flex items-center justify-between gap-3">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-100">
@@ -1288,18 +1312,16 @@ export function LiveBankValues({
                     <div className="grid grid-cols-[minmax(0,1fr)_8rem] items-center gap-x-5 border-b border-white/[0.07] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_8rem] sm:px-5">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
+                        <AccountTransactionToggle
+                          accountLabel="Citi Card"
+                          isExpanded={citiExpanded}
+                          onClick={() => toggleAccountTransactions("citi_current")}
+                        />
                         <span className="text-sm text-white/75">Citi Card</span>
                         <AccountLoginLink
                           accountKey="citi_current"
                           label="Citi Card"
                         />
-                        <button
-                          className="rounded-lg border border-white/10 px-2 py-1 text-[11px] font-semibold text-white/55 transition hover:border-accent/25 hover:bg-accent/10 hover:text-accent"
-                          onClick={() => toggleAccountTransactions("citi_current")}
-                          type="button"
-                        >
-                          {citiExpanded ? "Hide transactions" : "Transactions"}
-                        </button>
                         <PaidActionButton
                           disabled={
                             citiSettled || currentPosted <= 0 || !!payingAccount
@@ -1387,6 +1409,15 @@ export function LiveBankValues({
                       >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
+                          {canShowTransactions ? (
+                            <AccountTransactionToggle
+                              accountLabel={account.label}
+                              isExpanded={isExpanded}
+                              onClick={() =>
+                                toggleAccountTransactions(account.key)
+                              }
+                            />
+                          ) : null}
                           <span
                             className={`shrink-0 whitespace-nowrap text-sm ${
                               overdrawn
@@ -1400,15 +1431,6 @@ export function LiveBankValues({
                             accountKey={account.key}
                             label={account.label}
                           />
-                          {canShowTransactions ? (
-                            <button
-                              className="rounded-lg border border-white/10 px-2 py-1 text-[11px] font-semibold text-white/55 transition hover:border-accent/25 hover:bg-accent/10 hover:text-accent"
-                              onClick={() => toggleAccountTransactions(account.key)}
-                              type="button"
-                            >
-                              {isExpanded ? "Hide transactions" : "Transactions"}
-                            </button>
-                          ) : null}
                           {account.key === "chase_checking" ? (
                             <AdjustedReserveCopyButton
                               copied={
