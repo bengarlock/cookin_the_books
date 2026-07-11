@@ -468,7 +468,7 @@ function PaidActionButton({
   return (
     <button
       aria-label={label}
-      className="relative grid size-8 place-items-center rounded-lg border border-white/10 text-white/35 transition hover:border-accent/25 hover:bg-accent/10 hover:text-accent disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-transparent disabled:text-white/18"
+      className="relative grid h-9 w-9 min-w-9 shrink-0 place-items-center rounded-lg border border-white/10 text-white/35 transition hover:border-accent/25 hover:bg-accent/10 hover:text-accent disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-transparent disabled:text-white/18"
       disabled={disabled}
       onClick={onClick}
       title={label}
