@@ -86,12 +86,14 @@ function DataFreshnessIndicator({
   error,
   isRefreshing,
   onRefresh,
+  statusMessage,
   updatedAt,
   currentDate,
 }: {
   error: string;
   isRefreshing: boolean;
   onRefresh: () => void;
+  statusMessage: string;
   updatedAt?: string;
   currentDate: Date;
 }) {
@@ -101,27 +103,33 @@ function DataFreshnessIndicator({
         container: "border-rose-300/25 bg-rose-500/10 text-rose-200",
         dot: "bg-rose-300",
       }
+    : statusMessage
+      ? freshnessStyles.fresh
     : freshnessStyles[freshness];
   const label = error
-    ? "Refresh failed"
+    ? error
     : isRefreshing
-      ? "Refreshing…"
+      ? statusMessage || "Refreshing…"
+      : statusMessage
+        ? statusMessage
       : snapshotFreshnessLabels[freshness];
   const title = error
     ? `${error} Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`
+    : statusMessage
+      ? `${statusMessage} Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`
     : `${snapshotFreshnessDescriptions[freshness]} Click to refresh account data. Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`;
 
   return (
     <button
       aria-label="Refresh account data"
-      className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition hover:brightness-110 disabled:cursor-wait disabled:opacity-80 ${styles.container}`}
+      className={`flex max-w-[28rem] shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-left text-xs font-medium transition hover:brightness-110 disabled:cursor-wait disabled:opacity-80 ${styles.container}`}
       disabled={isRefreshing}
       onClick={onRefresh}
       title={title}
       type="button"
     >
       <span className={`size-2 rounded-full ${styles.dot}`} />
-      {label}
+      <span className="line-clamp-2">{label}</span>
     </button>
   );
 }
@@ -140,6 +148,17 @@ export function DashboardHeader() {
     const refreshDate = window.setInterval(() => setCurrentDate(new Date()), 60_000);
     return () => window.clearInterval(refreshDate);
   }, []);
+
+  useEffect(() => {
+    if (isRefreshing || (!refreshError && !refreshMessage)) return;
+
+    const clearStatus = window.setTimeout(() => {
+      setRefreshError("");
+      setRefreshMessage("");
+    }, 5_000);
+
+    return () => window.clearTimeout(clearStatus);
+  }, [isRefreshing, refreshError, refreshMessage]);
 
   async function fetchLatestSnapshot() {
     const response = await fetch(`${APP_BASE_PATH}/api/snapshots/latest`, {
@@ -301,32 +320,15 @@ export function DashboardHeader() {
         </p>
       </div>
       <div className="absolute right-5 top-1/2 -translate-y-1/2 sm:right-8 lg:right-10">
-        <div className="flex max-w-[18rem] flex-col items-end gap-2">
+        <div className="flex max-w-[28rem] flex-col items-end gap-2">
           <DataFreshnessIndicator
             currentDate={currentDate}
             error={refreshError}
             isRefreshing={isRefreshing}
             onRefresh={() => void refreshAccountData()}
+            statusMessage={refreshMessage}
             updatedAt={snapshot?.source_updated_at}
           />
-          {refreshError ? (
-            <p
-              className="line-clamp-2 rounded-xl border border-rose-300/20 bg-rose-500/10 px-3 py-2 text-right text-xs leading-5 text-rose-100"
-              role="alert"
-              title={refreshError}
-            >
-              {refreshError}
-            </p>
-          ) : null}
-          {!refreshError && refreshMessage ? (
-            <p
-              className="line-clamp-2 rounded-xl border border-accent/20 bg-accent/10 px-3 py-2 text-right text-xs leading-5 text-accent"
-              role="status"
-              title={refreshMessage}
-            >
-              {refreshMessage}
-            </p>
-          ) : null}
         </div>
       </div>
     </header>
