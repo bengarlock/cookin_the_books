@@ -565,11 +565,14 @@ function AccountTransactionList({
   const pending = transactions.filter((transaction) => transaction.pending);
   const posted = transactions.filter((transaction) => !transaction.pending);
 
-  function transactionRows(items: CreditCardTransaction[]) {
+  function transactionRows(
+    items: CreditCardTransaction[],
+    emptyLabel = "No transactions found.",
+  ) {
     if (!items.length) {
       return (
         <p className="rounded-xl border border-white/10 bg-black/10 px-3 py-3 text-sm text-muted">
-          No transactions found.
+          {emptyLabel}
         </p>
       );
     }
@@ -634,7 +637,7 @@ function AccountTransactionList({
               </p>
               <span className="text-xs text-muted">{pending.length}</span>
             </div>
-            {transactionRows(pending)}
+            {transactionRows(pending, "No Pending Transactions")}
           </div>
           <div>
             <div className="mb-2 flex items-center justify-between gap-3">
