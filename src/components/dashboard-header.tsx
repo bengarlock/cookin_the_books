@@ -98,38 +98,92 @@ function DataFreshnessIndicator({
   currentDate: Date;
 }) {
   const freshness = getSnapshotFreshness(updatedAt, currentDate);
-  const styles = error
-    ? {
-        container: "border-rose-300/25 bg-rose-500/10 text-rose-200",
-        dot: "bg-rose-300",
-      }
-    : statusMessage
-      ? freshnessStyles.fresh
-    : freshnessStyles[freshness];
-  const label = error
-    ? error
+  const status = error
+    ? "failed"
     : isRefreshing
-      ? statusMessage || "Refreshing…"
+      ? "syncing"
       : statusMessage
-        ? statusMessage
-      : snapshotFreshnessLabels[freshness];
+        ? "success"
+        : "normal";
+  const styles =
+    status === "failed"
+      ? {
+          container: "border-rose-300/25 bg-rose-500/10 text-rose-200",
+          dot: "bg-rose-300",
+        }
+      : status === "success"
+        ? freshnessStyles.fresh
+        : status === "syncing"
+          ? {
+              container: "border-accent/20 bg-accent/10 text-accent",
+              dot: "bg-accent",
+            }
+          : freshnessStyles[freshness];
+  const label =
+    status === "failed"
+      ? "Failed"
+      : status === "syncing"
+        ? "Syncing"
+        : status === "success"
+          ? "Success"
+          : freshness === "fresh"
+            ? "Data Current"
+            : snapshotFreshnessLabels[freshness];
   const title = error
     ? `${error} Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`
     : statusMessage
       ? `${statusMessage} Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`
     : `${snapshotFreshnessDescriptions[freshness]} Click to refresh account data. Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`;
+  const icon =
+    status === "syncing" ? (
+      <span
+        aria-hidden="true"
+        className="size-3.5 animate-spin rounded-full border-2 border-current border-r-transparent"
+      />
+    ) : status === "success" ? (
+      <svg
+        aria-hidden="true"
+        className="size-3.5"
+        fill="none"
+        viewBox="0 0 16 16"
+      >
+        <path
+          d="m3.2 8.2 2.8 2.8 6.8-6.9"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2.2"
+        />
+      </svg>
+    ) : status === "failed" ? (
+      <svg
+        aria-hidden="true"
+        className="size-3.5"
+        fill="none"
+        viewBox="0 0 16 16"
+      >
+        <path
+          d="m4.2 4.2 7.6 7.6m0-7.6-7.6 7.6"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeWidth="2.2"
+        />
+      </svg>
+    ) : (
+      <span className={`size-2 rounded-full ${styles.dot}`} />
+    );
 
   return (
     <button
       aria-label="Refresh account data"
-      className={`flex max-w-[28rem] shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-left text-xs font-medium transition hover:brightness-110 disabled:cursor-wait disabled:opacity-80 ${styles.container}`}
+      className={`flex h-9 w-36 shrink-0 items-center justify-center gap-2 rounded-full border px-3 text-xs font-medium transition hover:brightness-110 disabled:cursor-wait disabled:opacity-80 ${styles.container}`}
       disabled={isRefreshing}
       onClick={onRefresh}
       title={title}
       type="button"
     >
-      <span className={`size-2 rounded-full ${styles.dot}`} />
-      <span className="line-clamp-2">{label}</span>
+      {icon}
+      <span className="whitespace-nowrap">{label}</span>
     </button>
   );
 }
@@ -255,7 +309,7 @@ export function DashboardHeader() {
   async function refreshAccountData() {
     setIsRefreshing(true);
     setRefreshError("");
-    setRefreshMessage("Plaid refresh queued. Waiting for sync jobs…");
+    setRefreshMessage("");
     try {
       const response = await fetch(`${APP_BASE_PATH}/api/plaid/connections/sync-all`, {
         method: "POST",
