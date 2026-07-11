@@ -82,8 +82,21 @@ const accountLoginUrls: Partial<
 };
 
 const transactionAccountFilters: Partial<
-  Record<keyof BankValueSnapshot, { issuer: string; accountLastFour: string }>
+  Record<
+    keyof BankValueSnapshot,
+    { issuer: string; accountLastFour: string; includeUnbudgeted?: boolean }
+  >
 > = {
+  chase_checking: {
+    issuer: "Chase",
+    accountLastFour: "0277",
+    includeUnbudgeted: true,
+  },
+  chase_savings: {
+    issuer: "Chase",
+    accountLastFour: "3060",
+    includeUnbudgeted: true,
+  },
   chase_credit: { issuer: "Chase", accountLastFour: "9125" },
   citi_current: { issuer: "Citibank Online", accountLastFour: "4596" },
   barclays_card: { issuer: "Barclays - Cards", accountLastFour: "2028" },
@@ -987,6 +1000,9 @@ export function LiveBankValues({
         account_last_four: filters.accountLastFour,
         limit: "60",
       });
+      if (filters.includeUnbudgeted) {
+        params.set("include_unbudgeted", "true");
+      }
       const response = await fetch(
         `${APP_BASE_PATH}/api/credit-card-transactions?${params.toString()}`,
         { cache: "no-store" },
