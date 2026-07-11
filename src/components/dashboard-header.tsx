@@ -15,6 +15,30 @@ import {
   type SnapshotFreshness,
 } from "@/lib/snapshot-freshness";
 
+type PlaidQueuedSync = {
+  connection_id: number;
+  institution_name: string;
+  task_id: string;
+};
+
+type PlaidSyncTaskStatus = {
+  task_id: string;
+  state: string;
+  ready: boolean;
+  successful: boolean;
+  failed: boolean;
+  result?: {
+    created_count?: number;
+    updated_count?: number;
+    removed_count?: number;
+    balance_updated_count?: number;
+    transactions_refresh_status?: string;
+    transactions_refresh_error?: string;
+    transactions_refresh_error_code?: string;
+  } | null;
+  error?: string;
+};
+
 function normalizeDashboardPath(pathname: string) {
   const withoutBase = pathname.startsWith(APP_BASE_PATH)
     ? pathname.slice(APP_BASE_PATH.length) || "/"
@@ -109,6 +133,7 @@ export function DashboardHeader() {
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState("");
+  const [refreshMessage, setRefreshMessage] = useState("");
   const header = getDashboardPageHeader(normalizeDashboardPath(pathname));
 
   useEffect(() => {
@@ -132,9 +157,86 @@ export function DashboardHeader() {
     return data && "id" in data ? data : null;
   }
 
+  async function fetchPlaidSyncTaskStatuses(taskIds: string[]) {
+    const response = await fetch(`${APP_BASE_PATH}/api/plaid/connections/sync-status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ task_ids: taskIds }),
+    });
+    const data = (await response.json().catch(() => null)) as
+      | { tasks?: PlaidSyncTaskStatus[]; message?: string; detail?: string }
+      | null;
+    if (!response.ok) {
+      throw new Error(
+        readableErrorMessage(data, "Plaid sync status could not be checked."),
+      );
+    }
+    return data?.tasks || [];
+  }
+
+  async function waitForPlaidSyncJobs(queued: PlaidQueuedSync[]) {
+    const taskIds = queued.map((item) => item.task_id).filter(Boolean);
+    if (!taskIds.length) return [] as PlaidSyncTaskStatus[];
+
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      const statuses = await fetchPlaidSyncTaskStatuses(taskIds);
+      if (statuses.length && statuses.every((task) => task.ready)) {
+        return statuses;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 2_000));
+    }
+
+    throw new Error(
+      "Plaid sync is still running in the background. Check Data current again shortly.",
+    );
+  }
+
+  function summarizePlaidSyncStatus(
+    queued: PlaidQueuedSync[],
+    statuses: PlaidSyncTaskStatus[],
+  ) {
+    const queuedByTaskId = new Map(queued.map((item) => [item.task_id, item]));
+    const failedTasks = statuses.filter((task) => task.failed);
+    if (failedTasks.length) {
+      const institutions = failedTasks
+        .map((task) => queuedByTaskId.get(task.task_id)?.institution_name || task.task_id)
+        .join(", ");
+      throw new Error(`Plaid sync failed for: ${institutions}.`);
+    }
+
+    const totals = statuses.reduce(
+      (summary, task) => {
+        const result = task.result || {};
+        return {
+          created: summary.created + (result.created_count || 0),
+          updated: summary.updated + (result.updated_count || 0),
+          removed: summary.removed + (result.removed_count || 0),
+          balances: summary.balances + (result.balance_updated_count || 0),
+        };
+      },
+      { created: 0, updated: 0, removed: 0, balances: 0 },
+    );
+    const refreshWarnings = statuses
+      .filter((task) => task.result?.transactions_refresh_status === "failed")
+      .map((task) => queuedByTaskId.get(task.task_id)?.institution_name || task.task_id);
+    const activity = [
+      totals.created ? `${totals.created} new` : "",
+      totals.updated ? `${totals.updated} updated` : "",
+      totals.removed ? `${totals.removed} removed` : "",
+      totals.balances ? `${totals.balances} balance refreshes` : "",
+    ].filter(Boolean);
+    const base = activity.length
+      ? `Plaid sync complete: ${activity.join(", ")}.`
+      : "Plaid sync complete. No new account changes were returned.";
+    return refreshWarnings.length
+      ? `${base} Refresh request timed out for ${refreshWarnings.join(", ")}, but normal sync completed.`
+      : base;
+  }
+
   async function refreshAccountData() {
     setIsRefreshing(true);
     setRefreshError("");
+    setRefreshMessage("Plaid refresh queued. Waiting for sync jobs…");
     try {
       const response = await fetch(`${APP_BASE_PATH}/api/plaid/connections/sync-all`, {
         method: "POST",
@@ -142,6 +244,7 @@ export function DashboardHeader() {
       const data = (await response.json().catch(() => null)) as {
         errors?: Array<{ institution_name?: string; detail?: string }>;
         message?: string;
+        queued?: PlaidQueuedSync[];
         snapshot?: BankValueSnapshot | null;
       } | null;
       if (!response.ok) {
@@ -149,6 +252,9 @@ export function DashboardHeader() {
           readableErrorMessage(data, "Account data could not be refreshed."),
         );
       }
+      const queued = data?.queued || [];
+      const statuses = await waitForPlaidSyncJobs(queued);
+      const summary = summarizePlaidSyncStatus(queued, statuses);
       const latestSnapshot = await fetchLatestSnapshot();
       const nextSnapshot = latestSnapshot || data?.snapshot;
       if (nextSnapshot) {
@@ -165,9 +271,12 @@ export function DashboardHeader() {
             ? `Some connections could not refresh: ${institutions}.`
             : "Some connections could not refresh.",
         );
+      } else {
+        setRefreshMessage(summary);
       }
       router.refresh();
     } catch (error) {
+      setRefreshMessage("");
       setRefreshError(
         error instanceof Error
           ? error.message
@@ -207,6 +316,15 @@ export function DashboardHeader() {
               title={refreshError}
             >
               {refreshError}
+            </p>
+          ) : null}
+          {!refreshError && refreshMessage ? (
+            <p
+              className="line-clamp-2 rounded-xl border border-accent/20 bg-accent/10 px-3 py-2 text-right text-xs leading-5 text-accent"
+              role="status"
+              title={refreshMessage}
+            >
+              {refreshMessage}
             </p>
           ) : null}
         </div>
