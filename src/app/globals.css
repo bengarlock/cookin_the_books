@@ -93,9 +93,13 @@ input {
 
 :root[data-theme="light"] .app-backdrop {
   background:
-    radial-gradient(circle at 12% 8%, rgba(8, 104, 199, 0.09), transparent 31rem),
-    radial-gradient(circle at 94% 4%, rgba(55, 142, 224, 0.08), transparent 28rem),
-    linear-gradient(145deg, #f7f9fc 0%, #f1f5f9 54%, #eaf1f8 100%);
+    radial-gradient(circle at 12% 8%, rgba(8, 104, 199, 0.18), transparent 31rem),
+    radial-gradient(circle at 94% 4%, rgba(55, 142, 224, 0.14), transparent 28rem),
+    linear-gradient(145deg, #eef4fb 0%, #e5edf7 54%, #dce8f4 100%);
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100vw 100vh;
 }
 
 :root[data-theme="light"] .surface {
