@@ -13,7 +13,10 @@ import {
   type ExpenseDateRange,
 } from "@/lib/expense-date-range";
 import type { IncomeEntry } from "@/lib/income-entry-types";
-import { reconcileSyncedIncome } from "@/lib/income-reconciliation";
+import {
+  incomeLedgerTotals,
+  reconcileSyncedIncome,
+} from "@/lib/income-reconciliation";
 import { validatePdfImportFiles } from "@/lib/pdf-import";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -220,11 +223,16 @@ export function IncomeHistory() {
       total + (transaction.include ? Number(transaction.amount) : 0),
     0,
   );
-  const totalGross = filteredEntries.reduce(
-    (total, entry) => total + Number(entry.gross_pay),
-    0,
+  const ledgerTotals = incomeLedgerTotals(
+    entries,
+    cashAccountIncomeTransactions(creditCardTransactions, {
+      includeExcluded: true,
+    }),
+    dateRange,
   );
-  const totalNet = filteredEntries.reduce(
+  const totalGross = ledgerTotals.gross;
+  const totalNet = ledgerTotals.net;
+  const statementNet = filteredEntries.reduce(
     (total, entry) => total + Number(entry.net_pay),
     0,
   );
@@ -282,13 +290,23 @@ export function IncomeHistory() {
   );
   const grossStatementEntries = statementEntries(filteredEntries, (entry) =>
     Number(entry.gross_pay),
+  ).concat(
+    ledgerTotals.syncedInRange.map((transaction) => [
+      `${formatDate(transaction.transaction_date)} · ${transaction.description}`,
+      Number(transaction.amount),
+    ] as MoneyBreakdownEntry),
   );
   const netStatementEntries = statementEntries(filteredEntries, (entry) =>
     Number(entry.net_pay),
+  ).concat(
+    ledgerTotals.syncedInRange.map((transaction) => [
+      `${formatDate(transaction.transaction_date)} · ${transaction.description}`,
+      Number(transaction.amount),
+    ] as MoneyBreakdownEntry),
   );
   const averageNetEntries = filteredEntries.length
     ? ([
-        ["Net income", totalNet],
+        ["Statement net income", statementNet],
         [
           "Pay statements",
           filteredEntries.length,
@@ -297,7 +315,7 @@ export function IncomeHistory() {
       ] as MoneyBreakdownEntry[])
     : [];
   const averageNet = filteredEntries.length
-    ? totalNet / filteredEntries.length
+    ? statementNet / filteredEntries.length
     : 0;
 
   async function toggleSyncedIncomeInclude(

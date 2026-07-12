@@ -58,3 +58,46 @@ export function reconcileSyncedIncome(
 
   return { matches, unmatchedTransactions };
 }
+
+export function incomeLedgerTotals(
+  incomeEntries: IncomeEntry[],
+  syncedTransactions: CreditCardTransaction[],
+  dateRange?: { start: string; end: string },
+) {
+  const { unmatchedTransactions } = reconcileSyncedIncome(
+    incomeEntries,
+    syncedTransactions,
+  );
+  const entriesInRange = dateRange
+    ? incomeEntries.filter(
+        (entry) =>
+          entry.pay_date >= dateRange.start && entry.pay_date <= dateRange.end,
+      )
+    : incomeEntries;
+  const syncedInRange = unmatchedTransactions.filter(
+    (transaction) =>
+      transaction.include !== false &&
+      (!dateRange ||
+        (transaction.transaction_date >= dateRange.start &&
+          transaction.transaction_date <= dateRange.end)),
+  );
+  const syncedTotal = syncedInRange.reduce(
+    (total, transaction) => total + Number(transaction.amount),
+    0,
+  );
+
+  return {
+    gross:
+      entriesInRange.reduce(
+        (total, entry) => total + Number(entry.gross_pay),
+        0,
+      ) + syncedTotal,
+    net:
+      entriesInRange.reduce(
+        (total, entry) => total + Number(entry.net_pay),
+        0,
+      ) + syncedTotal,
+    syncedInRange,
+    syncedTotal,
+  };
+}

@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { CreditCardTransaction } from "./credit-card-transaction-types";
 import type { IncomeEntry } from "./income-entry-types";
-import { reconcileSyncedIncome } from "./income-reconciliation";
+import {
+  incomeLedgerTotals,
+  reconcileSyncedIncome,
+} from "./income-reconciliation";
 
 function incomeEntry(overrides: Partial<IncomeEntry> = {}): IncomeEntry {
   return {
@@ -100,5 +103,32 @@ describe("reconcileSyncedIncome", () => {
 
     expect(result.matches).toHaveLength(1);
     expect(result.unmatchedTransactions.map((item) => item.id)).toEqual([11]);
+  });
+});
+
+describe("incomeLedgerTotals", () => {
+  it("adds unmatched included synced income to gross and net without double counting paychecks", () => {
+    const totals = incomeLedgerTotals(
+      [incomeEntry()],
+      [
+        transaction(),
+        transaction({
+          id: 11,
+          amount: "25.00",
+          transaction_date: "2026-06-20",
+        }),
+        transaction({
+          id: 12,
+          amount: "10.00",
+          include: false,
+          transaction_date: "2026-06-21",
+        }),
+      ],
+      { start: "2026-06-01", end: "2026-06-30" },
+    );
+
+    expect(totals.gross).toBe(4025);
+    expect(totals.net).toBe(2630.17);
+    expect(totals.syncedTotal).toBe(25);
   });
 });

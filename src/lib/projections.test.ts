@@ -5,6 +5,7 @@ import type { BankValueSnapshot } from "./snapshot-types";
 import type { BudgetItem } from "./budget-item-types";
 import type { ExpenseEntry } from "./expense-entry-types";
 import type { PendingTransaction } from "./pending-transaction-types";
+import type { CreditCardTransaction } from "./credit-card-transaction-types";
 import { remainingPaydaysInYear } from "./pay-cycle";
 import {
   classifyPaychecks,
@@ -177,6 +178,37 @@ describe("yearToDateIncome", () => {
     );
 
     expect(total).toBe(6100);
+  });
+
+  it("includes unmatched synced account income without double counting a paycheck", () => {
+    const imported = incomeEntry({
+      id: 1,
+      pay_date: "2026-06-15",
+      net_pay: "3000.00",
+      source_type: "income_statement_pdf",
+    });
+    const synced = (id: number, amount: string, date: string) =>
+      ({
+        id,
+        budget_item: null,
+        transaction_type: "credit",
+        plaid_category_primary: "INCOME",
+        category: "income",
+        include: true,
+        amount,
+        transaction_date: date,
+      }) as CreditCardTransaction;
+
+    expect(
+      yearToDateIncome(
+        [imported],
+        new Date(2026, 5, 27),
+        [
+          synced(10, "3000.00", "2026-06-15"),
+          synced(11, "25.00", "2026-06-20"),
+        ],
+      ),
+    ).toBe(3025);
   });
 });
 
