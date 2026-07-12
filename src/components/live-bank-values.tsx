@@ -825,20 +825,15 @@ function AccountTransactionList({
             transaction.transaction_type === "credit";
           return (
             <div
-              className="grid grid-cols-[4rem_minmax(0,1fr)_auto] gap-3 border-b border-white/[0.07] px-3 py-2.5 last:border-b-0"
+              className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 border-b border-white/[0.07] px-4 py-3 last:border-b-0"
               key={transaction.id}
             >
-              <span className="text-xs text-muted">
-                {formatTransactionDate(
-                  transaction.posting_date || transaction.transaction_date,
-                )}
-              </span>
               <div className="min-w-0">
-                <p className="truncate text-sm text-white/80">
+                <p className="truncate text-sm font-medium text-white">
                   {transaction.description}
                 </p>
-                <p className="mt-0.5 text-[11px] uppercase tracking-[0.12em] text-muted">
-                  {transaction.category || transaction.transaction_type}
+                <p className="mt-1 text-xs text-muted">
+                  {formatTransactionDate(transaction.posting_date || transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}
                 </p>
                 {transaction.tags?.length ? (
                   <div className="mt-1.5 flex flex-wrap gap-1">
@@ -877,39 +872,9 @@ function AccountTransactionList({
                   </div>
                 ) : null}
                 {editingTransactionId === transaction.id ? (
-                  <div className="mt-3 grid gap-2 rounded-xl border border-white/10 bg-black/15 p-3 sm:grid-cols-2">
-                    <label>
-                      <span className="text-[10px] uppercase tracking-[0.12em] text-muted">Match</span>
-                      <select
-                        className="mt-1 h-9 w-full rounded-lg border border-white/10 bg-[#0b1714] px-2 text-xs text-white"
-                        onChange={(event) => setEditForm((current) => ({ ...current, match_type: event.target.value as "exact" | "starts_with" }))}
-                        value={editForm.match_type}
-                      >
-                        <option value="exact">Description equals</option>
-                        <option value="starts_with">Description starts with</option>
-                      </select>
-                    </label>
-                    <label>
-                      <span className="text-[10px] uppercase tracking-[0.12em] text-muted">Description</span>
-                      <input
-                        className="mt-1 h-9 w-full rounded-lg border border-white/10 bg-[#0b1714] px-2 text-xs text-white"
-                        onChange={(event) => setEditForm((current) => ({ ...current, match_value: event.target.value }))}
-                        value={editForm.match_value}
-                      />
-                    </label>
-                    <label>
-                      <span className="text-[10px] uppercase tracking-[0.12em] text-muted">Category</span>
-                      <select
-                        className="mt-1 h-9 w-full rounded-lg border border-white/10 bg-[#0b1714] px-2 text-xs text-white"
-                        onChange={(event) => setEditForm((current) => ({ ...current, category: event.target.value }))}
-                        value={editForm.category}
-                      >
-                        {Object.entries(transactionCategoryLabels).map(([value, label]) => (
-                          <option key={value} value={value}>{label}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <div className="sm:col-span-2">
+                  <>
+                  <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/10 p-3">
+                    <div>
                       <div className="flex flex-wrap gap-2">
                         {editForm.tags.map((tag) => (
                           <button
@@ -978,7 +943,7 @@ function AccountTransactionList({
                         </div>
                       ) : null}
                     </div>
-                    <label className="sm:col-span-2">
+                    <label className="mt-4 block border-t border-white/[0.07] pt-3">
                       <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Transaction note</span>
                       <textarea
                         className="mt-2 min-h-20 w-full resize-y rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white outline-none focus:border-accent/50"
@@ -988,7 +953,54 @@ function AccountTransactionList({
                         value={editForm.note}
                       />
                     </label>
-                    <div className="flex items-center gap-2 sm:col-span-2">
+                    <div className="mt-3">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Budget treatment</p>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          aria-pressed={transaction.split}
+                          className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold transition disabled:opacity-50 ${transaction.split ? "border-violet-300/30 bg-violet-400/15 text-violet-100" : "border-white/10 text-white/45 hover:text-white/70"}`}
+                          disabled={savingBudgetFlagsId === transaction.id}
+                          onClick={() => void updateTransactionBudgetFlags(transaction, { split: !transaction.split })}
+                          type="button"
+                        >Split</button>
+                        <button
+                          aria-pressed={transaction.include}
+                          className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold transition disabled:opacity-50 ${transaction.include ? "border-accent/25 bg-accent/10 text-accent" : "border-rose-300/20 bg-rose-400/10 text-rose-100"}`}
+                          disabled={savingBudgetFlagsId === transaction.id}
+                          onClick={() => void updateTransactionBudgetFlags(transaction, { include: !transaction.include })}
+                          type="button"
+                        >{transaction.include ? "Included" : "Excluded"}</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid items-center gap-2 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_auto_auto]">
+                    <select
+                      aria-label="Match condition"
+                      className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
+                      onChange={(event) => setEditForm((current) => ({ ...current, match_type: event.target.value as "exact" | "starts_with" }))}
+                      value={editForm.match_type}
+                    >
+                      <option value="exact">Equals</option>
+                      <option value="starts_with">Starts with</option>
+                    </select>
+                    <input
+                      aria-label="Match value"
+                      className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
+                      onChange={(event) => setEditForm((current) => ({ ...current, match_value: event.target.value }))}
+                      value={editForm.match_value}
+                    />
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Set category</span>
+                    <select
+                      aria-label={`Correct category for ${transaction.description}`}
+                      className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
+                      onChange={(event) => setEditForm((current) => ({ ...current, category: event.target.value }))}
+                      value={editForm.category}
+                    >
+                      {Object.entries(transactionCategoryLabels).map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                    <div className="flex items-center gap-2">
                       <button
                         className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
                         disabled={savingTransactionId === transaction.id}
@@ -999,41 +1011,17 @@ function AccountTransactionList({
                       </button>
                       <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={() => setEditingTransactionId(null)} type="button">Cancel</button>
                     </div>
-                    {editError ? <p className="text-xs text-rose-200 sm:col-span-2">{editError}</p> : null}
+                    <p className="text-[11px] text-muted sm:col-span-5">Creates an editable automation rule, updates matching history, and remembers it for future imports.</p>
+                    {editError ? <p className="text-xs text-rose-200 sm:col-span-5">{editError}</p> : null}
                   </div>
+                  </>
                 ) : null}
               </div>
-              <div className="flex flex-wrap items-center justify-end gap-1.5">
-                <button
-                  aria-pressed={transaction.split}
-                  className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold transition disabled:opacity-50 ${
-                    transaction.split
-                      ? "border-violet-300/30 bg-violet-400/15 text-violet-100"
-                      : "border-white/10 text-white/45 hover:text-white/70"
-                  }`}
-                  disabled={savingBudgetFlagsId === transaction.id}
-                  onClick={() => void updateTransactionBudgetFlags(transaction, { split: !transaction.split })}
-                  type="button"
-                >
-                  Split
-                </button>
-                <button
-                  aria-pressed={transaction.include}
-                  className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold transition disabled:opacity-50 ${
-                    transaction.include
-                      ? "border-accent/25 bg-accent/10 text-accent"
-                      : "border-rose-300/20 bg-rose-400/10 text-rose-100"
-                  }`}
-                  disabled={savingBudgetFlagsId === transaction.id}
-                  onClick={() => void updateTransactionBudgetFlags(transaction, { include: !transaction.include })}
-                  type="button"
-                >
-                  {transaction.include ? "Included" : "Excluded"}
-                </button>
+              <div className="flex items-center gap-3 self-start">
                 <span className={`whitespace-nowrap text-right font-mono text-sm ${isCredit ? "text-accent" : "text-white"}`}>
                   {signedTransactionAmount(transaction)}
                 </span>
-                <button className="text-xs text-white/50 hover:text-accent" onClick={() => openTransactionEditor(transaction)} type="button">Edit</button>
+                <button className="text-xs font-medium text-white/50 hover:text-accent" onClick={() => openTransactionEditor(transaction)} type="button">Edit</button>
               </div>
             </div>
           );
