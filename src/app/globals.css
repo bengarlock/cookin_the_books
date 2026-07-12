@@ -133,14 +133,19 @@ input {
 
 :root[data-theme="light"] .condition-operator,
 :root[data-theme="light"] .selector-popover {
-  border-color: rgba(18, 64, 112, 0.18);
-  background: #ffffff;
-  color: #172033;
+  border-color: rgba(18, 64, 112, 0.18) !important;
+  background: #ffffff !important;
+  color: #172033 !important;
   box-shadow: 0 14px 35px rgba(27, 64, 102, 0.14);
 }
 
 :root[data-theme="light"] .condition-operator {
   color-scheme: light;
+}
+
+:root[data-theme="light"] .condition-operator option {
+  background: #ffffff;
+  color: #172033;
 }
 
 .theme-choice {
