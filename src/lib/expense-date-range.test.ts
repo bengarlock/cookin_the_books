@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  allTimeExpenseDateRange,
   defaultExpenseDateRange,
   expenseDateRangePreset,
   formatExpenseDateRange,
@@ -8,6 +9,18 @@ import {
 } from "./expense-date-range";
 
 describe("expense date ranges", () => {
+  it("creates an all-time range with a universal or caller-provided start", () => {
+    const currentDate = new Date(2026, 6, 12);
+
+    expect(allTimeExpenseDateRange(currentDate)).toEqual({
+      start: "1900-01-01",
+      end: "2026-07-12",
+    });
+    expect(allTimeExpenseDateRange(currentDate, "2024-03-15")).toEqual({
+      start: "2024-03-15",
+      end: "2026-07-12",
+    });
+  });
   it("defaults to the current year through today", () => {
     expect(defaultExpenseDateRange(new Date(2026, 5, 22))).toEqual({
       start: "2026-01-01",
