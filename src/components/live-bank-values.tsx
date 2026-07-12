@@ -647,6 +647,28 @@ function AccountTransactionList({
     tags: "",
   });
 
+  useEffect(() => {
+    if (confirmingMatchId === null) return;
+
+    function cancelMatchConfirmation(event: PointerEvent) {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest(
+          `[data-match-confirmation="${confirmingMatchId}"]`,
+        )
+      ) {
+        return;
+      }
+      setConfirmingMatchId(null);
+    }
+
+    document.addEventListener("pointerdown", cancelMatchConfirmation);
+    return () => {
+      document.removeEventListener("pointerdown", cancelMatchConfirmation);
+    };
+  }, [confirmingMatchId]);
+
   function openTransactionEditor(transaction: CreditCardTransaction) {
     setEditingTransactionId(transaction.id);
     setEditError("");
@@ -894,6 +916,7 @@ function AccountTransactionList({
               ) : transaction.match_status === "matched_pending" ? (
                 <>
                   <button
+                    data-match-confirmation={transaction.id}
                     className={`inline-flex h-8 w-24 items-center justify-center gap-1.5 rounded-full border px-2 text-[11px] font-semibold transition ${
                       confirmingMatchId === transaction.id
                         ? "border-amber-200/30 bg-amber-200/10 text-amber-100"
