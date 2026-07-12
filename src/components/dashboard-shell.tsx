@@ -7,49 +7,250 @@ import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/logout-button";
 import { DashboardHeader } from "@/components/dashboard-header";
 
+type IconProps = {
+  className?: string;
+};
+
 const navigation: Array<{
   name: string;
   href: string;
+  icon: (props: IconProps) => ReactNode;
   disabled?: boolean;
   parent?: string;
 }> = [
-  { name: "Overview", href: "/dashboard" },
-  { name: "Accounts", href: "/dashboard/accounts" },
-  { name: "Budget", href: "/dashboard/budget" },
+  { name: "Overview", href: "/dashboard", icon: OverviewIcon },
+  { name: "Accounts", href: "/dashboard/accounts", icon: AccountsIcon },
+  { name: "Budget", href: "/dashboard/budget", icon: BudgetIcon },
   {
     name: "Income",
     href: "/dashboard/budget/income",
+    icon: IncomeIcon,
     parent: "/dashboard/budget",
   },
   {
     name: "Expenses",
     href: "/dashboard/budget/expenses",
+    icon: ExpensesIcon,
     parent: "/dashboard/budget",
   },
   {
     name: "Projections",
     href: "/dashboard/budget/projections",
+    icon: ProjectionsIcon,
     parent: "/dashboard/budget",
   },
   {
     name: "Goals",
     href: "/dashboard/budget/goals",
+    icon: GoalsIcon,
     parent: "/dashboard/budget",
   },
-  { name: "Snapshots", href: "/dashboard/snapshots" },
-  { name: "Reports", href: "/dashboard/reports" },
-  { name: "Automations", href: "/dashboard/automations" },
+  { name: "Snapshots", href: "/dashboard/snapshots", icon: SnapshotsIcon },
+  { name: "Reports", href: "/dashboard/reports", icon: ReportsIcon },
+  { name: "Automations", href: "/dashboard/automations", icon: AutomationsIcon },
 ];
 
-function GridIcon() {
+function NavIconFrame({
+  children,
+  className = "size-5",
+}: IconProps & { children: ReactNode }) {
   return (
-    <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function OverviewIcon(props: IconProps) {
+  return (
+    <NavIconFrame {...props}>
       <path
         d="M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z"
         stroke="currentColor"
         strokeWidth="1.7"
       />
-    </svg>
+    </NavIconFrame>
+  );
+}
+
+function AccountsIcon(props: IconProps) {
+  return (
+    <NavIconFrame {...props}>
+      <path
+        d="M4.5 7.5h15M6 7.5V18m4-10.5V18m4-10.5V18m4-10.5V18M5.25 18h13.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M12 3.75 4.75 7.5h14.5L12 3.75Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </NavIconFrame>
+  );
+}
+
+function BudgetIcon(props: IconProps) {
+  return (
+    <NavIconFrame {...props}>
+      <path
+        d="M5 6.75h14v10.5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6.75Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M8 6.75V5.5a1.5 1.5 0 0 1 1.5-1.5h5A1.5 1.5 0 0 1 16 5.5v1.25M8.5 11.25h7M8.5 14.75h4"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.7"
+      />
+    </NavIconFrame>
+  );
+}
+
+function IncomeIcon(props: IconProps) {
+  return (
+    <NavIconFrame {...props}>
+      <path
+        d="M12 19V5m0 0-4 4m4-4 4 4"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M5.5 16.5v1.25A2.25 2.25 0 0 0 7.75 20h8.5a2.25 2.25 0 0 0 2.25-2.25V16.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.7"
+      />
+    </NavIconFrame>
+  );
+}
+
+function ExpensesIcon(props: IconProps) {
+  return (
+    <NavIconFrame {...props}>
+      <path
+        d="M12 5v14m0 0-4-4m4 4 4-4"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M5.5 7.5V6.25A2.25 2.25 0 0 1 7.75 4h8.5a2.25 2.25 0 0 1 2.25 2.25V7.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.7"
+      />
+    </NavIconFrame>
+  );
+}
+
+function ProjectionsIcon(props: IconProps) {
+  return (
+    <NavIconFrame {...props}>
+      <path
+        d="M4.5 18.5h15M6.5 16l3.5-4 3 2.5 4.5-6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M15 8.5h2.5V11"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </NavIconFrame>
+  );
+}
+
+function GoalsIcon(props: IconProps) {
+  return (
+    <NavIconFrame {...props}>
+      <circle cx="12" cy="12" r="7.5" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="12" cy="12" r="3.25" stroke="currentColor" strokeWidth="1.7" />
+      <path
+        d="M12 12h7.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.7"
+      />
+    </NavIconFrame>
+  );
+}
+
+function SnapshotsIcon(props: IconProps) {
+  return (
+    <NavIconFrame {...props}>
+      <rect
+        x="4.5"
+        y="6"
+        width="15"
+        height="12"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M8 10.5h3.25M8 13.5h6.5M15.75 10.25h.01"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.7"
+      />
+    </NavIconFrame>
+  );
+}
+
+function ReportsIcon(props: IconProps) {
+  return (
+    <NavIconFrame {...props}>
+      <path
+        d="M6 19V5h8.25L18 8.75V19H6Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M14 5v4h4M9 15v-2.5m3 2.5V10m3 5v-3.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </NavIconFrame>
+  );
+}
+
+function AutomationsIcon(props: IconProps) {
+  return (
+    <NavIconFrame {...props}>
+      <path
+        d="M5 8h9.5a3.5 3.5 0 0 1 0 7H13"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.7"
+      />
+      <path
+        d="m7.5 5.5-3 2.5 3 2.5M16.5 12.5l3 2.5-3 2.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </NavIconFrame>
   );
 }
 
@@ -118,13 +319,15 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="mt-5 flex flex-wrap gap-2 lg:mt-10 lg:block lg:space-y-2">
-          {navigation.map((item) =>
-            item.disabled ? (
+          {navigation.map((item) => {
+            const Icon = item.icon;
+
+            return item.disabled ? (
               <span
                 key={item.name}
                 className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/30 lg:w-full"
               >
-                <GridIcon />
+                <Icon />
                 {item.name}
                 <span className="ml-auto hidden text-[10px] uppercase tracking-wider lg:inline">
                   Soon
@@ -143,12 +346,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                       : "border-transparent text-white/60 hover:border-white/10 hover:bg-white/[0.04] hover:text-white"
                   }`}
                 >
-                  <GridIcon />
+                  <Icon />
                   {item.name}
                 </Link>
               </div>
-            ),
-          )}
+            );
+          })}
         </nav>
 
         <div className="absolute bottom-7 left-6 hidden space-y-2 lg:block">
