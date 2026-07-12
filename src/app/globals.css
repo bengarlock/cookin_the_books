@@ -103,6 +103,34 @@ input {
   box-shadow: 0 16px 44px rgba(27, 64, 102, 0.09);
 }
 
+:root[data-theme="light"] .dashboard-header {
+  border-color: rgba(255, 255, 255, 0.22);
+  background:
+    radial-gradient(circle at 84% 0%, rgba(255, 255, 255, 0.16), transparent 25rem),
+    linear-gradient(115deg, #0759ad 0%, #0872cf 58%, #0561b8 100%);
+  box-shadow: 0 10px 30px rgba(10, 67, 122, 0.18);
+}
+
+:root[data-theme="light"] .dashboard-header h1 {
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 31, 70, 0.14);
+}
+
+:root[data-theme="light"] .dashboard-header > div > div > p:first-child {
+  color: #d9edff;
+}
+
+:root[data-theme="light"] .dashboard-header h1 + p {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+:root[data-theme="light"] .dashboard-header .dashboard-freshness {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  box-shadow: 0 5px 18px rgba(0, 38, 82, 0.12);
+}
+
 .theme-choice {
   position: relative;
   display: grid;
