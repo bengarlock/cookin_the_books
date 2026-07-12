@@ -65,7 +65,7 @@ function PlaidLauncher({
 
 export function PlaidConnections({ initialConnections }: { initialConnections: PlaidConnection[] }) {
   const [connections, setConnections] = useState(initialConnections);
-  const [linkRequest, setLinkRequest] = useState<{ token: string; connectionId?: number } | null>(null);
+  const [linkRequest, setLinkRequest] = useState<{ token: string; connectionId?: number; purpose?: "reauthorize" | "investments" } | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -83,7 +83,7 @@ export function PlaidConnections({ initialConnections }: { initialConnections: P
     setLinkRequest({ token: data.link_token });
   }
 
-  async function enableInvestments(connectionId: number) {
+  async function updateConnection(connectionId: number, purpose: "reauthorize" | "investments") {
     setBusyId(connectionId);
     setError("");
     setStatus("");
@@ -91,13 +91,13 @@ export function PlaidConnections({ initialConnections }: { initialConnections: P
       const response = await fetch(`${APP_BASE_PATH}/api/plaid/link-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ connection_id: connectionId }),
+        body: JSON.stringify({ connection_id: connectionId, purpose }),
       });
       const data = (await response.json().catch(() => null)) as { link_token?: string } | null;
       if (!response.ok || !data?.link_token) {
         throw new Error(messageFrom(data, "Plaid Link could not be started."));
       }
-      setLinkRequest({ token: data.link_token, connectionId });
+      setLinkRequest({ token: data.link_token, connectionId, purpose });
     } catch (linkError) {
       setBusyId(null);
       setError(linkError instanceof Error ? linkError.message : "Plaid Link could not be started.");
@@ -150,7 +150,12 @@ export function PlaidConnections({ initialConnections }: { initialConnections: P
             setStatus(`${result.connection.institution_name || "Institution"} connected; ${result.sync.created_count} transactions imported.`);
           }}
           onUpdated={async (connectionId) => {
-            await syncConnection(connectionId, "Investment access enabled and account data refreshed.");
+            await syncConnection(
+              connectionId,
+              linkRequest.purpose === "investments"
+                ? "Investment access enabled and account data refreshed."
+                : "Authorization updated and account data refreshed.",
+            );
           }}
           onFinished={(nextError) => {
             setLinkRequest(null);
@@ -185,11 +190,19 @@ export function PlaidConnections({ initialConnections }: { initialConnections: P
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              <button
+                className="rounded-lg border border-accent/25 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
+                disabled={busyId === connection.id || Boolean(linkRequest)}
+                onClick={() => void updateConnection(connection.id, "reauthorize")}
+                type="button"
+              >
+                {busyId === connection.id ? "Working…" : "Re-authorize"}
+              </button>
               {connection.accounts.some((account) => account.account_type === "investment") ? (
                 <button
                   className="rounded-lg border border-gold/35 px-3 py-2 text-xs font-semibold text-gold disabled:opacity-50"
                   disabled={busyId === connection.id || Boolean(linkRequest)}
-                  onClick={() => void enableInvestments(connection.id)}
+                  onClick={() => void updateConnection(connection.id, "investments")}
                   type="button"
                 >
                   {busyId === connection.id ? "Working…" : "Enable investments"}

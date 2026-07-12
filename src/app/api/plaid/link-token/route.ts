@@ -12,6 +12,9 @@ export async function POST(request: Request) {
   const connectionId = body && typeof body === "object" && "connection_id" in body
     ? body.connection_id
     : undefined;
+  const purpose = body && typeof body === "object" && "purpose" in body
+    ? body.purpose
+    : undefined;
 
   try {
     const response = await fetch(
@@ -23,7 +26,7 @@ export async function POST(request: Request) {
           Authorization: `Token ${token}`,
           "Content-Type": "application/json",
         },
-        body: connectionId ? JSON.stringify({ connection_id: connectionId }) : undefined,
+        body: connectionId ? JSON.stringify({ connection_id: connectionId, purpose }) : undefined,
         cache: "no-store",
       },
     );
