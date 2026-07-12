@@ -1,13 +1,11 @@
 "use client";
 
-import { Fragment, FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
 import { useBudgetData } from "@/components/budget-data-provider";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { TransactionRelationshipEditor } from "@/components/transaction-relationship-editor";
 import { APP_BASE_PATH } from "@/lib/config";
 import { cashAccountIncomeTransactions } from "@/lib/cash-account-ledgers";
-import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
 import {
   defaultExpenseDateRange,
   formatExpenseDateRange,
@@ -144,12 +142,8 @@ function statementEntries(
 }
 
 export function IncomeHistory() {
-  const {
-    incomeEntries: entries,
-    setIncomeEntries: setEntries,
-    creditCardTransactions,
-    setCreditCardTransactions,
-  } = useBudgetData();
+  const { incomeEntries: entries, setIncomeEntries: setEntries, creditCardTransactions } =
+    useBudgetData();
   const [dateRange, setDateRange] = useState<ExpenseDateRange>(
     defaultExpenseDateRange(),
   );
@@ -158,9 +152,6 @@ export function IncomeHistory() {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState("");
   const [importMessage, setImportMessage] = useState("");
-  const [linkingTransactionId, setLinkingTransactionId] = useState<
-    number | null
-  >(null);
   const [form, setForm] = useState({
     employer: "",
     periodStart: todayString(),
@@ -299,14 +290,6 @@ export function IncomeHistory() {
   const averageNet = filteredEntries.length
     ? totalNet / filteredEntries.length
     : 0;
-
-  function updateLinkedTransaction(updated: CreditCardTransaction) {
-    setCreditCardTransactions((current) =>
-      current.map((transaction) =>
-        transaction.id === updated.id ? updated : transaction,
-      ),
-    );
-  }
 
   async function addIncomeEntry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -711,8 +694,10 @@ export function IncomeHistory() {
                 ]);
               }
               return (
-                <Fragment key={entry.id}>
-                  <div className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-white/[0.05] px-5 py-4 last:border-b-0 sm:grid-cols-[1fr_120px_120px_120px_120px]">
+                <div
+                  className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-white/[0.05] px-5 py-4 last:border-b-0 sm:grid-cols-[1fr_120px_120px_120px_120px]"
+                  key={entry.id}
+                >
                   <div>
                     <p className="font-medium text-white">{entry.employer}</p>
                     <p className="mt-1 text-xs text-muted">
@@ -741,23 +726,6 @@ export function IncomeHistory() {
                         </>
                       ) : null}
                     </p>
-                    {syncedTransaction ? (
-                      <button
-                        className="mt-2 rounded-lg border border-white/10 px-2.5 py-1 text-[11px] text-white/70 transition hover:border-accent/25 hover:text-accent"
-                        onClick={() =>
-                          setLinkingTransactionId((current) =>
-                            current === syncedTransaction.id
-                              ? null
-                              : syncedTransaction.id,
-                          )
-                        }
-                        type="button"
-                      >
-                        {linkingTransactionId === syncedTransaction.id
-                          ? "Close links"
-                          : `Links${syncedTransaction.related_transactions.length ? ` (${syncedTransaction.related_transactions.length})` : ""}`}
-                      </button>
-                    ) : null}
                   </div>
                   <p className="self-center text-right text-sm text-white/75">
                     <MoneyHoverCard
@@ -800,15 +768,7 @@ export function IncomeHistory() {
                       total={Number(entry.net_pay)}
                     />
                   </p>
-                  </div>
-                  {syncedTransaction &&
-                  linkingTransactionId === syncedTransaction.id ? (
-                    <TransactionRelationshipEditor
-                      onUpdated={updateLinkedTransaction}
-                      transaction={syncedTransaction}
-                    />
-                  ) : null}
-                </Fragment>
+                </div>
               );
             })
           ) : (
@@ -826,30 +786,13 @@ export function IncomeHistory() {
             <p className="font-mono text-sm font-semibold text-accent">{money(syncedAccountIncomeTotal)}</p>
           </div>
           {syncedAccountIncome.length ? syncedAccountIncome.map((transaction) => (
-            <Fragment key={transaction.id}>
-              <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-4 border-b border-white/[0.05] px-5 py-4 last:border-b-0">
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-white">{transaction.description}</p>
-                  <p className="mt-1 text-xs text-muted">{formatDate(transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}</p>
-                </div>
-                <p className="self-center font-mono text-sm font-semibold text-accent">{money(transaction.amount)}</p>
-                <button
-                  className="self-center rounded-lg border border-white/10 px-2.5 py-1 text-[11px] text-white/70 transition hover:border-accent/25 hover:text-accent"
-                  onClick={() => setLinkingTransactionId((current) => current === transaction.id ? null : transaction.id)}
-                  type="button"
-                >
-                  {linkingTransactionId === transaction.id
-                    ? "Close links"
-                    : `Links${transaction.related_transactions.length ? ` (${transaction.related_transactions.length})` : ""}`}
-                </button>
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 border-b border-white/[0.05] px-5 py-4 last:border-b-0" key={transaction.id}>
+              <div className="min-w-0">
+                <p className="truncate font-medium text-white">{transaction.description}</p>
+                <p className="mt-1 text-xs text-muted">{formatDate(transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}</p>
               </div>
-              {linkingTransactionId === transaction.id ? (
-                <TransactionRelationshipEditor
-                  onUpdated={updateLinkedTransaction}
-                  transaction={transaction}
-                />
-              ) : null}
-            </Fragment>
+              <p className="self-center font-mono text-sm font-semibold text-accent">{money(transaction.amount)}</p>
+            </div>
           )) : (
             <p className="px-5 py-8 text-center text-sm text-muted">No synced checking or savings income found for {formatExpenseDateRange(dateRange)}.</p>
           )}
