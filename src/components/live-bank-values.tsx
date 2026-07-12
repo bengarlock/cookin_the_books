@@ -567,6 +567,7 @@ function AccountTransactionList({
   onChangeTransactionForm,
   onDeleteTransaction,
   onMarkCleared,
+  onReconcile,
   onSubmitPendingTransaction,
   onToggleForm,
   transactions,
@@ -592,6 +593,10 @@ function AccountTransactionList({
   ) => void;
   onDeleteTransaction: (transaction: PendingTransaction) => void;
   onMarkCleared: (transaction: PendingTransaction) => void;
+  onReconcile: (
+    transaction: PendingTransaction,
+    action: "confirm" | "reject" | "undo",
+  ) => void;
   onSubmitPendingTransaction: (event: FormEvent<HTMLFormElement>) => void;
   onToggleForm: (accountKey: keyof BankValueSnapshot) => void;
   transactions: CreditCardTransaction[];
@@ -602,7 +607,14 @@ function AccountTransactionList({
     expected_post_date: string;
   };
 }) {
-  const pending = transactions.filter((transaction) => transaction.pending);
+  const linkedPendingIds = new Set(
+    manualPendingTransactions
+      .filter((transaction) => transaction.match_status === "matched_pending")
+      .map((transaction) => transaction.matched_transaction),
+  );
+  const pending = transactions.filter(
+    (transaction) => transaction.pending && !linkedPendingIds.has(transaction.id),
+  );
   const posted = transactions.filter((transaction) => !transaction.pending);
   const pendingCount = pending.length + manualPendingTransactions.length;
 
@@ -673,17 +685,48 @@ function AccountTransactionList({
                 {transaction.note}
               </p>
               <p className="mt-0.5 text-[11px] uppercase tracking-[0.12em] text-muted">
-                Manual pending · Expected{" "}
-                {compactDateFormatter.format(
-                  new Date(`${transaction.expected_post_date}T12:00:00`),
-                )}
+                {transaction.match_status === "matched_pending"
+                  ? `Matched to synced transaction from ${formatTransactionDate(transaction.matched_transaction_detail?.transaction_date || transaction.expected_post_date)}`
+                  : transaction.match_status === "suggested"
+                    ? `Possible match from ${formatTransactionDate(transaction.matched_transaction_detail?.transaction_date || transaction.expected_post_date)}`
+                    : `Manual pending · Expected ${compactDateFormatter.format(new Date(`${transaction.expected_post_date}T12:00:00`))}`}
               </p>
             </div>
             <span className="whitespace-nowrap text-right font-mono text-sm text-amber-100">
               {formatCurrency(transaction.amount)}
             </span>
             <div className="flex flex-wrap items-center justify-start gap-2 sm:flex-nowrap sm:justify-end">
-              {transaction.is_cleared ? (
+              {transaction.match_status === "suggested" ? (
+                <>
+                  <button
+                    className="w-20 rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-xs font-medium text-accent transition hover:bg-accent/15"
+                    onClick={() => onReconcile(transaction, "confirm")}
+                    type="button"
+                  >
+                    Match
+                  </button>
+                  <button
+                    className="w-20 rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-white/65 transition hover:border-white/20 hover:text-white"
+                    onClick={() => onReconcile(transaction, "reject")}
+                    type="button"
+                  >
+                    Not match
+                  </button>
+                </>
+              ) : transaction.match_status === "matched_pending" ? (
+                <>
+                  <span className="w-20 text-center text-xs font-medium text-accent">
+                    Matched
+                  </span>
+                  <button
+                    className="w-20 rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-white/65 transition hover:border-white/20 hover:text-white"
+                    onClick={() => onReconcile(transaction, "undo")}
+                    type="button"
+                  >
+                    Undo
+                  </button>
+                </>
+              ) : transaction.is_cleared ? (
                 <span className="w-20 text-center text-xs font-medium text-accent">
                   Cleared
                 </span>
@@ -696,7 +739,7 @@ function AccountTransactionList({
                   Clear
                 </button>
               )}
-              <button
+              {transaction.match_status !== "suggested" && transaction.match_status !== "matched_pending" ? <button
                 className={`w-20 rounded-lg border px-3 py-2 text-xs font-medium transition disabled:opacity-50 ${
                   confirmingDeleteId === transaction.id
                     ? "border-rose-300/35 bg-rose-500/20 text-rose-100 hover:bg-rose-500/30"
@@ -711,7 +754,7 @@ function AccountTransactionList({
                   : confirmingDeleteId === transaction.id
                     ? "Confirm"
                     : "Delete"}
-              </button>
+              </button> : null}
             </div>
           </div>
         ))}
@@ -941,7 +984,7 @@ export function LiveBankValues({
     const pendingByAccount = new Map<keyof BankValueSnapshot, number>();
     const settledAccounts = new Set<keyof BankValueSnapshot>();
     for (const transaction of pendingTransactions) {
-      if (transaction.is_cleared) continue;
+      if (transaction.is_cleared || transaction.match_status === "matched_pending") continue;
       for (const account of transaction.settled_accounts || []) {
         settledAccounts.add(account);
       }
@@ -1306,6 +1349,31 @@ export function LiveBankValues({
     }
   }
 
+  async function reconcileTransaction(
+    transaction: PendingTransaction,
+    action: "confirm" | "reject" | "undo",
+  ) {
+    setRegisterError("");
+    const response = await fetch(
+      `${APP_BASE_PATH}/api/pending-transactions/${transaction.id}/reconciliation`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      },
+    );
+    const updated = (await response.json().catch(() => null)) as
+      | PendingTransaction
+      | null;
+    if (response.ok && updated?.id) {
+      setPendingTransactions((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+    } else {
+      setRegisterError("Unable to update the transaction match.");
+    }
+  }
+
   async function deleteTransaction(transaction: PendingTransaction) {
     setRegisterError("");
     setDeletingId(transaction.id);
@@ -1652,6 +1720,7 @@ export function LiveBankValues({
                         onChangeTransactionForm={updatePendingTransactionForm}
                         onDeleteTransaction={handlePendingDeleteClick}
                         onMarkCleared={markCleared}
+                        onReconcile={reconcileTransaction}
                         onSubmitPendingTransaction={addPendingTransaction}
                         onToggleForm={togglePendingTransactionForm}
                         transactions={citiTransactions?.transactions || []}
@@ -1806,6 +1875,7 @@ export function LiveBankValues({
                           onChangeTransactionForm={updatePendingTransactionForm}
                           onDeleteTransaction={handlePendingDeleteClick}
                           onMarkCleared={markCleared}
+                          onReconcile={reconcileTransaction}
                           onSubmitPendingTransaction={addPendingTransaction}
                           onToggleForm={togglePendingTransactionForm}
                           transactions={transactionState?.transactions || []}
