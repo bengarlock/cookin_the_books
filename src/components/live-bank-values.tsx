@@ -875,7 +875,7 @@ function AccountTransactionList({
       <div className="mb-3 overflow-hidden rounded-xl border border-amber-100/15 bg-amber-200/[0.04]">
         {items.map((transaction) => (
           <div
-            className={`grid gap-3 border-b border-white/[0.07] px-3 py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_7rem_6rem] sm:items-center ${
+            className={`grid gap-3 border-b border-white/[0.07] px-3 py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_7rem_11rem] sm:items-center ${
               transaction.is_cleared ? "opacity-45" : ""
             }`}
             key={transaction.id}
