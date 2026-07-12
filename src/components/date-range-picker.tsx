@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import {
+  allTimeExpenseDateRange,
   type ExpenseDateRange,
   expenseDateRangePreset,
   formatExpenseDateRange,
@@ -212,11 +213,7 @@ export function DateRangePicker({
               </p>
             </div>
 
-            <div
-              className={`mt-4 grid gap-2 ${
-                allTimeStart ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"
-              }`}
-            >
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {[
                 { label: "Week", value: "week" as const },
                 { label: "Month", value: "month" as const },
@@ -257,26 +254,24 @@ export function DateRangePicker({
                   {year}
                 </button>
               ))}
-              {allTimeStart ? (
-                <button
-                  className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/65 transition hover:border-accent/25 hover:bg-accent/10 hover:text-accent"
-                  onClick={() => {
-                    const nextRange = {
-                      start: allTimeStart,
-                      end: localDateString(new Date()),
-                    };
-                    const end = parseLocalDate(nextRange.end);
-                    setDraft(nextRange);
-                    setVisibleMonth(
-                      new Date(end.getFullYear(), end.getMonth(), 1),
-                    );
-                    setSelectingEnd(false);
-                  }}
-                  type="button"
-                >
-                  All Time
-                </button>
-              ) : null}
+              <button
+                className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/65 transition hover:border-accent/25 hover:bg-accent/10 hover:text-accent"
+                onClick={() => {
+                  const nextRange = allTimeExpenseDateRange(
+                    new Date(),
+                    allTimeStart,
+                  );
+                  const end = parseLocalDate(nextRange.end);
+                  setDraft(nextRange);
+                  setVisibleMonth(
+                    new Date(end.getFullYear(), end.getMonth(), 1),
+                  );
+                  setSelectingEnd(false);
+                }}
+                type="button"
+              >
+                All time
+              </button>
             </div>
 
             <div className="mt-5 flex justify-end gap-3">

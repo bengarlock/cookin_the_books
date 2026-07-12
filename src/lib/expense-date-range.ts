@@ -3,6 +3,8 @@ export type ExpenseDateRange = {
   end: string;
 };
 
+export const DEFAULT_ALL_TIME_START = "1900-01-01";
+
 export function localDateString(date: Date) {
   return [
     date.getFullYear(),
@@ -67,6 +69,16 @@ export function expenseDateRangePreset(
   return {
     start: localDateString(start),
     end: localDateString(end),
+  };
+}
+
+export function allTimeExpenseDateRange(
+  currentDate = new Date(),
+  start = DEFAULT_ALL_TIME_START,
+) {
+  return {
+    start,
+    end: localDateString(currentDate),
   };
 }
 
