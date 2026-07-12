@@ -105,7 +105,7 @@ function MoneyHoverCard({
       >
         {money(total)}
       </button>
-      <span className="pointer-events-none absolute right-0 top-full z-30 mt-2 hidden w-72 rounded-xl border border-white/15 bg-[#081811] p-3 text-left text-current shadow-2xl shadow-black/40 group-hover:block group-focus-within:block">
+      <span className="themed-popover pointer-events-none absolute right-0 top-full z-30 mt-2 hidden w-72 rounded-xl border border-white/15 bg-[#081811] p-3 text-left text-current shadow-2xl shadow-black/40 group-hover:block group-focus-within:block">
         <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.18em] opacity-70">
           {label} breakdown
         </span>

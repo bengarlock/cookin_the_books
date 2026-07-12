@@ -108,7 +108,7 @@ export function DateRangePicker({
 
       {isOpen ? (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-[#020906]/75 p-4 backdrop-blur-sm"
+          className="themed-dialog-overlay fixed inset-0 z-50 grid place-items-center bg-[#020906]/75 p-4 backdrop-blur-sm"
           role="presentation"
           onMouseDown={(event) => {
             if (event.currentTarget === event.target) setIsOpen(false);
@@ -117,7 +117,7 @@ export function DateRangePicker({
           <div
             aria-label={dialogLabel}
             aria-modal="true"
-            className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0b1714] p-5 shadow-2xl shadow-black/50"
+            className="themed-popover w-full max-w-md rounded-2xl border border-white/15 bg-[#0b1714] p-5 shadow-2xl shadow-black/50"
             role="dialog"
           >
             <div className="flex items-center justify-between">

@@ -11,6 +11,13 @@
   --accent-strong: #20bc7d;
   --gold: #f0c978;
   --snapshot-chart-axis: rgba(255, 255, 255, 0.46);
+  --snapshot-chart-tooltip-bg: #0b1714;
+  --snapshot-chart-tooltip-border: rgba(86, 226, 170, 0.35);
+  --snapshot-chart-tooltip-muted: rgba(255, 255, 255, 0.6);
+  --snapshot-chart-tooltip-text: #ffffff;
+  --snapshot-chart-point-fill: #07100f;
+  --snapshot-chart-crosshair: rgba(255, 255, 255, 0.3);
+  --snapshot-chart-negative: #fda4af;
   color-scheme: dark;
 }
 
@@ -25,6 +32,13 @@
   --accent-strong: #004f9e;
   --gold: #875b08;
   --snapshot-chart-axis: #111827;
+  --snapshot-chart-tooltip-bg: #ffffff;
+  --snapshot-chart-tooltip-border: rgba(8, 104, 199, 0.28);
+  --snapshot-chart-tooltip-muted: #5d6b7c;
+  --snapshot-chart-tooltip-text: #111827;
+  --snapshot-chart-point-fill: #ffffff;
+  --snapshot-chart-crosshair: rgba(17, 24, 39, 0.22);
+  --snapshot-chart-negative: #b91c1c;
   --color-white: #111827;
   --color-black: #ffffff;
   color-scheme: light;
@@ -253,6 +267,31 @@ input {
 :root[data-theme="light"] .hover\:text-rose-100:hover,
 :root[data-theme="light"] .hover\:text-rose-200:hover {
   color: #b91c1c !important;
+}
+
+:root[data-theme="light"] main [class~="bg-black/10"],
+:root[data-theme="light"] main [class~="bg-black/15"],
+:root[data-theme="light"] main [class~="bg-black/20"] {
+  background-color: rgba(230, 240, 252, 0.72) !important;
+}
+
+:root[data-theme="light"] main [class~="bg-[#061811]"],
+:root[data-theme="light"] main [class~="bg-[#07130f]"],
+:root[data-theme="light"] main [class~="bg-[#081811]"],
+:root[data-theme="light"] main [class~="bg-[#0b1714]"] {
+  background: linear-gradient(145deg, #ffffff, #eaf4ff) !important;
+  color: #111827 !important;
+}
+
+:root[data-theme="light"] .themed-popover {
+  border-color: rgba(8, 104, 199, 0.2) !important;
+  background: linear-gradient(145deg, #ffffff, #eaf4ff) !important;
+  color: #111827 !important;
+  box-shadow: 0 18px 44px rgba(27, 64, 102, 0.16);
+}
+
+:root[data-theme="light"] .themed-dialog-overlay {
+  background: rgba(203, 220, 238, 0.74) !important;
 }
 
 :root[data-theme="light"] .dashboard-tile-description,

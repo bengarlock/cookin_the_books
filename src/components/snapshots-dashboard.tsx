@@ -383,7 +383,7 @@ function SnapshotTrendChart({
         {hoveredSnapshot && hoveredX !== null && hoveredY !== null ? (
           <g aria-hidden="true" pointerEvents="none">
             <line
-              stroke="rgba(255,255,255,0.3)"
+              stroke="var(--snapshot-chart-crosshair)"
               strokeDasharray="4 5"
               strokeWidth="1"
               x1={hoveredX}
@@ -394,22 +394,22 @@ function SnapshotTrendChart({
             <circle
               cx={hoveredX}
               cy={hoveredY}
-              fill="#07100f"
+              fill="var(--snapshot-chart-point-fill)"
               r="6"
               stroke="#56e2aa"
               strokeWidth="3"
             />
             <rect
-              fill="#0b1714"
+              fill="var(--snapshot-chart-tooltip-bg)"
               height={tooltipHeight}
               rx="10"
-              stroke="rgba(86,226,170,0.35)"
+              stroke="var(--snapshot-chart-tooltip-border)"
               width={tooltipWidth}
               x={tooltipX}
               y={tooltipY}
             />
             <text
-              fill="rgba(255,255,255,0.6)"
+              fill="var(--snapshot-chart-tooltip-muted)"
               fontSize="11"
               x={tooltipX + 13}
               y={tooltipY + 20}
@@ -417,7 +417,7 @@ function SnapshotTrendChart({
               {formatDate(hoveredSnapshot.snapshot_date)}
             </text>
             <text
-              fill="#ffffff"
+              fill="var(--snapshot-chart-tooltip-text)"
               fontFamily="monospace"
               fontSize="15"
               fontWeight="600"
@@ -431,7 +431,7 @@ function SnapshotTrendChart({
             <text
               fill={
                 Number(hoveredSnapshot.change) < 0
-                  ? "#fda4af"
+                  ? "var(--snapshot-chart-negative)"
                   : "#56e2aa"
               }
               fontFamily="monospace"
