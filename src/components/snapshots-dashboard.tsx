@@ -297,8 +297,16 @@ function SnapshotTrendChart({
         })}
         <defs>
           <linearGradient id="snapshot-area" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#56e2aa" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="#56e2aa" stopOpacity="0.01" />
+            <stop
+              offset="0%"
+              stopColor="var(--snapshot-chart-accent-area)"
+              stopOpacity="0.2"
+            />
+            <stop
+              offset="100%"
+              stopColor="var(--snapshot-chart-accent-area)"
+              stopOpacity="0.01"
+            />
           </linearGradient>
         </defs>
         <polygon
@@ -321,7 +329,7 @@ function SnapshotTrendChart({
         <polyline
           fill="none"
           points={chart.points}
-          stroke="#56e2aa"
+          stroke="var(--snapshot-chart-accent)"
           strokeLinejoin="round"
           strokeWidth="2.75"
         />
@@ -338,7 +346,7 @@ function SnapshotTrendChart({
                   ? "#f0c978"
                   : Number(snapshot.change) < 0
                     ? "#fda4af"
-                    : "#56e2aa"
+                    : "var(--snapshot-chart-accent)"
               }
               key={snapshot.id}
               r={snapshot.is_highpoint ? 3.8 : 2.6}
@@ -396,7 +404,7 @@ function SnapshotTrendChart({
               cy={hoveredY}
               fill="var(--snapshot-chart-point-fill)"
               r="6"
-              stroke="#56e2aa"
+              stroke="var(--snapshot-chart-accent)"
               strokeWidth="3"
             />
             <rect
@@ -432,7 +440,7 @@ function SnapshotTrendChart({
               fill={
                 Number(hoveredSnapshot.change) < 0
                   ? "var(--snapshot-chart-negative)"
-                  : "#56e2aa"
+                  : "var(--snapshot-chart-accent)"
               }
               fontFamily="monospace"
               fontSize="11"
