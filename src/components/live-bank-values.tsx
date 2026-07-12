@@ -356,26 +356,32 @@ function MetricCard({
 }) {
   return (
     <article
-      className={`rounded-2xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] ${
+      className={`overview-metric-card rounded-2xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] ${
         featured
-          ? "border-accent/25 bg-accent/[0.09]"
+          ? "overview-metric-card-featured border-accent/25 bg-accent/[0.09]"
           : "border-white/10 bg-white/[0.045]"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+        <p className="overview-metric-label text-xs font-semibold uppercase tracking-[0.18em] text-muted">
           {label}
         </p>
         {icon}
       </div>
       <p
-        className={`mt-4 font-mono text-2xl font-semibold tracking-tight sm:text-3xl ${
-          negative ? "text-rose-300" : featured ? "text-accent" : "text-white"
+        className={`overview-metric-value mt-4 font-mono text-2xl font-semibold tracking-tight sm:text-3xl ${
+          negative
+            ? "overview-metric-value-negative text-rose-300"
+            : featured
+              ? "overview-metric-value-featured text-accent"
+              : "text-white"
         }`}
       >
         {value}
       </p>
-      <p className="mt-3 text-xs leading-5 text-muted">{description}</p>
+      <p className="overview-metric-description mt-3 text-xs leading-5 text-muted">
+        {description}
+      </p>
     </article>
   );
 }
@@ -1980,15 +1986,15 @@ export function LiveBankValues({
 
           {calculations.savingsReserve.variance < 0 ? (
             <div
-              className="rounded-2xl border border-amber-200/25 bg-amber-300/10 p-5"
+              className="savings-reserve-alert rounded-2xl border border-amber-200/25 bg-amber-300/10 p-5"
               role="alert"
             >
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-100">
+              <p className="savings-reserve-alert-label text-xs font-semibold uppercase tracking-[0.2em] text-amber-100">
                 Savings reserve shortfall
               </p>
-              <p className="mt-2 text-sm leading-6 text-amber-50/80">
+              <p className="savings-reserve-alert-copy mt-2 text-sm leading-6 text-amber-50/80">
                 Chase Savings is{" "}
-                <span className="font-semibold text-amber-50">
+                <span className="savings-reserve-alert-value font-semibold text-amber-50">
                   {formatCurrency(
                     calculations.savingsReserve.restorationNeeded,
                   )}
