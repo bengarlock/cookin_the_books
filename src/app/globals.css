@@ -131,6 +131,18 @@ input {
   box-shadow: 0 5px 18px rgba(0, 38, 82, 0.12);
 }
 
+:root[data-theme="light"] .condition-operator,
+:root[data-theme="light"] .selector-popover {
+  border-color: rgba(18, 64, 112, 0.18);
+  background: #ffffff;
+  color: #172033;
+  box-shadow: 0 14px 35px rgba(27, 64, 102, 0.14);
+}
+
+:root[data-theme="light"] .condition-operator {
+  color-scheme: light;
+}
+
 .theme-choice {
   position: relative;
   display: grid;

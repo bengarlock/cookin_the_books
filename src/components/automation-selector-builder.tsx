@@ -118,7 +118,7 @@ function AccountSelector({
       <summary className="cursor-pointer list-none rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white">
         {selection.length ? `${selection.length} selected` : "Select accounts"}
       </summary>
-      <div className="absolute z-20 mt-2 max-h-56 min-w-64 overflow-auto rounded-xl border border-white/15 bg-[#0b1714] p-2 shadow-2xl">
+      <div className="selector-popover absolute z-20 mt-2 max-h-56 min-w-64 overflow-auto rounded-xl border border-white/15 bg-[#0b1714] p-2 shadow-2xl">
         {accounts.map((account) => (
           <label
             className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm text-white/75 hover:bg-white/[0.05]"
@@ -182,7 +182,7 @@ function ExistingValueSelector({
         {value.length ? `${value.length} selected` : `Select ${label.toLowerCase()}`}
       </button>
       {open ? (
-        <div className="absolute right-0 z-30 mt-2 flex max-h-[min(32rem,70vh)] w-full min-w-80 flex-col overflow-hidden rounded-xl border border-white/15 bg-[#0b1714] p-4 shadow-2xl">
+        <div className="selector-popover absolute right-0 z-30 mt-2 flex max-h-[min(32rem,70vh)] w-full min-w-80 flex-col overflow-hidden rounded-xl border border-white/15 bg-[#0b1714] p-4 shadow-2xl">
           <p className="shrink-0 text-sm font-semibold text-white">
             {draft.length} selected {draft.length === 1 ? "value" : "values"}
           </p>
@@ -398,7 +398,7 @@ export function AutomationSelectorBuilder({
                         {selector.label}
                       </span>
                       <select
-                        className="rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white"
+                        className="condition-operator rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white"
                         value={condition.operator}
                         onChange={(event) =>
                           update(condition.id, {
