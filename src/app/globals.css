@@ -240,6 +240,10 @@ input {
   color: #d22d52 !important;
 }
 
+:root[data-theme="light"] .liability-account-total-value {
+  color: #b91c1c !important;
+}
+
 :root[data-theme="light"] .dashboard-tile-description,
 :root[data-theme="light"] .overview-metric-description {
   color: #5d6b7c !important;

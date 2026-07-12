@@ -2457,7 +2457,7 @@ export function LiveBankValues({
                   <span
                     className={`whitespace-nowrap text-right font-mono text-sm font-semibold ${
                       section.title === "Liability accounts"
-                        ? "text-rose-200"
+                        ? "liability-account-total-value text-rose-200"
                         : "text-accent"
                     }`}
                   >
