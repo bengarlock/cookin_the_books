@@ -40,7 +40,7 @@ export default async function BudgetLayout({
       initialPendingTransactions={pendingTransactions}
     >
       <div className="w-full">
-        <section className="border-b border-white/10 pb-6">
+        <section className="mb-6">
           <BudgetNavigation />
         </section>
         {children}
