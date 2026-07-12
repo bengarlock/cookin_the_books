@@ -11,7 +11,7 @@ import {
 import { useOptionalBudgetData } from "@/components/budget-data-provider";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import { APP_BASE_PATH } from "@/lib/config";
-import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import type { CreditCardTransaction, ExpenseTag } from "@/lib/credit-card-transaction-types";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
@@ -585,7 +585,9 @@ function AccountTransactionList({
   onSubmitPendingTransaction,
   onToggleForm,
   onTransactionsChanged,
+  onTagLibraryChanged,
   onUnmatch,
+  tagLibrary,
   transactions,
   transactionForm,
 }: {
@@ -616,7 +618,9 @@ function AccountTransactionList({
   onSubmitPendingTransaction: (event: FormEvent<HTMLFormElement>) => void;
   onToggleForm: (accountKey: keyof BankValueSnapshot) => void;
   onTransactionsChanged: () => void;
+  onTagLibraryChanged: (tags: ExpenseTag[]) => void;
   onUnmatch: (pendingTransactionId: number) => void;
+  tagLibrary: ExpenseTag[];
   transactions: CreditCardTransaction[];
   transactionForm: {
     note: string;
@@ -644,8 +648,11 @@ function AccountTransactionList({
     match_type: "exact" as "exact" | "starts_with",
     match_value: "",
     category: "dining",
-    tags: "",
+    tags: [] as string[],
+    note: "",
   });
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagFormOpen, setNewTagFormOpen] = useState(false);
 
   useEffect(() => {
     if (confirmingMatchId === null) return;
@@ -679,8 +686,11 @@ function AccountTransactionList({
         transaction.category && transaction.category !== "needs_review"
           ? transaction.category
           : "dining",
-      tags: (transaction.tags || []).map((tag) => tag.name).join(", "),
+      tags: (transaction.tags || []).map((tag) => tag.name),
+      note: transaction.note || "",
     });
+    setNewTagName("");
+    setNewTagFormOpen(false);
   }
 
   async function saveTransactionEditor(transaction: CreditCardTransaction) {
@@ -702,24 +712,29 @@ function AccountTransactionList({
       if (!categoryResponse.ok) {
         throw new Error("Unable to update the transaction category.");
       }
-      const tags = Array.from(
-        new Set(
-          editForm.tags
-            .split(",")
-            .map((tag) => tag.trim())
-            .filter(Boolean),
-        ),
-      );
       const tagResponse = await fetch(
         `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/update-tags`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tags }),
+          body: JSON.stringify({ tags: editForm.tags }),
         },
       );
       if (!tagResponse.ok) {
         throw new Error("The category was saved, but the tags could not be updated.");
+      }
+      const taggedTransaction = (await tagResponse.json()) as CreditCardTransaction;
+      onTagLibraryChanged(taggedTransaction.tags || []);
+      const noteResponse = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/update-note`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ note: editForm.note }),
+        },
+      );
+      if (!noteResponse.ok) {
+        throw new Error("The category and tags were saved, but the note could not be updated.");
       }
       setEditingTransactionId(null);
       onTransactionsChanged();
@@ -730,6 +745,21 @@ function AccountTransactionList({
     } finally {
       setSavingTransactionId(null);
     }
+  }
+
+  function toggleEditorTag(name: string, enabled: boolean) {
+    const cleaned = name.trim();
+    if (!cleaned) return;
+    setEditForm((current) => ({
+      ...current,
+      tags: enabled
+        ? current.tags.some((tag) => tag.toLowerCase() === cleaned.toLowerCase())
+          ? current.tags
+          : [...current.tags, cleaned]
+        : current.tags.filter((tag) => tag.toLowerCase() !== cleaned.toLowerCase()),
+    }));
+    setNewTagName("");
+    setNewTagFormOpen(false);
   }
 
   function transactionRows(
@@ -778,6 +808,11 @@ function AccountTransactionList({
                       </span>
                     ))}
                   </div>
+                ) : null}
+                {transaction.note ? (
+                  <p className="mt-1.5 text-xs italic text-white/55">
+                    {transaction.note}
+                  </p>
                 ) : null}
                 {transaction.manual_match ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-accent">
@@ -831,13 +866,71 @@ function AccountTransactionList({
                         ))}
                       </select>
                     </label>
-                    <label>
-                      <span className="text-[10px] uppercase tracking-[0.12em] text-muted">Tags</span>
-                      <input
-                        className="mt-1 h-9 w-full rounded-lg border border-white/10 bg-[#0b1714] px-2 text-xs text-white"
-                        onChange={(event) => setEditForm((current) => ({ ...current, tags: event.target.value }))}
-                        placeholder="shopping, household"
-                        value={editForm.tags}
+                    <div className="sm:col-span-2">
+                      <div className="flex flex-wrap gap-2">
+                        {editForm.tags.map((tag) => (
+                          <button
+                            className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[11px] text-sky-100"
+                            key={tag}
+                            onClick={() => toggleEditorTag(tag, false)}
+                            type="button"
+                          >
+                            {tag} ×
+                          </button>
+                        ))}
+                      </div>
+                      <div className="mt-3 flex items-center gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Available tags</span>
+                        <button
+                          aria-label="Create a new tag"
+                          className="grid size-6 place-items-center rounded-full border border-white/10 text-sm text-white/60 hover:border-sky-300/30 hover:text-sky-100"
+                          onClick={() => setNewTagFormOpen((current) => !current)}
+                          type="button"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {tagLibrary
+                          .filter((tag) => !editForm.tags.some((selected) => selected.toLowerCase() === tag.name.toLowerCase()))
+                          .map((tag) => (
+                            <button
+                              className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:border-sky-300/20 hover:text-sky-100"
+                              key={tag.id}
+                              onClick={() => toggleEditorTag(tag.name, true)}
+                              type="button"
+                            >
+                              + {tag.name}
+                            </button>
+                          ))}
+                      </div>
+                      {newTagFormOpen ? (
+                        <div className="mt-3 flex gap-2">
+                          <input
+                            className="h-9 min-w-48 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
+                            maxLength={40}
+                            onChange={(event) => setNewTagName(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                toggleEditorTag(newTagName, true);
+                              }
+                            }}
+                            placeholder="Create a tag"
+                            value={newTagName}
+                          />
+                          <button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70" onClick={() => toggleEditorTag(newTagName, true)} type="button">Add</button>
+                        </div>
+                      ) : null}
+                    </div>
+                    <label className="sm:col-span-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Transaction note</span>
+                      <textarea
+                        className="mt-2 min-h-20 w-full resize-y rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white outline-none focus:border-accent/50"
+                        maxLength={2000}
+                        onChange={(event) => setEditForm((current) => ({ ...current, note: event.target.value }))}
+                        placeholder="Add context about this transaction"
+                        value={editForm.note}
                       />
                     </label>
                     <div className="flex items-center gap-2 sm:col-span-2">
@@ -1115,10 +1208,12 @@ function AccountTransactionList({
 
 export function LiveBankValues({
   initialBudgetPlanSettings,
+  initialExpenseTags = [],
   initialPendingTransactions,
   view = "overview",
 }: {
   initialBudgetPlanSettings?: BudgetPlanSettings;
+  initialExpenseTags?: ExpenseTag[];
   initialPendingTransactions?: PendingTransaction[];
   view?: FinancialView;
 }) {
@@ -1133,6 +1228,17 @@ export function LiveBankValues({
     budgetData?.setPendingTransactions ?? setLocalPendingTransactions;
   const budgetPlanSettings =
     budgetData?.budgetPlanSettings ?? initialBudgetPlanSettings;
+  const [expenseTags, setExpenseTags] = useState(initialExpenseTags);
+
+  function mergeExpenseTags(tags: ExpenseTag[]) {
+    setExpenseTags((current) => {
+      const byName = new Map(current.map((tag) => [tag.name.toLowerCase(), tag]));
+      tags.forEach((tag) => byName.set(tag.name.toLowerCase(), tag));
+      return Array.from(byName.values()).sort((left, right) =>
+        left.name.localeCompare(right.name),
+      );
+    });
+  }
 
   if (!budgetPlanSettings) {
     throw new Error(
@@ -1964,7 +2070,9 @@ export function LiveBankValues({
                         onSubmitPendingTransaction={addPendingTransaction}
                         onToggleForm={togglePendingTransactionForm}
                         onTransactionsChanged={() => void loadAccountTransactions("citi_current")}
+                        onTagLibraryChanged={mergeExpenseTags}
                         onUnmatch={(id) => void unmatchTransaction(id)}
+                        tagLibrary={expenseTags}
                         transactions={citiTransactions?.transactions || []}
                         transactionForm={transactionForm}
                       />
@@ -2121,7 +2229,9 @@ export function LiveBankValues({
                           onSubmitPendingTransaction={addPendingTransaction}
                           onToggleForm={togglePendingTransactionForm}
                           onTransactionsChanged={() => void loadAccountTransactions(account.key)}
+                          onTagLibraryChanged={mergeExpenseTags}
                           onUnmatch={(id) => void unmatchTransaction(id)}
+                          tagLibrary={expenseTags}
                           transactions={transactionState?.transactions || []}
                           transactionForm={transactionForm}
                         />
