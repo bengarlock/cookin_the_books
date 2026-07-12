@@ -6,6 +6,7 @@ export type ExpenseAutomationMatchField =
 export type ExpenseAutomationMatchOperator = "contains" | "equals";
 export type ExpenseAutomationCondition = {
   id: string;
+  logic_operator?: "and" | "or";
   field: "description" | "issuer" | "transaction_type" | "account_last_four" | "amount" | "transaction_date" | "tags";
   operator: "contains" | "not_contains" | "equals" | "not_equals" | "starts_with" | "greater_than" | "greater_than_or_equal" | "less_than" | "less_than_or_equal" | "on_or_after" | "on_or_before";
   value: string | string[];

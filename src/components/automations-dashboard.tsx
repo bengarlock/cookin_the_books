@@ -19,7 +19,7 @@ import { extractApiErrorDetail, extractApiErrorMessage } from "@/lib/api-error-m
 import { APP_BASE_PATH } from "@/lib/config";
 import { formatAutomationRunMessage } from "@/lib/format-automation-run-message";
 import { formatAutomationActionSummary } from "@/lib/expense-automation-summary";
-import { conditionIsEmpty, transactionMatchesCondition } from "@/lib/transaction-selector";
+import { conditionIsEmpty, selectTransactions } from "@/lib/transaction-selector";
 
 
 const emptyRuleForm = {
@@ -47,7 +47,13 @@ function ruleToForm(rule: ExpenseAutomationRule) {
     conditions: (rule.conditions?.length ? rule.conditions : [{
       id: crypto.randomUUID(), field: rule.match_field, operator: rule.match_operator,
       value: rule.match_value,
-    }]).map((condition) => ({ ...condition, id: condition.id || crypto.randomUUID() })),
+    }]).map((condition, index) => ({
+      ...condition,
+      id: condition.id || crypto.randomUUID(),
+      logic_operator: index
+        ? condition.logic_operator || rule.logic_operator || "and"
+        : undefined,
+    })),
     actions: (rule.actions?.length ? rule.actions : rule.target_budget_item ? [{ type: "create_expense" as const, budget_item: String(rule.target_budget_item), note: rule.note_template, exclude_from_credit_card: rule.exclude_from_credit_card }] : []).map((action) => ({ ...action, budget_item: action.type === "create_expense" ? String(action.budget_item) : undefined, id: crypto.randomUUID() })) as ExpenseAutomationAction[],
     logic_operator: rule.logic_operator || "and",
   };
@@ -178,11 +184,11 @@ export function AutomationsDashboard({
       logic_operator: form.logic_operator,
     };
 
-    return initialCreditCardTransactions
-      .filter((transaction) => {
-        const results = draftRule.conditions.map((condition) => transactionMatchesCondition(transaction, condition));
-        return draftRule.logic_operator === "or" ? results.some(Boolean) : results.every(Boolean);
-      });
+    return selectTransactions(
+      initialCreditCardTransactions,
+      draftRule.conditions,
+      draftRule.logic_operator,
+    );
   }, [form, initialCreditCardTransactions]);
 
   function openCreateForm() {
@@ -244,7 +250,14 @@ export function AutomationsDashboard({
       target_budget_item: form.actions.find((action) => action.type === "create_expense")?.budget_item || null,
       note_template: form.note_template.trim(),
       exclude_from_credit_card: form.exclude_from_credit_card,
-      conditions: form.conditions.map(({ field, operator, value }) => ({ field, operator, value })),
+      conditions: form.conditions.map(
+        ({ field, logic_operator, operator, value }, index) => ({
+          field,
+          operator,
+          value,
+          ...(index ? { logic_operator: logic_operator || form.logic_operator } : {}),
+        }),
+      ),
       logic_operator: form.logic_operator,
       actions: form.actions.map(serializeAction),
     };
@@ -492,7 +505,6 @@ export function AutomationsDashboard({
                 logic={form.logic_operator}
                 matches={previewMatches}
                 onChange={(conditions) => setForm((current) => ({ ...current, conditions }))}
-                onLogicChange={(logic_operator) => setForm((current) => ({ ...current, logic_operator }))}
               />
             </div>
             <div className="sm:col-span-2"><AutomationActionBuilder actions={form.actions} expenses={expenseTargets} tags={availableTags} onChange={(actions) => setForm((current) => ({ ...current, actions }))} onCreateTag={createTag} /></div>

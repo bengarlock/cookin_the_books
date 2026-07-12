@@ -266,7 +266,6 @@ export function AutomationSelectorBuilder({
   tags,
   matches,
   onChange,
-  onLogicChange,
 }: {
   conditions: ExpenseAutomationCondition[];
   logic: "and" | "or";
@@ -275,7 +274,6 @@ export function AutomationSelectorBuilder({
   tags: string[];
   matches: CreditCardTransaction[];
   onChange: (conditions: ExpenseAutomationCondition[]) => void;
-  onLogicChange: (logic: "and" | "or") => void;
 }) {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"selectors" | "matches">("selectors");
@@ -296,6 +294,7 @@ export function AutomationSelectorBuilder({
         field,
         operator: selector.operators[0],
         value: field === "account_last_four" ? [] : "",
+        logic_operator: conditions.length ? logic : undefined,
       },
     ]);
   }
@@ -356,24 +355,6 @@ export function AutomationSelectorBuilder({
               <span>{matches.length}</span>
               <span className="font-normal text-sky-100/65">records</span>
             </div>
-            {conditions.length > 1 && tab === "selectors" ? (
-              <div className="flex rounded-lg border border-white/10 p-1">
-                <button
-                  className={`rounded px-2 py-1 text-xs ${logic === "and" ? "bg-accent/15 text-accent" : "text-muted"}`}
-                  onClick={() => onLogicChange("and")}
-                  type="button"
-                >
-                  AND
-                </button>
-                <button
-                  className={`rounded px-2 py-1 text-xs ${logic === "or" ? "bg-accent/15 text-accent" : "text-muted"}`}
-                  onClick={() => onLogicChange("or")}
-                  type="button"
-                >
-                  OR
-                </button>
-              </div>
-            ) : null}
           </div>
         </div>
         {tab === "selectors" ? (
@@ -389,9 +370,32 @@ export function AutomationSelectorBuilder({
                     key={condition.id}
                   >
                     {index ? (
-                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-gold">
-                        {logic}
-                      </p>
+                      <div className="mb-3 flex items-center gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                          Combine with previous row
+                        </span>
+                        <div className="flex rounded-lg border border-white/10 p-1">
+                          {(["and", "or"] as const).map((connector) => (
+                            <button
+                              aria-pressed={(condition.logic_operator || logic) === connector}
+                              className={`rounded px-2.5 py-1 text-[10px] font-semibold uppercase ${
+                                (condition.logic_operator || logic) === connector
+                                  ? "bg-accent/15 text-accent"
+                                  : "text-muted"
+                              }`}
+                              key={connector}
+                              onClick={() =>
+                                update(condition.id, {
+                                  logic_operator: connector,
+                                })
+                              }
+                              type="button"
+                            >
+                              {connector}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     ) : null}
                     <div className="grid items-center gap-2 sm:grid-cols-[1fr_auto_minmax(10rem,1fr)_auto]">
                       <span className="text-sm font-medium text-white">
