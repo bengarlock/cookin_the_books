@@ -777,7 +777,7 @@ export function SnapshotsDashboard({
                 dialogLabel="Select snapshot date range"
                 onApply={setChartRange}
                 range={chartRange}
-                triggerClassName="inline-flex min-w-[280px] items-center justify-center gap-2 rounded-xl border border-accent/30 bg-[#061811] px-4 py-3 text-center text-sm font-semibold text-accent transition hover:border-accent/60 hover:bg-accent/10"
+                triggerClassName="snapshot-date-range-trigger inline-flex min-w-[280px] items-center justify-center gap-2 rounded-xl border border-accent/30 bg-[#061811] px-4 py-3 text-center text-sm font-semibold text-accent transition hover:border-accent/60 hover:bg-accent/10"
               />
             </div>
           </div>

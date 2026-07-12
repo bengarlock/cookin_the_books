@@ -261,6 +261,19 @@ input {
   color: #4f2e00 !important;
 }
 
+:root[data-theme="light"] .snapshot-date-range-trigger {
+  border-color: rgba(255, 255, 255, 0.34) !important;
+  background: linear-gradient(135deg, #0759ad, #0872cf) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(8, 104, 199, 0.22);
+}
+
+:root[data-theme="light"] .snapshot-date-range-trigger:hover {
+  border-color: rgba(255, 255, 255, 0.48) !important;
+  background: linear-gradient(135deg, #064f9d, #0868c7) !important;
+  color: #ffffff !important;
+}
+
 :root[data-theme="light"] .condition-operator,
 :root[data-theme="light"] .selector-popover {
   border-color: rgba(18, 64, 112, 0.18) !important;
