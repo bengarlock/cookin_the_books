@@ -356,30 +356,30 @@ function MetricCard({
 }) {
   return (
     <article
-      className={`overview-metric-card rounded-2xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] ${
+      className={`dashboard-tile overview-metric-card rounded-2xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] ${
         featured
-          ? "overview-metric-card-featured border-accent/25 bg-accent/[0.09]"
+          ? "dashboard-tile-featured overview-metric-card-featured border-accent/25 bg-accent/[0.09]"
           : "border-white/10 bg-white/[0.045]"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="overview-metric-label text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+        <p className="dashboard-tile-label overview-metric-label text-xs font-semibold uppercase tracking-[0.18em] text-muted">
           {label}
         </p>
         {icon}
       </div>
       <p
-        className={`overview-metric-value mt-4 font-mono text-2xl font-semibold tracking-tight sm:text-3xl ${
+        className={`dashboard-tile-value overview-metric-value mt-4 font-mono text-2xl font-semibold tracking-tight sm:text-3xl ${
           negative
-            ? "overview-metric-value-negative text-rose-300"
+            ? "dashboard-tile-value-negative overview-metric-value-negative text-rose-300"
             : featured
-              ? "overview-metric-value-featured text-accent"
+              ? "dashboard-tile-value-featured overview-metric-value-featured text-accent"
               : "text-white"
         }`}
       >
         {value}
       </p>
-      <p className="overview-metric-description mt-3 text-xs leading-5 text-muted">
+      <p className="dashboard-tile-description overview-metric-description mt-3 text-xs leading-5 text-muted">
         {description}
       </p>
     </article>

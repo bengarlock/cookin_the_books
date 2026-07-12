@@ -99,18 +99,22 @@ function Metric({
 }) {
   return (
     <div
-      className={`rounded-2xl border p-5 ${
+      className={`dashboard-tile rounded-2xl border p-5 ${
         featured
-          ? "border-accent/25 bg-accent/[0.09]"
+          ? "dashboard-tile-featured border-accent/25 bg-accent/[0.09]"
           : "border-white/10 bg-white/[0.035]"
       }`}
     >
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
+      <p className="dashboard-tile-label text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
         {label}
       </p>
       <p
-        className={`mt-3 font-mono text-2xl font-semibold ${
-          negative ? "text-rose-300" : featured ? "text-accent" : "text-white"
+        className={`dashboard-tile-value mt-3 font-mono text-2xl font-semibold ${
+          negative
+            ? "dashboard-tile-value-negative text-rose-300"
+            : featured
+              ? "dashboard-tile-value-featured text-accent"
+              : "text-white"
         }`}
       >
         {value}

@@ -54,23 +54,29 @@ function MetricCard({
 }) {
   return (
     <article
-      className={`rounded-2xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] ${
+      className={`dashboard-tile rounded-2xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] ${
         featured
-          ? "border-accent/25 bg-accent/[0.09]"
+          ? "dashboard-tile-featured border-accent/25 bg-accent/[0.09]"
           : "border-white/10 bg-white/[0.045]"
       }`}
     >
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+      <p className="dashboard-tile-label text-xs font-semibold uppercase tracking-[0.18em] text-muted">
         {label}
       </p>
       <p
-        className={`mt-4 font-mono text-2xl font-semibold tracking-tight sm:text-3xl ${
-          negative ? "text-rose-300" : featured ? "text-accent" : "text-white"
+        className={`dashboard-tile-value mt-4 font-mono text-2xl font-semibold tracking-tight sm:text-3xl ${
+          negative
+            ? "dashboard-tile-value-negative text-rose-300"
+            : featured
+              ? "dashboard-tile-value-featured text-accent"
+              : "text-white"
         }`}
       >
         {value}
       </p>
-      <p className="mt-3 text-xs leading-5 text-muted">{description}</p>
+      <p className="dashboard-tile-description mt-3 text-xs leading-5 text-muted">
+        {description}
+      </p>
       {action ? <div className="mt-4">{action}</div> : null}
     </article>
   );

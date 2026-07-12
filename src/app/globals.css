@@ -103,7 +103,7 @@ input {
 }
 
 :root[data-theme="light"] .surface {
-  background: rgba(255, 255, 255, 0.96);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(232, 242, 253, 0.9));
   box-shadow: 0 16px 44px rgba(27, 64, 102, 0.09);
 }
 
@@ -183,36 +183,47 @@ input {
   box-shadow: 0 5px 18px rgba(0, 38, 82, 0.12);
 }
 
+:root[data-theme="light"] .dashboard-tile,
 :root[data-theme="light"] .overview-metric-card {
-  border-color: rgba(107, 133, 162, 0.22);
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(244, 248, 252, 0.92));
+  border-color: rgba(93, 158, 229, 0.38) !important;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(59, 130, 246, 0.12), transparent 16rem),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(228, 240, 253, 0.94)) !important;
   box-shadow: 0 18px 38px rgba(27, 64, 102, 0.1);
 }
 
+:root[data-theme="light"] .dashboard-tile-featured,
 :root[data-theme="light"] .overview-metric-card-featured {
-  border-color: rgba(8, 104, 199, 0.26);
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(222, 236, 252, 0.94));
-  box-shadow: 0 18px 38px rgba(8, 104, 199, 0.13);
+  border-color: rgba(8, 104, 199, 0.34) !important;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(8, 104, 199, 0.16), transparent 16rem),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(218, 234, 253, 0.96)) !important;
+  box-shadow: 0 18px 38px rgba(8, 104, 199, 0.14);
 }
 
+:root[data-theme="light"] .dashboard-tile-label,
 :root[data-theme="light"] .overview-metric-label {
-  color: #627286;
+  color: #627286 !important;
 }
 
+:root[data-theme="light"] .dashboard-tile-value,
 :root[data-theme="light"] .overview-metric-value {
-  color: #111827;
+  color: #111827 !important;
 }
 
+:root[data-theme="light"] .dashboard-tile-value-featured,
 :root[data-theme="light"] .overview-metric-value-featured {
-  color: #0868c7;
+  color: #0868c7 !important;
 }
 
+:root[data-theme="light"] .dashboard-tile-value-negative,
 :root[data-theme="light"] .overview-metric-value-negative {
-  color: #d22d52;
+  color: #d22d52 !important;
 }
 
+:root[data-theme="light"] .dashboard-tile-description,
 :root[data-theme="light"] .overview-metric-description {
-  color: #5d6b7c;
+  color: #5d6b7c !important;
 }
 
 :root[data-theme="light"] .savings-reserve-alert {
