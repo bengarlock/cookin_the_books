@@ -152,11 +152,17 @@ function ExistingValueSelector({
   const [textMode, setTextMode] = useState(false);
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState(value);
-  const filtered = query.trim()
-    ? options
-        .filter((option) => option.toLowerCase().includes(query.toLowerCase()))
-        .slice(0, 50)
-    : options.slice(0, 50);
+  const selectedKeys = new Set(
+    draft.map((item) => item.toLocaleLowerCase()),
+  );
+  const filtered = options
+    .filter((option) => !selectedKeys.has(option.toLocaleLowerCase()))
+    .filter(
+      (option) =>
+        !query.trim() ||
+        option.toLowerCase().includes(query.trim().toLowerCase()),
+    )
+    .slice(0, 50);
   function begin() {
     setDraft(value);
     setQuery("");
@@ -203,27 +209,56 @@ function ExistingValueSelector({
                 placeholder={`Search existing ${label.toLowerCase()}`}
                 value={query}
               />
+              {draft.length ? (
+                <div className="mt-3 shrink-0 rounded-lg border border-accent/20 bg-accent/[0.06] p-2.5">
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent">
+                    Selected
+                  </p>
+                  <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto overscroll-contain">
+                    {draft.map((item) => (
+                      <button
+                        className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-accent/25 bg-accent/10 px-2.5 py-1 text-left text-[11px] font-medium text-accent"
+                        key={item.toLocaleLowerCase()}
+                        onClick={() =>
+                          setDraft(
+                            draft.filter(
+                              (selected) =>
+                                selected.toLocaleLowerCase() !==
+                                item.toLocaleLowerCase(),
+                            ),
+                          )
+                        }
+                        title={`Remove ${item}`}
+                        type="button"
+                      >
+                        <span className="truncate">{item}</span>
+                        <span aria-hidden="true" className="shrink-0">×</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              <p className="mt-3 shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                Available
+              </p>
               <div className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                {filtered.map((option) => {
-                  const selected = draft.includes(option);
+                {filtered.length ? filtered.map((option) => {
                   return (
                     <button
-                      className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs ${selected ? "bg-accent/10 text-accent" : "text-white/70 hover:bg-white/[0.05]"}`}
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-white/70 hover:bg-white/[0.05]"
                       key={option}
-                      onClick={() =>
-                        setDraft(
-                          selected
-                            ? draft.filter((item) => item !== option)
-                            : [...draft, option],
-                        )
-                      }
+                      onClick={() => setDraft([...draft, option])}
                       type="button"
                     >
                       <span className="truncate">{option}</span>
-                      <span>{selected ? "✓" : "+"}</span>
+                      <span>+</span>
                     </button>
                   );
-                })}
+                }) : (
+                  <p className="px-3 py-4 text-center text-xs text-muted">
+                    No available values match this search.
+                  </p>
+                )}
               </div>
             </>
           )}
