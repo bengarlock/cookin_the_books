@@ -11,7 +11,7 @@ import {
 import { useOptionalBudgetData } from "@/components/budget-data-provider";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import { APP_BASE_PATH } from "@/lib/config";
-import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import type { CreditCardTransaction, ExpenseTag } from "@/lib/credit-card-transaction-types";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
@@ -60,6 +60,20 @@ const liabilityAccounts = new Set<keyof BankValueSnapshot>([
   "citi_pending",
   "barclays_card",
 ]);
+
+const transactionCategoryLabels: Record<string, string> = {
+  dining: "Dining",
+  groceries: "Groceries",
+  transportation: "Transportation",
+  housing: "Housing",
+  utilities: "Utilities",
+  shopping: "Shopping",
+  health: "Health",
+  entertainment: "Entertainment",
+  travel: "Travel",
+  subscriptions: "Subscriptions",
+  fees_interest: "Fees & interest",
+};
 
 const accountLoginUrls: Partial<
   Record<keyof BankValueSnapshot, string>
@@ -567,8 +581,13 @@ function AccountTransactionList({
   onChangeTransactionForm,
   onDeleteTransaction,
   onMarkCleared,
+  onReconcile,
   onSubmitPendingTransaction,
   onToggleForm,
+  onTransactionsChanged,
+  onTagLibraryChanged,
+  onUnmatch,
+  tagLibrary,
   transactions,
   transactionForm,
 }: {
@@ -592,8 +611,16 @@ function AccountTransactionList({
   ) => void;
   onDeleteTransaction: (transaction: PendingTransaction) => void;
   onMarkCleared: (transaction: PendingTransaction) => void;
+  onReconcile: (
+    transaction: PendingTransaction,
+    action: "confirm" | "reject" | "undo",
+  ) => void;
   onSubmitPendingTransaction: (event: FormEvent<HTMLFormElement>) => void;
   onToggleForm: (accountKey: keyof BankValueSnapshot) => void;
+  onTransactionsChanged: () => void;
+  onTagLibraryChanged: (tags: ExpenseTag[]) => void;
+  onUnmatch: (pendingTransactionId: number) => void;
+  tagLibrary: ExpenseTag[];
   transactions: CreditCardTransaction[];
   transactionForm: {
     note: string;
@@ -602,9 +629,138 @@ function AccountTransactionList({
     expected_post_date: string;
   };
 }) {
-  const pending = transactions.filter((transaction) => transaction.pending);
+  const linkedPendingIds = new Set(
+    manualPendingTransactions
+      .filter((transaction) => transaction.match_status === "matched_pending")
+      .map((transaction) => transaction.matched_transaction),
+  );
+  const pending = transactions.filter(
+    (transaction) => transaction.pending && !linkedPendingIds.has(transaction.id),
+  );
   const posted = transactions.filter((transaction) => !transaction.pending);
   const pendingCount = pending.length + manualPendingTransactions.length;
+  const [confirmingMatchId, setConfirmingMatchId] = useState<number | null>(null);
+  const [confirmingUnmatchId, setConfirmingUnmatchId] = useState<number | null>(null);
+  const [editingTransactionId, setEditingTransactionId] = useState<number | null>(null);
+  const [savingTransactionId, setSavingTransactionId] = useState<number | null>(null);
+  const [editError, setEditError] = useState("");
+  const [editForm, setEditForm] = useState({
+    match_type: "exact" as "exact" | "starts_with",
+    match_value: "",
+    category: "dining",
+    tags: [] as string[],
+    note: "",
+  });
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagFormOpen, setNewTagFormOpen] = useState(false);
+
+  useEffect(() => {
+    if (confirmingMatchId === null) return;
+
+    function cancelMatchConfirmation(event: PointerEvent) {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest(
+          `[data-match-confirmation="${confirmingMatchId}"]`,
+        )
+      ) {
+        return;
+      }
+      setConfirmingMatchId(null);
+    }
+
+    document.addEventListener("pointerdown", cancelMatchConfirmation);
+    return () => {
+      document.removeEventListener("pointerdown", cancelMatchConfirmation);
+    };
+  }, [confirmingMatchId]);
+
+  function openTransactionEditor(transaction: CreditCardTransaction) {
+    setEditingTransactionId(transaction.id);
+    setEditError("");
+    setEditForm({
+      match_type: "exact",
+      match_value: transaction.description,
+      category:
+        transaction.category && transaction.category !== "needs_review"
+          ? transaction.category
+          : "dining",
+      tags: (transaction.tags || []).map((tag) => tag.name),
+      note: transaction.note || "",
+    });
+    setNewTagName("");
+    setNewTagFormOpen(false);
+  }
+
+  async function saveTransactionEditor(transaction: CreditCardTransaction) {
+    setSavingTransactionId(transaction.id);
+    setEditError("");
+    try {
+      const categoryResponse = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/correct-category`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            match_type: editForm.match_type,
+            match_value: editForm.match_value,
+            category: editForm.category,
+          }),
+        },
+      );
+      if (!categoryResponse.ok) {
+        throw new Error("Unable to update the transaction category.");
+      }
+      const tagResponse = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/update-tags`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tags: editForm.tags }),
+        },
+      );
+      if (!tagResponse.ok) {
+        throw new Error("The category was saved, but the tags could not be updated.");
+      }
+      const taggedTransaction = (await tagResponse.json()) as CreditCardTransaction;
+      onTagLibraryChanged(taggedTransaction.tags || []);
+      const noteResponse = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/update-note`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ note: editForm.note }),
+        },
+      );
+      if (!noteResponse.ok) {
+        throw new Error("The category and tags were saved, but the note could not be updated.");
+      }
+      setEditingTransactionId(null);
+      onTransactionsChanged();
+    } catch (error) {
+      setEditError(
+        error instanceof Error ? error.message : "Unable to update the transaction.",
+      );
+    } finally {
+      setSavingTransactionId(null);
+    }
+  }
+
+  function toggleEditorTag(name: string, enabled: boolean) {
+    const cleaned = name.trim();
+    if (!cleaned) return;
+    setEditForm((current) => ({
+      ...current,
+      tags: enabled
+        ? current.tags.some((tag) => tag.toLowerCase() === cleaned.toLowerCase())
+          ? current.tags
+          : [...current.tags, cleaned]
+        : current.tags.filter((tag) => tag.toLowerCase() !== cleaned.toLowerCase()),
+    }));
+    setNewTagName("");
+    setNewTagFormOpen(false);
+  }
 
   function transactionRows(
     items: CreditCardTransaction[],
@@ -641,14 +797,175 @@ function AccountTransactionList({
                 <p className="mt-0.5 text-[11px] uppercase tracking-[0.12em] text-muted">
                   {transaction.category || transaction.transaction_type}
                 </p>
+                {transaction.tags?.length ? (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {transaction.tags.map((tag) => (
+                      <span
+                        className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2 py-0.5 text-[10px] text-sky-100"
+                        key={tag.id}
+                      >
+                        {tag.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+                {transaction.note ? (
+                  <p className="mt-1.5 text-xs italic text-white/55">
+                    {transaction.note}
+                  </p>
+                ) : null}
+                {transaction.manual_match ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-accent">
+                    <span>Matched from manual entry “{transaction.manual_match.note}”</span>
+                    <button
+                      className="rounded-md border border-white/10 px-2 py-1 text-white/65 hover:border-white/20 hover:text-white"
+                      onClick={() => {
+                        if (confirmingUnmatchId === transaction.id) {
+                          onUnmatch(transaction.manual_match!.pending_transaction_id);
+                          setConfirmingUnmatchId(null);
+                        } else {
+                          setConfirmingUnmatchId(transaction.id);
+                        }
+                      }}
+                      type="button"
+                    >
+                      {confirmingUnmatchId === transaction.id ? "Confirm" : "Unmatch"}
+                    </button>
+                  </div>
+                ) : null}
+                {editingTransactionId === transaction.id ? (
+                  <div className="mt-3 grid gap-2 rounded-xl border border-white/10 bg-black/15 p-3 sm:grid-cols-2">
+                    <label>
+                      <span className="text-[10px] uppercase tracking-[0.12em] text-muted">Match</span>
+                      <select
+                        className="mt-1 h-9 w-full rounded-lg border border-white/10 bg-[#0b1714] px-2 text-xs text-white"
+                        onChange={(event) => setEditForm((current) => ({ ...current, match_type: event.target.value as "exact" | "starts_with" }))}
+                        value={editForm.match_type}
+                      >
+                        <option value="exact">Description equals</option>
+                        <option value="starts_with">Description starts with</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span className="text-[10px] uppercase tracking-[0.12em] text-muted">Description</span>
+                      <input
+                        className="mt-1 h-9 w-full rounded-lg border border-white/10 bg-[#0b1714] px-2 text-xs text-white"
+                        onChange={(event) => setEditForm((current) => ({ ...current, match_value: event.target.value }))}
+                        value={editForm.match_value}
+                      />
+                    </label>
+                    <label>
+                      <span className="text-[10px] uppercase tracking-[0.12em] text-muted">Category</span>
+                      <select
+                        className="mt-1 h-9 w-full rounded-lg border border-white/10 bg-[#0b1714] px-2 text-xs text-white"
+                        onChange={(event) => setEditForm((current) => ({ ...current, category: event.target.value }))}
+                        value={editForm.category}
+                      >
+                        {Object.entries(transactionCategoryLabels).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="sm:col-span-2">
+                      <div className="flex flex-wrap gap-2">
+                        {editForm.tags.map((tag) => (
+                          <button
+                            className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[11px] text-sky-100"
+                            key={tag}
+                            onClick={() => toggleEditorTag(tag, false)}
+                            type="button"
+                          >
+                            {tag} ×
+                          </button>
+                        ))}
+                      </div>
+                      <div className="mt-3 flex items-center gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Available tags</span>
+                        <button
+                          aria-label="Create a new tag"
+                          className="grid size-6 place-items-center rounded-full border border-white/10 text-sm text-white/60 hover:border-sky-300/30 hover:text-sky-100"
+                          onClick={() => setNewTagFormOpen((current) => !current)}
+                          type="button"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            className="size-3.5"
+                            fill="none"
+                            viewBox="0 0 16 16"
+                          >
+                            <path
+                              d="M8 3.25v9.5M3.25 8h9.5"
+                              stroke="currentColor"
+                              strokeLinecap="round"
+                              strokeWidth="1.5"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {tagLibrary
+                          .filter((tag) => !editForm.tags.some((selected) => selected.toLowerCase() === tag.name.toLowerCase()))
+                          .map((tag) => (
+                            <button
+                              className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:border-sky-300/20 hover:text-sky-100"
+                              key={tag.id}
+                              onClick={() => toggleEditorTag(tag.name, true)}
+                              type="button"
+                            >
+                              + {tag.name}
+                            </button>
+                          ))}
+                      </div>
+                      {newTagFormOpen ? (
+                        <div className="mt-3 flex gap-2">
+                          <input
+                            className="h-9 min-w-48 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
+                            maxLength={40}
+                            onChange={(event) => setNewTagName(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                toggleEditorTag(newTagName, true);
+                              }
+                            }}
+                            placeholder="Create a tag"
+                            value={newTagName}
+                          />
+                          <button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70" onClick={() => toggleEditorTag(newTagName, true)} type="button">Add</button>
+                        </div>
+                      ) : null}
+                    </div>
+                    <label className="sm:col-span-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Transaction note</span>
+                      <textarea
+                        className="mt-2 min-h-20 w-full resize-y rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white outline-none focus:border-accent/50"
+                        maxLength={2000}
+                        onChange={(event) => setEditForm((current) => ({ ...current, note: event.target.value }))}
+                        placeholder="Add context about this transaction"
+                        value={editForm.note}
+                      />
+                    </label>
+                    <div className="flex items-center gap-2 sm:col-span-2">
+                      <button
+                        className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
+                        disabled={savingTransactionId === transaction.id}
+                        onClick={() => void saveTransactionEditor(transaction)}
+                        type="button"
+                      >
+                        {savingTransactionId === transaction.id ? "Saving…" : "Save"}
+                      </button>
+                      <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={() => setEditingTransactionId(null)} type="button">Cancel</button>
+                    </div>
+                    {editError ? <p className="text-xs text-rose-200 sm:col-span-2">{editError}</p> : null}
+                  </div>
+                ) : null}
               </div>
-              <span
-                className={`whitespace-nowrap text-right font-mono text-sm ${
-                  isCredit ? "text-accent" : "text-white"
-                }`}
-              >
-                {signedTransactionAmount(transaction)}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`whitespace-nowrap text-right font-mono text-sm ${isCredit ? "text-accent" : "text-white"}`}>
+                  {signedTransactionAmount(transaction)}
+                </span>
+                <button className="text-xs text-white/50 hover:text-accent" onClick={() => openTransactionEditor(transaction)} type="button">Edit</button>
+              </div>
             </div>
           );
         })}
@@ -663,7 +980,7 @@ function AccountTransactionList({
       <div className="mb-3 overflow-hidden rounded-xl border border-amber-100/15 bg-amber-200/[0.04]">
         {items.map((transaction) => (
           <div
-            className={`grid gap-3 border-b border-white/[0.07] px-3 py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center ${
+            className={`grid gap-3 border-b border-white/[0.07] px-3 py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_7rem_11rem] sm:items-center ${
               transaction.is_cleared ? "opacity-45" : ""
             }`}
             key={transaction.id}
@@ -673,17 +990,65 @@ function AccountTransactionList({
                 {transaction.note}
               </p>
               <p className="mt-0.5 text-[11px] uppercase tracking-[0.12em] text-muted">
-                Manual pending · Expected{" "}
-                {compactDateFormatter.format(
-                  new Date(`${transaction.expected_post_date}T12:00:00`),
-                )}
+                {transaction.match_status === "matched_pending"
+                  ? `Matched to synced transaction from ${formatTransactionDate(transaction.matched_transaction_detail?.transaction_date || transaction.expected_post_date)}`
+                  : transaction.match_status === "suggested"
+                    ? `Possible match from ${formatTransactionDate(transaction.matched_transaction_detail?.transaction_date || transaction.expected_post_date)}`
+                    : `Manual pending · Expected ${compactDateFormatter.format(new Date(`${transaction.expected_post_date}T12:00:00`))}`}
               </p>
             </div>
             <span className="whitespace-nowrap text-right font-mono text-sm text-amber-100">
               {formatCurrency(transaction.amount)}
             </span>
             <div className="flex flex-wrap items-center justify-start gap-2 sm:flex-nowrap sm:justify-end">
-              {transaction.is_cleared ? (
+              {transaction.match_status === "suggested" ? (
+                <>
+                  <button
+                    className="w-20 rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-xs font-medium text-accent transition hover:bg-accent/15"
+                    onClick={() => onReconcile(transaction, "confirm")}
+                    type="button"
+                  >
+                    Match
+                  </button>
+                  <button
+                    className="w-20 rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-white/65 transition hover:border-white/20 hover:text-white"
+                    onClick={() => onReconcile(transaction, "reject")}
+                    type="button"
+                  >
+                    Not match
+                  </button>
+                </>
+              ) : transaction.match_status === "matched_pending" ? (
+                <>
+                  <button
+                    data-match-confirmation={transaction.id}
+                    className={`inline-flex h-8 w-24 items-center justify-center gap-1.5 rounded-full border px-2 text-[11px] font-semibold transition ${
+                      confirmingMatchId === transaction.id
+                        ? "border-amber-200/30 bg-amber-200/10 text-amber-100"
+                        : "border-accent/25 bg-accent/[0.07] text-accent hover:border-accent/40 hover:bg-accent/10"
+                    }`}
+                    onClick={() => {
+                      if (confirmingMatchId === transaction.id) {
+                        onReconcile(transaction, "confirm");
+                        setConfirmingMatchId(null);
+                      } else {
+                        setConfirmingMatchId(transaction.id);
+                      }
+                    }}
+                    type="button"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`size-1.5 rounded-full ${
+                        confirmingMatchId === transaction.id
+                          ? "bg-amber-200"
+                          : "bg-accent"
+                      }`}
+                    />
+                    {confirmingMatchId === transaction.id ? "Confirm" : "Matched"}
+                  </button>
+                </>
+              ) : transaction.is_cleared ? (
                 <span className="w-20 text-center text-xs font-medium text-accent">
                   Cleared
                 </span>
@@ -696,7 +1061,7 @@ function AccountTransactionList({
                   Clear
                 </button>
               )}
-              <button
+              {transaction.match_status !== "suggested" && transaction.match_status !== "matched_pending" ? <button
                 className={`w-20 rounded-lg border px-3 py-2 text-xs font-medium transition disabled:opacity-50 ${
                   confirmingDeleteId === transaction.id
                     ? "border-rose-300/35 bg-rose-500/20 text-rose-100 hover:bg-rose-500/30"
@@ -711,7 +1076,7 @@ function AccountTransactionList({
                   : confirmingDeleteId === transaction.id
                     ? "Confirm"
                     : "Delete"}
-              </button>
+              </button> : null}
             </div>
           </div>
         ))}
@@ -855,10 +1220,12 @@ function AccountTransactionList({
 
 export function LiveBankValues({
   initialBudgetPlanSettings,
+  initialExpenseTags = [],
   initialPendingTransactions,
   view = "overview",
 }: {
   initialBudgetPlanSettings?: BudgetPlanSettings;
+  initialExpenseTags?: ExpenseTag[];
   initialPendingTransactions?: PendingTransaction[];
   view?: FinancialView;
 }) {
@@ -873,6 +1240,17 @@ export function LiveBankValues({
     budgetData?.setPendingTransactions ?? setLocalPendingTransactions;
   const budgetPlanSettings =
     budgetData?.budgetPlanSettings ?? initialBudgetPlanSettings;
+  const [expenseTags, setExpenseTags] = useState(initialExpenseTags);
+
+  function mergeExpenseTags(tags: ExpenseTag[]) {
+    setExpenseTags((current) => {
+      const byName = new Map(current.map((tag) => [tag.name.toLowerCase(), tag]));
+      tags.forEach((tag) => byName.set(tag.name.toLowerCase(), tag));
+      return Array.from(byName.values()).sort((left, right) =>
+        left.name.localeCompare(right.name),
+      );
+    });
+  }
 
   if (!budgetPlanSettings) {
     throw new Error(
@@ -941,7 +1319,7 @@ export function LiveBankValues({
     const pendingByAccount = new Map<keyof BankValueSnapshot, number>();
     const settledAccounts = new Set<keyof BankValueSnapshot>();
     for (const transaction of pendingTransactions) {
-      if (transaction.is_cleared) continue;
+      if (transaction.is_cleared || transaction.match_status === "matched_pending") continue;
       for (const account of transaction.settled_accounts || []) {
         settledAccounts.add(account);
       }
@@ -1301,8 +1679,56 @@ export function LiveBankValues({
       setPendingTransactions((current) =>
         current.map((item) => (item.id === updated.id ? updated : item)),
       );
+      if (expandedAccount) void loadAccountTransactions(expandedAccount);
     } else {
       setRegisterError("Unable to mark the transaction cleared.");
+    }
+  }
+
+  async function unmatchTransaction(pendingTransactionId: number) {
+    setRegisterError("");
+    const response = await fetch(
+      `${APP_BASE_PATH}/api/pending-transactions/${pendingTransactionId}/reconciliation`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "undo" }),
+      },
+    );
+    const updated = (await response.json().catch(() => null)) as PendingTransaction | null;
+    if (response.ok && updated?.id) {
+      setPendingTransactions((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      if (expandedAccount) void loadAccountTransactions(expandedAccount);
+    } else {
+      setRegisterError("Unable to unmatch the transaction.");
+    }
+  }
+
+  async function reconcileTransaction(
+    transaction: PendingTransaction,
+    action: "confirm" | "reject" | "undo",
+  ) {
+    setRegisterError("");
+    const response = await fetch(
+      `${APP_BASE_PATH}/api/pending-transactions/${transaction.id}/reconciliation`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      },
+    );
+    const updated = (await response.json().catch(() => null)) as
+      | PendingTransaction
+      | null;
+    if (response.ok && updated?.id) {
+      setPendingTransactions((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      if (expandedAccount) void loadAccountTransactions(expandedAccount);
+    } else {
+      setRegisterError("Unable to update the transaction match.");
     }
   }
 
@@ -1652,8 +2078,13 @@ export function LiveBankValues({
                         onChangeTransactionForm={updatePendingTransactionForm}
                         onDeleteTransaction={handlePendingDeleteClick}
                         onMarkCleared={markCleared}
+                        onReconcile={reconcileTransaction}
                         onSubmitPendingTransaction={addPendingTransaction}
                         onToggleForm={togglePendingTransactionForm}
+                        onTransactionsChanged={() => void loadAccountTransactions("citi_current")}
+                        onTagLibraryChanged={mergeExpenseTags}
+                        onUnmatch={(id) => void unmatchTransaction(id)}
+                        tagLibrary={expenseTags}
                         transactions={citiTransactions?.transactions || []}
                         transactionForm={transactionForm}
                       />
@@ -1806,8 +2237,13 @@ export function LiveBankValues({
                           onChangeTransactionForm={updatePendingTransactionForm}
                           onDeleteTransaction={handlePendingDeleteClick}
                           onMarkCleared={markCleared}
+                          onReconcile={reconcileTransaction}
                           onSubmitPendingTransaction={addPendingTransaction}
                           onToggleForm={togglePendingTransactionForm}
+                          onTransactionsChanged={() => void loadAccountTransactions(account.key)}
+                          onTagLibraryChanged={mergeExpenseTags}
+                          onUnmatch={(id) => void unmatchTransaction(id)}
+                          tagLibrary={expenseTags}
                           transactions={transactionState?.transactions || []}
                           transactionForm={transactionForm}
                         />

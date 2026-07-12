@@ -244,7 +244,7 @@ function adjustedAccountValue(
   const settledAccounts = new Set<keyof BankValueSnapshot>();
 
   for (const transaction of pendingTransactions) {
-    if (transaction.is_cleared) continue;
+    if (transaction.is_cleared || transaction.match_status === "matched_pending") continue;
     for (const account of transaction.settled_accounts || []) {
       settledAccounts.add(account);
     }

@@ -26,7 +26,7 @@ function pendingTotals(transactions: PendingTransaction[]) {
   const totals = new Map<string, number>();
   const settled = new Set<string>();
   for (const transaction of transactions) {
-    if (transaction.is_cleared) continue;
+    if (transaction.is_cleared || transaction.match_status === "matched_pending") continue;
     totals.set(transaction.account, (totals.get(transaction.account) || 0) + Number(transaction.amount));
     transaction.settled_accounts.forEach((account) => settled.add(account));
   }
