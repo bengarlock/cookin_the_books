@@ -5,12 +5,18 @@ import { FormEvent, useMemo, useState } from "react";
 import { useBudgetData } from "@/components/budget-data-provider";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { APP_BASE_PATH } from "@/lib/config";
+import { cashAccountIncomeTransactions } from "@/lib/cash-account-ledgers";
+import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
 import {
   defaultExpenseDateRange,
   formatExpenseDateRange,
   type ExpenseDateRange,
 } from "@/lib/expense-date-range";
 import type { IncomeEntry } from "@/lib/income-entry-types";
+import {
+  incomeLedgerTotals,
+  reconcileSyncedIncome,
+} from "@/lib/income-reconciliation";
 import { validatePdfImportFiles } from "@/lib/pdf-import";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -140,8 +146,12 @@ function statementEntries(
 }
 
 export function IncomeHistory() {
-  const { incomeEntries: entries, setIncomeEntries: setEntries } =
-    useBudgetData();
+  const {
+    incomeEntries: entries,
+    setIncomeEntries: setEntries,
+    creditCardTransactions,
+    setCreditCardTransactions,
+  } = useBudgetData();
   const [dateRange, setDateRange] = useState<ExpenseDateRange>(
     defaultExpenseDateRange(),
   );
@@ -150,6 +160,7 @@ export function IncomeHistory() {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState("");
   const [importMessage, setImportMessage] = useState("");
+  const [savingIncludeId, setSavingIncludeId] = useState<number | null>(null);
   const [form, setForm] = useState({
     employer: "",
     periodStart: todayString(),
@@ -172,11 +183,56 @@ export function IncomeHistory() {
         ),
     [dateRange.end, dateRange.start, entries],
   );
-  const totalGross = filteredEntries.reduce(
-    (total, entry) => total + Number(entry.gross_pay),
+  const reconciledIncome = useMemo(
+    () =>
+      reconcileSyncedIncome(
+        entries,
+        cashAccountIncomeTransactions(creditCardTransactions, {
+          includeExcluded: true,
+        }),
+      ),
+    [creditCardTransactions, entries],
+  );
+  const syncedIncomeByEntryId = useMemo(
+    () =>
+      new Map(
+        reconciledIncome.matches.map(({ incomeEntry, transaction }) => [
+          incomeEntry.id,
+          transaction,
+        ]),
+      ),
+    [reconciledIncome.matches],
+  );
+  const syncedAccountIncome = useMemo(
+    () =>
+      reconciledIncome.unmatchedTransactions
+        .filter(
+          (transaction) =>
+            transaction.transaction_date >= dateRange.start &&
+            transaction.transaction_date <= dateRange.end,
+        )
+        .sort(
+          (left, right) =>
+            right.transaction_date.localeCompare(left.transaction_date) ||
+            right.id - left.id,
+        ),
+    [dateRange.end, dateRange.start, reconciledIncome.unmatchedTransactions],
+  );
+  const syncedAccountIncomeTotal = syncedAccountIncome.reduce(
+    (total, transaction) =>
+      total + (transaction.include ? Number(transaction.amount) : 0),
     0,
   );
-  const totalNet = filteredEntries.reduce(
+  const ledgerTotals = incomeLedgerTotals(
+    entries,
+    cashAccountIncomeTransactions(creditCardTransactions, {
+      includeExcluded: true,
+    }),
+    dateRange,
+  );
+  const totalGross = ledgerTotals.gross;
+  const totalNet = ledgerTotals.net;
+  const statementNet = filteredEntries.reduce(
     (total, entry) => total + Number(entry.net_pay),
     0,
   );
@@ -234,13 +290,23 @@ export function IncomeHistory() {
   );
   const grossStatementEntries = statementEntries(filteredEntries, (entry) =>
     Number(entry.gross_pay),
+  ).concat(
+    ledgerTotals.syncedInRange.map((transaction) => [
+      `${formatDate(transaction.transaction_date)} · ${transaction.description}`,
+      Number(transaction.amount),
+    ] as MoneyBreakdownEntry),
   );
   const netStatementEntries = statementEntries(filteredEntries, (entry) =>
     Number(entry.net_pay),
+  ).concat(
+    ledgerTotals.syncedInRange.map((transaction) => [
+      `${formatDate(transaction.transaction_date)} · ${transaction.description}`,
+      Number(transaction.amount),
+    ] as MoneyBreakdownEntry),
   );
   const averageNetEntries = filteredEntries.length
     ? ([
-        ["Net income", totalNet],
+        ["Statement net income", statementNet],
         [
           "Pay statements",
           filteredEntries.length,
@@ -249,8 +315,47 @@ export function IncomeHistory() {
       ] as MoneyBreakdownEntry[])
     : [];
   const averageNet = filteredEntries.length
-    ? totalNet / filteredEntries.length
+    ? statementNet / filteredEntries.length
     : 0;
+
+  async function toggleSyncedIncomeInclude(
+    transaction: CreditCardTransaction,
+  ) {
+    setSavingIncludeId(transaction.id);
+    setError("");
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/update-budget-flags?include_unbudgeted=true`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ include: !transaction.include }),
+        },
+      );
+      const updated = (await response.json().catch(() => null)) as
+        | CreditCardTransaction
+        | { message?: string }
+        | null;
+      if (!response.ok || !updated || !("id" in updated)) {
+        throw new Error(
+          updated && "message" in updated && updated.message
+            ? updated.message
+            : "Unable to update this income transaction.",
+        );
+      }
+      setCreditCardTransactions((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+    } catch (includeError) {
+      setError(
+        includeError instanceof Error
+          ? includeError.message
+          : "Unable to update this income transaction.",
+      );
+    } finally {
+      setSavingIncludeId(null);
+    }
+  }
 
   async function addIncomeEntry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -624,6 +729,7 @@ export function IncomeHistory() {
           </div>
           {filteredEntries.length ? (
             filteredEntries.map((entry) => {
+              const syncedTransaction = syncedIncomeByEntryId.get(entry.id);
               const taxEntries = breakdownEntries(entry.breakdown?.taxes, {
                 onlyNegative: true,
               });
@@ -678,6 +784,13 @@ export function IncomeHistory() {
                           </a>
                         </>
                       ) : null}
+                      {syncedTransaction ? (
+                        <>
+                          {" "}
+                          · Synced to {syncedTransaction.issuer} ••••{" "}
+                          {syncedTransaction.account_last_four}
+                        </>
+                      ) : null}
                     </p>
                   </div>
                   <p className="self-center text-right text-sm text-white/75">
@@ -728,6 +841,35 @@ export function IncomeHistory() {
             <p className="px-5 py-10 text-center text-sm text-muted">
               No income records found for {formatExpenseDateRange(dateRange)}.
             </p>
+          )}
+        </div>
+        <div className="border-t border-white/[0.07]">
+          <div className="flex items-center justify-between gap-4 border-b border-white/[0.07] bg-black/10 px-5 py-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gold">Synced account income</p>
+              <p className="mt-1 text-xs text-muted">Unmatched Plaid income deposited into checking and savings; exclude individual transactions from the income ledger as needed.</p>
+            </div>
+            <p className="font-mono text-sm font-semibold text-accent">{money(syncedAccountIncomeTotal)}</p>
+          </div>
+          {syncedAccountIncome.length ? syncedAccountIncome.map((transaction) => (
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-4 border-b border-white/[0.05] px-5 py-4 last:border-b-0" key={transaction.id}>
+              <div className="min-w-0">
+                <p className="truncate font-medium text-white">{transaction.description}</p>
+                <p className="mt-1 text-xs text-muted">{formatDate(transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}</p>
+              </div>
+              <p className="self-center font-mono text-sm font-semibold text-accent">{money(transaction.amount)}</p>
+              <button
+                aria-pressed={transaction.include}
+                className={`self-center rounded-full border px-2.5 py-1 text-[10px] font-semibold transition disabled:opacity-50 ${transaction.include ? "border-accent/25 bg-accent/10 text-accent" : "border-rose-300/20 bg-rose-400/10 text-rose-100"}`}
+                disabled={savingIncludeId === transaction.id}
+                onClick={() => void toggleSyncedIncomeInclude(transaction)}
+                type="button"
+              >
+                {transaction.include ? "Included" : "Excluded"}
+              </button>
+            </div>
+          )) : (
+            <p className="px-5 py-8 text-center text-sm text-muted">No synced checking or savings income found for {formatExpenseDateRange(dateRange)}.</p>
           )}
         </div>
       </section>

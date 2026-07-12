@@ -214,7 +214,7 @@ export function ExpenseHistory({
     setError("");
     try {
       const response = await fetch(
-        `${APP_BASE_PATH}/api/credit-card-transactions/${transactionId}/update-tags`,
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transactionId}/update-tags?include_unbudgeted=true`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -241,7 +241,7 @@ export function ExpenseHistory({
     setSavingBudgetFlagsId(transaction.id);
     setError("");
     try {
-      const response = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/update-budget-flags`, {
+      const response = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/update-budget-flags?include_unbudgeted=true`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
       });
       const updated = await response.json().catch(() => null) as CreditCardTransaction | { message?: string } | null;
@@ -258,7 +258,7 @@ export function ExpenseHistory({
     setSavingNoteId(transactionId);
     setError("");
     try {
-      const response = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions/${transactionId}/update-note`, {
+      const response = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions/${transactionId}/update-note?include_unbudgeted=true`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: noteDraft }),
       });
       const updated = await response.json().catch(() => null) as CreditCardTransaction | { message?: string } | null;
@@ -296,7 +296,7 @@ export function ExpenseHistory({
     setError("");
     try {
       const response = await fetch(
-        `${APP_BASE_PATH}/api/credit-card-transactions/${transactionId}/correct-category`,
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transactionId}/correct-category?include_unbudgeted=true`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -314,7 +314,7 @@ export function ExpenseHistory({
         throw new Error(result?.message || "Unable to correct the category.");
       }
       const refreshed = await fetch(
-        `${APP_BASE_PATH}/api/credit-card-transactions`,
+        `${APP_BASE_PATH}/api/credit-card-transactions?include_unbudgeted=true`,
         { cache: "no-store" },
       );
       if (!refreshed.ok) {
@@ -345,12 +345,12 @@ export function ExpenseHistory({
   async function categorizeExpenses() {
     setCategorizing(true); setError(""); setImportMessage("");
     try {
-      const response = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions`, {
+      const response = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions?include_unbudgeted=true`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
       });
       const result = await response.json().catch(() => null) as { categorized_count?: number; message?: string } | null;
       if (!response.ok) throw new Error(result?.message || "Unable to categorize expenses.");
-      const refreshed = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions`, { cache: "no-store" });
+      const refreshed = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions?include_unbudgeted=true`, { cache: "no-store" });
       if (!refreshed.ok) throw new Error("Expenses were categorized, but the chart could not refresh.");
       setCreditCardTransactions(await refreshed.json() as CreditCardTransaction[]);
       setImportMessage(`Categorized ${result?.categorized_count || 0} new expenses.`);

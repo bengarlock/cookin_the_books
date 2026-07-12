@@ -16,6 +16,8 @@ import {
 } from "./expense-averages";
 import type { CreditCardTransaction } from "./credit-card-transaction-types";
 import type { ExpenseEntry } from "./expense-entry-types";
+import { cashAccountIncomeTransactions } from "./cash-account-ledgers";
+import { incomeLedgerTotals } from "./income-reconciliation";
 
 const LIABILITY_ACCOUNTS: SnapshotAccountKey[] = [
   "chase_credit",
@@ -303,12 +305,11 @@ function currentYearBounds(currentDate = new Date()) {
 export function yearToDateIncome(
   entries: IncomeEntry[],
   currentDate = new Date(),
+  syncedTransactions: CreditCardTransaction[] = [],
 ) {
   const { start, today } = currentYearBounds(currentDate);
-
-  return entries
-    .filter((entry) => entry.pay_date >= start && entry.pay_date <= today)
-    .reduce((sum, entry) => sum + Number(entry.net_pay), 0);
+  return incomeLedgerTotals(entries, syncedTransactions, { start, end: today })
+    .net;
 }
 
 export function projectCurrentYear({
@@ -333,7 +334,13 @@ export function projectCurrentYear({
     currentDate,
     nextPaydayOverride,
   );
-  const ytdIncome = yearToDateIncome(incomeEntries, currentDate);
+  const ytdIncome = yearToDateIncome(
+    incomeEntries,
+    currentDate,
+    cashAccountIncomeTransactions(creditCardTransactions, {
+      includeExcluded: true,
+    }),
+  );
   const forecastIncome = remainingPaydays * predictedPaycheck;
   const projectedIncome = ytdIncome + forecastIncome;
 

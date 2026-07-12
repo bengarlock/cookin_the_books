@@ -15,7 +15,7 @@ export const getCreditCardTransactions = cache(async (): Promise<
 
   try {
     const response = await fetch(
-      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/credit-card-transactions/`,
+      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/credit-card-transactions/?include_unbudgeted=true`,
       {
         headers: {
           Accept: "application/json",
