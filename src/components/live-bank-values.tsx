@@ -887,7 +887,19 @@ function AccountTransactionList({
                           onClick={() => setNewTagFormOpen((current) => !current)}
                           type="button"
                         >
-                          +
+                          <svg
+                            aria-hidden="true"
+                            className="size-3.5"
+                            fill="none"
+                            viewBox="0 0 16 16"
+                          >
+                            <path
+                              d="M8 3.25v9.5M3.25 8h9.5"
+                              stroke="currentColor"
+                              strokeLinecap="round"
+                              strokeWidth="1.5"
+                            />
+                          </svg>
                         </button>
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
