@@ -466,7 +466,7 @@ export function AutomationsDashboard({
 
       {formOpen && formHost ? createPortal((
         <form
-          className="surface overflow-hidden rounded-2xl"
+          className="surface overflow-visible rounded-2xl"
           onSubmit={(event) => void saveRule(event)}
         >
           <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
