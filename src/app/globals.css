@@ -103,6 +103,54 @@ input {
   box-shadow: 0 16px 44px rgba(27, 64, 102, 0.09);
 }
 
+:root[data-theme="light"] .dashboard-sidebar {
+  border-color: rgba(255, 255, 255, 0.18);
+  background:
+    radial-gradient(circle at 15% 0%, rgba(255, 255, 255, 0.18), transparent 18rem),
+    linear-gradient(180deg, #0759ad 0%, #064f9d 52%, #043f81 100%);
+  color: #ffffff;
+  box-shadow: 10px 0 32px rgba(10, 67, 122, 0.14);
+}
+
+:root[data-theme="light"] .dashboard-sidebar p,
+:root[data-theme="light"] .dashboard-sidebar a,
+:root[data-theme="light"] .dashboard-sidebar button,
+:root[data-theme="light"] .dashboard-sidebar span {
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .dashboard-sidebar p.text-muted {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+:root[data-theme="light"] .dashboard-sidebar .text-accent {
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .dashboard-sidebar .bg-accent\/10,
+:root[data-theme="light"] .dashboard-sidebar .bg-accent\/15 {
+  background-color: rgba(255, 255, 255, 0.18);
+}
+
+:root[data-theme="light"] .dashboard-sidebar .border-accent\/15,
+:root[data-theme="light"] .dashboard-sidebar .border-accent\/25,
+:root[data-theme="light"] .dashboard-sidebar .border-white\/10 {
+  border-color: rgba(255, 255, 255, 0.34);
+}
+
+:root[data-theme="light"] .dashboard-sidebar a:hover,
+:root[data-theme="light"] .dashboard-sidebar button:hover,
+:root[data-theme="light"] .dashboard-sidebar .dashboard-logout:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+:root[data-theme="light"] .dashboard-sidebar .dashboard-logout {
+  border-color: rgba(255, 255, 255, 0.28);
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
 :root[data-theme="light"] .dashboard-header {
   border-color: rgba(255, 255, 255, 0.22);
   background:

@@ -100,7 +100,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="app-backdrop min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
-      <aside className="border-b border-white/10 bg-black/15 px-5 py-5 backdrop-blur lg:fixed lg:inset-y-0 lg:w-[260px] lg:border-r lg:border-b-0 lg:px-6 lg:py-7">
+      <aside className="dashboard-sidebar border-b border-white/10 bg-black/15 px-5 py-5 backdrop-blur lg:fixed lg:inset-y-0 lg:w-[260px] lg:border-r lg:border-b-0 lg:px-6 lg:py-7">
         <div className="flex items-center justify-between lg:block">
           <div className="flex items-center gap-3">
             <div className="grid size-11 place-items-center rounded-2xl border border-accent/25 bg-accent/10 font-bold text-accent">
