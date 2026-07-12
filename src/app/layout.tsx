@@ -20,6 +20,8 @@ export const metadata: Metadata = {
   description: "A secure dashboard for personal financial tools.",
 };
 
+const themeScript = `(()=>{try{const t=localStorage.getItem("cookin-the-books-theme");const v=t==="light"?"light":"dark";document.documentElement.dataset.theme=v;document.documentElement.style.colorScheme=v}catch{document.documentElement.dataset.theme="dark"}})()`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -28,8 +30,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-theme="dark"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="min-h-full">{children}</body>
     </html>
   );

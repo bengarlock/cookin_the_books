@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { PlaidConnections } from "@/components/plaid-connections";
+import { ThemeSetting } from "@/components/theme-setting";
 import { getPlaidConnections } from "@/lib/plaid-connections";
 
 export const metadata: Metadata = {
@@ -20,10 +21,11 @@ export default async function SettingsPage() {
           App settings
         </h1>
         <p className="mt-3 max-w-2xl text-sm text-muted">
-          Manage connected services and background data sync behavior.
+          Manage your appearance, connected services, and background data sync.
         </p>
       </section>
 
+      <ThemeSetting />
       <PlaidConnections initialConnections={plaidConnections} />
     </div>
   );
