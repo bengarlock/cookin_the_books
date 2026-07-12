@@ -835,6 +835,12 @@ function AccountTransactionList({
                 <p className="mt-1 text-xs text-muted">
                   {formatTransactionDate(transaction.posting_date || transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}
                 </p>
+                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45">
+                  {transactionCategoryLabels[transaction.category] ||
+                    (transaction.category === "needs_review"
+                      ? "Needs review"
+                      : transaction.category || transaction.transaction_type)}
+                </p>
                 {transaction.tags?.length ? (
                   <div className="mt-1.5 flex flex-wrap gap-1">
                     {transaction.tags.map((tag) => (
