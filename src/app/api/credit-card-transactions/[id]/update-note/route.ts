@@ -10,7 +10,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (!token) return NextResponse.json({ message: "Not authenticated." }, { status: 401 });
   const { id } = await context.params;
   try {
-    const response = await fetch(`${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/credit-card-transactions/${encodeURIComponent(id)}/update-note/`, {
+    const search = new URL(request.url).search;
+    const response = await fetch(`${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/credit-card-transactions/${encodeURIComponent(id)}/update-note/${search}`, {
       method: "POST",
       headers: { Accept: "application/json", Authorization: `Token ${token}`, "Content-Type": "application/json" },
       body: await request.text(),

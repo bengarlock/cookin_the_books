@@ -13,8 +13,9 @@ export async function POST(
   if (!token) return NextResponse.json({ message: "Not authenticated." }, { status: 401 });
   const { id } = await context.params;
   try {
+    const search = new URL(request.url).search;
     const response = await fetch(
-      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/credit-card-transactions/${encodeURIComponent(id)}/update-tags/`,
+      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/credit-card-transactions/${encodeURIComponent(id)}/update-tags/${search}`,
       {
         method: "POST",
         headers: { Accept: "application/json", Authorization: `Token ${token}`, "Content-Type": "application/json" },

@@ -15,8 +15,9 @@ export async function POST(
   }
   const { id } = await context.params;
   try {
+    const search = new URL(request.url).search;
     const response = await fetch(
-      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/credit-card-transactions/${encodeURIComponent(id)}/correct-category/`,
+      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/credit-card-transactions/${encodeURIComponent(id)}/correct-category/${search}`,
       {
         method: "POST",
         headers: {

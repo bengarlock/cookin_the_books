@@ -736,7 +736,7 @@ function AccountTransactionList({
     setEditError("");
     try {
       const categoryResponse = await fetch(
-        `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/correct-category`,
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/correct-category?include_unbudgeted=true`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -751,7 +751,7 @@ function AccountTransactionList({
         throw new Error("Unable to update the transaction category.");
       }
       const tagResponse = await fetch(
-        `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/update-tags`,
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/update-tags?include_unbudgeted=true`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -764,7 +764,7 @@ function AccountTransactionList({
       const taggedTransaction = (await tagResponse.json()) as CreditCardTransaction;
       onTagLibraryChanged(taggedTransaction.tags || []);
       const noteResponse = await fetch(
-        `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/update-note`,
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/update-note?include_unbudgeted=true`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
