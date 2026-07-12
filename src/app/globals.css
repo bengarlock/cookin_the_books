@@ -244,6 +244,17 @@ input {
   color: #b91c1c !important;
 }
 
+:root[data-theme="light"] .text-rose-100,
+:root[data-theme="light"] .text-rose-100\/80,
+:root[data-theme="light"] .text-rose-200,
+:root[data-theme="light"] .text-rose-200\/50,
+:root[data-theme="light"] .text-rose-200\/80,
+:root[data-theme="light"] .text-rose-300,
+:root[data-theme="light"] .hover\:text-rose-100:hover,
+:root[data-theme="light"] .hover\:text-rose-200:hover {
+  color: #b91c1c !important;
+}
+
 :root[data-theme="light"] .dashboard-tile-description,
 :root[data-theme="light"] .overview-metric-description {
   color: #5d6b7c !important;
