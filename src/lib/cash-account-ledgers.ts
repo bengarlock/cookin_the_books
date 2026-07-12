@@ -2,6 +2,7 @@ import type { CreditCardTransaction } from "./credit-card-transaction-types";
 
 export function cashAccountIncomeTransactions(
   transactions: CreditCardTransaction[],
+  { includeExcluded = false }: { includeExcluded?: boolean } = {},
 ) {
   return transactions.filter(
     (transaction) =>
@@ -9,6 +10,6 @@ export function cashAccountIncomeTransactions(
       transaction.transaction_type === "credit" &&
       transaction.plaid_category_primary === "INCOME" &&
       transaction.category !== "account_payment" &&
-      transaction.include !== false,
+      (includeExcluded || transaction.include !== false),
   );
 }

@@ -28,4 +28,14 @@ describe("cashAccountIncomeTransactions", () => {
       transaction({ budget_item: 24 }),
     ])).toEqual([]);
   });
+
+  it("can retain excluded income so the UI can include it again", () => {
+    const excludedIncome = transaction({ include: false });
+
+    expect(
+      cashAccountIncomeTransactions([excludedIncome], {
+        includeExcluded: true,
+      }),
+    ).toEqual([excludedIncome]);
+  });
 });
