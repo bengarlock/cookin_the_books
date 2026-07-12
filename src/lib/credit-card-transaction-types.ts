@@ -39,5 +39,18 @@ export type CreditCardTransaction = {
     status: "matched_pending" | "reconciled";
     matched_at: string;
   } | null;
+  related_transactions: RelatedTransaction[];
   created_at: string;
+};
+
+export type RelatedTransaction = {
+  id: number;
+  description: string;
+  transaction_date: string;
+  issuer: string;
+  account_last_four: string;
+  amount: string;
+  transaction_type: CreditCardTransaction["transaction_type"];
+  category: string;
+  tags: ExpenseTag[];
 };
