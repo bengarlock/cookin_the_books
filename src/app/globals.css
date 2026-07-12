@@ -84,6 +84,22 @@ input {
   font: inherit;
 }
 
+:where(
+  [class*="bg-"],
+  .app-backdrop,
+  .surface,
+  .dashboard-header,
+  .dashboard-sidebar,
+  .dashboard-tile,
+  .overview-metric-card,
+  .themed-popover,
+  .theme-choice
+) {
+  transition-duration: 300ms;
+  transition-property: background, background-color, border-color, color, box-shadow;
+  transition-timing-function: ease;
+}
+
 ::selection {
   background: rgba(86, 226, 170, 0.26);
   color: #ffffff;
