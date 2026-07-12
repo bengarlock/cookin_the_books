@@ -2,7 +2,7 @@ export type ExpenseTag = { id: number; name: string };
 
 export type CreditCardTransaction = {
   id: number;
-  budget_item: number;
+  budget_item: number | null;
   issuer: string;
   account_last_four: string;
   statement_start: string;

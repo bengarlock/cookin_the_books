@@ -643,6 +643,8 @@ function AccountTransactionList({
   const [confirmingUnmatchId, setConfirmingUnmatchId] = useState<number | null>(null);
   const [editingTransactionId, setEditingTransactionId] = useState<number | null>(null);
   const [savingTransactionId, setSavingTransactionId] = useState<number | null>(null);
+  const [savingBudgetFlagsId, setSavingBudgetFlagsId] = useState<number | null>(null);
+  const [budgetFlagsError, setBudgetFlagsError] = useState("");
   const [editError, setEditError] = useState("");
   const [editForm, setEditForm] = useState({
     match_type: "exact" as "exact" | "starts_with",
@@ -691,6 +693,42 @@ function AccountTransactionList({
     });
     setNewTagName("");
     setNewTagFormOpen(false);
+  }
+
+  async function updateTransactionBudgetFlags(
+    transaction: CreditCardTransaction,
+    patch: Partial<Pick<CreditCardTransaction, "split" | "include">>,
+  ) {
+    setSavingBudgetFlagsId(transaction.id);
+    setBudgetFlagsError("");
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/update-budget-flags?include_unbudgeted=true`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        },
+      );
+      const updated = (await response.json().catch(() => null)) as
+        | CreditCardTransaction
+        | { message?: string; detail?: string }
+        | null;
+      if (!response.ok || !updated || !("id" in updated)) {
+        throw new Error(
+          updated && !("id" in updated)
+            ? updated.message || updated.detail || "Unable to update this transaction."
+            : "Unable to update this transaction.",
+        );
+      }
+      onTransactionsChanged();
+    } catch (error) {
+      setBudgetFlagsError(
+        error instanceof Error ? error.message : "Unable to update this transaction.",
+      );
+    } finally {
+      setSavingBudgetFlagsId(null);
+    }
   }
 
   async function saveTransactionEditor(transaction: CreditCardTransaction) {
@@ -776,6 +814,11 @@ function AccountTransactionList({
 
     return (
       <div className="overflow-hidden rounded-xl border border-white/10">
+        {budgetFlagsError ? (
+          <p className="border-b border-rose-300/15 bg-rose-300/10 px-3 py-2 text-xs text-rose-200" role="alert">
+            {budgetFlagsError}
+          </p>
+        ) : null}
         {items.map((transaction) => {
           const isCredit =
             transaction.transaction_type === "payment" ||
@@ -960,7 +1003,33 @@ function AccountTransactionList({
                   </div>
                 ) : null}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-1.5">
+                <button
+                  aria-pressed={transaction.split}
+                  className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold transition disabled:opacity-50 ${
+                    transaction.split
+                      ? "border-violet-300/30 bg-violet-400/15 text-violet-100"
+                      : "border-white/10 text-white/45 hover:text-white/70"
+                  }`}
+                  disabled={savingBudgetFlagsId === transaction.id}
+                  onClick={() => void updateTransactionBudgetFlags(transaction, { split: !transaction.split })}
+                  type="button"
+                >
+                  Split
+                </button>
+                <button
+                  aria-pressed={transaction.include}
+                  className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold transition disabled:opacity-50 ${
+                    transaction.include
+                      ? "border-accent/25 bg-accent/10 text-accent"
+                      : "border-rose-300/20 bg-rose-400/10 text-rose-100"
+                  }`}
+                  disabled={savingBudgetFlagsId === transaction.id}
+                  onClick={() => void updateTransactionBudgetFlags(transaction, { include: !transaction.include })}
+                  type="button"
+                >
+                  {transaction.include ? "Included" : "Excluded"}
+                </button>
                 <span className={`whitespace-nowrap text-right font-mono text-sm ${isCredit ? "text-accent" : "text-white"}`}>
                   {signedTransactionAmount(transaction)}
                 </span>
