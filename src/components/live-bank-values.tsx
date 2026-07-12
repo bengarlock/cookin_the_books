@@ -11,7 +11,7 @@ import {
 import { useOptionalBudgetData } from "@/components/budget-data-provider";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import { APP_BASE_PATH } from "@/lib/config";
-import type { CreditCardTransaction, ExpenseTag } from "@/lib/credit-card-transaction-types";
+import type { CreditCardTransaction, ExpenseTag, SuggestedRelatedTransaction } from "@/lib/credit-card-transaction-types";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
@@ -651,6 +651,8 @@ function AccountTransactionList({
   const [relationshipLoading, setRelationshipLoading] = useState(false);
   const [relationshipSavingId, setRelationshipSavingId] = useState<number | null>(null);
   const [relationshipError, setRelationshipError] = useState("");
+  const [relationshipSuggestions, setRelationshipSuggestions] = useState<SuggestedRelatedTransaction[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [editError, setEditError] = useState("");
   const [editForm, setEditForm] = useState({
     match_type: "exact" as "exact" | "starts_with",
@@ -702,6 +704,49 @@ function AccountTransactionList({
     setRelationshipQuery("");
     setRelationshipResults([]);
     setRelationshipError("");
+    void loadRelationshipSuggestions(transaction.id);
+  }
+
+  async function loadRelationshipSuggestions(transactionId: number) {
+    setSuggestionsLoading(true);
+    setRelationshipError("");
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transactionId}/relationship-suggestions`,
+        { cache: "no-store" },
+      );
+      const data = (await response.json().catch(() => null)) as SuggestedRelatedTransaction[] | { message?: string } | null;
+      if (!response.ok || !Array.isArray(data)) {
+        throw new Error(data && !Array.isArray(data) ? data.message : "Unable to load suggestions.");
+      }
+      setRelationshipSuggestions(data);
+    } catch (error) {
+      setRelationshipError(error instanceof Error ? error.message : "Unable to load suggestions.");
+      setRelationshipSuggestions([]);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  }
+
+  async function dismissRelationshipSuggestion(transactionId: number, relatedTransactionId: number) {
+    setRelationshipSavingId(relatedTransactionId);
+    setRelationshipError("");
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transactionId}/relationship-suggestions`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ related_transaction_id: relatedTransactionId }),
+        },
+      );
+      if (!response.ok) throw new Error("Unable to dismiss this suggestion.");
+      setRelationshipSuggestions((current) => current.filter((item) => item.id !== relatedTransactionId));
+    } catch (error) {
+      setRelationshipError(error instanceof Error ? error.message : "Unable to dismiss this suggestion.");
+    } finally {
+      setRelationshipSavingId(null);
+    }
   }
 
   async function searchRelatedTransactions(transactionId: number) {
@@ -749,6 +794,7 @@ function AccountTransactionList({
         throw new Error(data?.message || data?.detail || "Unable to update this relationship.");
       }
       setRelationshipResults((current) => current.filter((item) => item.id !== relatedTransactionId));
+      setRelationshipSuggestions((current) => current.filter((item) => item.id !== relatedTransactionId));
       onTransactionsChanged();
     } catch (error) {
       setRelationshipError(error instanceof Error ? error.message : "Unable to update this relationship.");
@@ -1058,6 +1104,27 @@ function AccountTransactionList({
                     </div>
                     <div className="mt-4 border-t border-white/[0.07] pt-3">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Related transactions</p>
+                      {suggestionsLoading ? <p className="mt-2 text-xs text-muted">Finding likely matches…</p> : null}
+                      {relationshipSuggestions.length ? (
+                        <div className="mt-2 space-y-2">
+                          <p className="text-[11px] font-medium text-gold">Suggested matches</p>
+                          {relationshipSuggestions.map((suggestion) => (
+                            <div className="rounded-lg border border-gold/20 bg-gold/[0.05] px-3 py-2" key={suggestion.id}>
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="truncate text-xs font-medium text-white">{suggestion.description}</p>
+                                  <p className="mt-0.5 text-[11px] text-muted">{formatTransactionDate(suggestion.transaction_date)} · {suggestion.issuer} •••• {suggestion.account_last_four} · {formatCurrency(suggestion.amount)}</p>
+                                  <p className="mt-1 text-[11px] text-gold">{suggestion.match_reason}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent disabled:opacity-50" disabled={relationshipSavingId === suggestion.id} onClick={() => void updateRelationship(transaction.id, suggestion.id, "POST")} type="button">Link</button>
+                                  <button className="px-2 py-1.5 text-xs text-muted hover:text-white disabled:opacity-50" disabled={relationshipSavingId === suggestion.id} onClick={() => void dismissRelationshipSuggestion(transaction.id, suggestion.id)} type="button">Dismiss</button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
                       {transaction.related_transactions?.length ? (
                         <div className="mt-2 space-y-2">
                           {transaction.related_transactions.map((related) => (
