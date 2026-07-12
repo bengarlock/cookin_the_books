@@ -345,7 +345,7 @@ export function ExpenseHistory({
   async function categorizeExpenses() {
     setCategorizing(true); setError(""); setImportMessage("");
     try {
-      const response = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions`, {
+      const response = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions?include_unbudgeted=true`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
       });
       const result = await response.json().catch(() => null) as { categorized_count?: number; message?: string } | null;

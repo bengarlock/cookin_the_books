@@ -5,6 +5,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useBudgetData } from "@/components/budget-data-provider";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { APP_BASE_PATH } from "@/lib/config";
+import { cashAccountIncomeTransactions } from "@/lib/cash-account-ledgers";
 import {
   defaultExpenseDateRange,
   formatExpenseDateRange,
@@ -140,7 +141,7 @@ function statementEntries(
 }
 
 export function IncomeHistory() {
-  const { incomeEntries: entries, setIncomeEntries: setEntries } =
+  const { incomeEntries: entries, setIncomeEntries: setEntries, creditCardTransactions } =
     useBudgetData();
   const [dateRange, setDateRange] = useState<ExpenseDateRange>(
     defaultExpenseDateRange(),
@@ -171,6 +172,25 @@ export function IncomeHistory() {
             right.pay_date.localeCompare(left.pay_date) || right.id - left.id,
         ),
     [dateRange.end, dateRange.start, entries],
+  );
+  const syncedAccountIncome = useMemo(
+    () =>
+      cashAccountIncomeTransactions(creditCardTransactions)
+        .filter(
+          (transaction) =>
+            transaction.transaction_date >= dateRange.start &&
+            transaction.transaction_date <= dateRange.end,
+        )
+        .sort(
+          (left, right) =>
+            right.transaction_date.localeCompare(left.transaction_date) ||
+            right.id - left.id,
+        ),
+    [creditCardTransactions, dateRange.end, dateRange.start],
+  );
+  const syncedAccountIncomeTotal = syncedAccountIncome.reduce(
+    (total, transaction) => total + Number(transaction.amount),
+    0,
   );
   const totalGross = filteredEntries.reduce(
     (total, entry) => total + Number(entry.gross_pay),
@@ -728,6 +748,26 @@ export function IncomeHistory() {
             <p className="px-5 py-10 text-center text-sm text-muted">
               No income records found for {formatExpenseDateRange(dateRange)}.
             </p>
+          )}
+        </div>
+        <div className="border-t border-white/[0.07]">
+          <div className="flex items-center justify-between gap-4 border-b border-white/[0.07] bg-black/10 px-5 py-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gold">Synced account income</p>
+              <p className="mt-1 text-xs text-muted">Plaid income deposited into checking and savings; transfers and Account Payments are excluded.</p>
+            </div>
+            <p className="font-mono text-sm font-semibold text-accent">{money(syncedAccountIncomeTotal)}</p>
+          </div>
+          {syncedAccountIncome.length ? syncedAccountIncome.map((transaction) => (
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 border-b border-white/[0.05] px-5 py-4 last:border-b-0" key={transaction.id}>
+              <div className="min-w-0">
+                <p className="truncate font-medium text-white">{transaction.description}</p>
+                <p className="mt-1 text-xs text-muted">{formatDate(transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}</p>
+              </div>
+              <p className="self-center font-mono text-sm font-semibold text-accent">{money(transaction.amount)}</p>
+            </div>
+          )) : (
+            <p className="px-5 py-8 text-center text-sm text-muted">No synced checking or savings income found for {formatExpenseDateRange(dateRange)}.</p>
           )}
         </div>
       </section>
