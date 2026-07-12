@@ -646,6 +646,11 @@ function AccountTransactionList({
   const [savingTransactionId, setSavingTransactionId] = useState<number | null>(null);
   const [savingBudgetFlagsId, setSavingBudgetFlagsId] = useState<number | null>(null);
   const [budgetFlagsError, setBudgetFlagsError] = useState("");
+  const [relationshipQuery, setRelationshipQuery] = useState("");
+  const [relationshipResults, setRelationshipResults] = useState<CreditCardTransaction[]>([]);
+  const [relationshipLoading, setRelationshipLoading] = useState(false);
+  const [relationshipSavingId, setRelationshipSavingId] = useState<number | null>(null);
+  const [relationshipError, setRelationshipError] = useState("");
   const [editError, setEditError] = useState("");
   const [editForm, setEditForm] = useState({
     match_type: "exact" as "exact" | "starts_with",
@@ -694,6 +699,62 @@ function AccountTransactionList({
     });
     setNewTagName("");
     setNewTagFormOpen(false);
+    setRelationshipQuery("");
+    setRelationshipResults([]);
+    setRelationshipError("");
+  }
+
+  async function searchRelatedTransactions(transactionId: number) {
+    const query = relationshipQuery.trim();
+    if (!query) return;
+    setRelationshipLoading(true);
+    setRelationshipError("");
+    try {
+      const params = new URLSearchParams({
+        include_unbudgeted: "true",
+        search: query,
+        exclude_id: String(transactionId),
+        limit: "10",
+      });
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions?${params.toString()}`,
+        { cache: "no-store" },
+      );
+      const data = (await response.json().catch(() => null)) as CreditCardTransaction[] | { message?: string } | null;
+      if (!response.ok || !Array.isArray(data)) {
+        throw new Error(data && !Array.isArray(data) ? data.message : "Unable to search transactions.");
+      }
+      setRelationshipResults(data);
+    } catch (error) {
+      setRelationshipError(error instanceof Error ? error.message : "Unable to search transactions.");
+    } finally {
+      setRelationshipLoading(false);
+    }
+  }
+
+  async function updateRelationship(transactionId: number, relatedTransactionId: number, method: "POST" | "DELETE") {
+    setRelationshipSavingId(relatedTransactionId);
+    setRelationshipError("");
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transactionId}/relationships`,
+        {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ related_transaction_id: relatedTransactionId }),
+        },
+      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => null) as { message?: string; detail?: string } | null;
+        throw new Error(data?.message || data?.detail || "Unable to update this relationship.");
+      }
+      setRelationshipResults((current) => current.filter((item) => item.id !== relatedTransactionId));
+      onTransactionsChanged();
+    } catch (error) {
+      setRelationshipError(error instanceof Error ? error.message : "Unable to update this relationship.");
+    } finally {
+      setRelationshipSavingId(null);
+    }
   }
 
   async function updateTransactionBudgetFlags(
@@ -859,6 +920,22 @@ function AccountTransactionList({
                     {transaction.note}
                   </p>
                 ) : null}
+                {transaction.related_transactions?.length ? (
+                  <div className="mt-2 space-y-1.5">
+                    {transaction.related_transactions.map((related) => (
+                      <div className="rounded-lg border border-gold/15 bg-gold/[0.05] px-2.5 py-2 text-xs" key={related.id}>
+                        <p className="font-medium text-gold">Related to: {related.description}</p>
+                        <p className="mt-1 text-muted">
+                          {formatTransactionDate(related.transaction_date)} · {related.issuer} •••• {related.account_last_four} · {formatCurrency(related.amount)}
+                        </p>
+                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45">
+                          {transactionCategoryLabels[related.category] || related.category || related.transaction_type}
+                          {related.tags?.length ? ` · ${related.tags.map((tag) => tag.name).join(", ")}` : ""}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 {transaction.manual_match ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-accent">
                     <span>Matched from manual entry “{transaction.manual_match.note}”</span>
@@ -978,6 +1055,46 @@ function AccountTransactionList({
                           type="button"
                         >{transaction.include ? "Included" : "Excluded"}</button>
                       </div>
+                    </div>
+                    <div className="mt-4 border-t border-white/[0.07] pt-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Related transactions</p>
+                      {transaction.related_transactions?.length ? (
+                        <div className="mt-2 space-y-2">
+                          {transaction.related_transactions.map((related) => (
+                            <div className="flex items-center justify-between gap-3 rounded-lg border border-white/[0.08] px-3 py-2" key={related.id}>
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-medium text-white">{related.description}</p>
+                                <p className="mt-0.5 text-[11px] text-muted">{formatTransactionDate(related.transaction_date)} · {related.issuer} •••• {related.account_last_four} · {formatCurrency(related.amount)}</p>
+                              </div>
+                              <button className="text-xs text-rose-200 disabled:opacity-50" disabled={relationshipSavingId === related.id} onClick={() => void updateRelationship(transaction.id, related.id, "DELETE")} type="button">Unlink</button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : <p className="mt-2 text-xs text-muted">No related transactions yet.</p>}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <input
+                          className="h-9 min-w-64 flex-1 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
+                          onChange={(event) => setRelationshipQuery(event.target.value)}
+                          onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void searchRelatedTransactions(transaction.id); } }}
+                          placeholder="Search merchant, amount, account, or YYYY-MM-DD"
+                          value={relationshipQuery}
+                        />
+                        <button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70 disabled:opacity-50" disabled={relationshipLoading || !relationshipQuery.trim()} onClick={() => void searchRelatedTransactions(transaction.id)} type="button">{relationshipLoading ? "Searching…" : "Search"}</button>
+                      </div>
+                      {relationshipResults.length ? (
+                        <div className="mt-2 space-y-2">
+                          {relationshipResults.map((result) => (
+                            <div className="flex items-center justify-between gap-3 rounded-lg border border-accent/10 bg-accent/[0.03] px-3 py-2" key={result.id}>
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-medium text-white">{result.description}</p>
+                                <p className="mt-0.5 text-[11px] text-muted">{formatTransactionDate(result.transaction_date)} · {result.issuer} •••• {result.account_last_four} · {formatCurrency(result.amount)}</p>
+                              </div>
+                              <button className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent disabled:opacity-50" disabled={relationshipSavingId === result.id} onClick={() => void updateRelationship(transaction.id, result.id, "POST")} type="button">Link</button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                      {relationshipError ? <p className="mt-2 text-xs text-rose-200">{relationshipError}</p> : null}
                     </div>
                   </div>
                   <div className="mt-3 grid items-center gap-2 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_auto_auto]">
