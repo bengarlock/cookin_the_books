@@ -222,6 +222,11 @@ input {
   text-shadow: 0 1px 2px rgba(0, 31, 70, 0.14);
 }
 
+:root[data-theme="light"] .dashboard-header .text-gold {
+  color: #ffe08a !important;
+  text-shadow: 0 1px 2px rgba(0, 31, 70, 0.18);
+}
+
 :root[data-theme="light"] .dashboard-header > div > div > p:first-child {
   color: #d9edff;
 }
