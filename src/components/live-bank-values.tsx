@@ -61,6 +61,20 @@ const liabilityAccounts = new Set<keyof BankValueSnapshot>([
   "barclays_card",
 ]);
 
+const transactionCategoryLabels: Record<string, string> = {
+  dining: "Dining",
+  groceries: "Groceries",
+  transportation: "Transportation",
+  housing: "Housing",
+  utilities: "Utilities",
+  shopping: "Shopping",
+  health: "Health",
+  entertainment: "Entertainment",
+  travel: "Travel",
+  subscriptions: "Subscriptions",
+  fees_interest: "Fees & interest",
+};
+
 const accountLoginUrls: Partial<
   Record<keyof BankValueSnapshot, string>
 > = {
@@ -570,6 +584,8 @@ function AccountTransactionList({
   onReconcile,
   onSubmitPendingTransaction,
   onToggleForm,
+  onTransactionsChanged,
+  onUnmatch,
   transactions,
   transactionForm,
 }: {
@@ -599,6 +615,8 @@ function AccountTransactionList({
   ) => void;
   onSubmitPendingTransaction: (event: FormEvent<HTMLFormElement>) => void;
   onToggleForm: (accountKey: keyof BankValueSnapshot) => void;
+  onTransactionsChanged: () => void;
+  onUnmatch: (pendingTransactionId: number) => void;
   transactions: CreditCardTransaction[];
   transactionForm: {
     note: string;
@@ -617,6 +635,80 @@ function AccountTransactionList({
   );
   const posted = transactions.filter((transaction) => !transaction.pending);
   const pendingCount = pending.length + manualPendingTransactions.length;
+  const [confirmingMatchId, setConfirmingMatchId] = useState<number | null>(null);
+  const [confirmingUnmatchId, setConfirmingUnmatchId] = useState<number | null>(null);
+  const [editingTransactionId, setEditingTransactionId] = useState<number | null>(null);
+  const [savingTransactionId, setSavingTransactionId] = useState<number | null>(null);
+  const [editError, setEditError] = useState("");
+  const [editForm, setEditForm] = useState({
+    match_type: "exact" as "exact" | "starts_with",
+    match_value: "",
+    category: "dining",
+    tags: "",
+  });
+
+  function openTransactionEditor(transaction: CreditCardTransaction) {
+    setEditingTransactionId(transaction.id);
+    setEditError("");
+    setEditForm({
+      match_type: "exact",
+      match_value: transaction.description,
+      category:
+        transaction.category && transaction.category !== "needs_review"
+          ? transaction.category
+          : "dining",
+      tags: (transaction.tags || []).map((tag) => tag.name).join(", "),
+    });
+  }
+
+  async function saveTransactionEditor(transaction: CreditCardTransaction) {
+    setSavingTransactionId(transaction.id);
+    setEditError("");
+    try {
+      const categoryResponse = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/correct-category`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            match_type: editForm.match_type,
+            match_value: editForm.match_value,
+            category: editForm.category,
+          }),
+        },
+      );
+      if (!categoryResponse.ok) {
+        throw new Error("Unable to update the transaction category.");
+      }
+      const tags = Array.from(
+        new Set(
+          editForm.tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean),
+        ),
+      );
+      const tagResponse = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/update-tags`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tags }),
+        },
+      );
+      if (!tagResponse.ok) {
+        throw new Error("The category was saved, but the tags could not be updated.");
+      }
+      setEditingTransactionId(null);
+      onTransactionsChanged();
+    } catch (error) {
+      setEditError(
+        error instanceof Error ? error.message : "Unable to update the transaction.",
+      );
+    } finally {
+      setSavingTransactionId(null);
+    }
+  }
 
   function transactionRows(
     items: CreditCardTransaction[],
@@ -653,14 +745,100 @@ function AccountTransactionList({
                 <p className="mt-0.5 text-[11px] uppercase tracking-[0.12em] text-muted">
                   {transaction.category || transaction.transaction_type}
                 </p>
+                {transaction.tags?.length ? (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {transaction.tags.map((tag) => (
+                      <span
+                        className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2 py-0.5 text-[10px] text-sky-100"
+                        key={tag.id}
+                      >
+                        {tag.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+                {transaction.manual_match ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-accent">
+                    <span>Matched from manual entry “{transaction.manual_match.note}”</span>
+                    <button
+                      className="rounded-md border border-white/10 px-2 py-1 text-white/65 hover:border-white/20 hover:text-white"
+                      onClick={() => {
+                        if (confirmingUnmatchId === transaction.id) {
+                          onUnmatch(transaction.manual_match!.pending_transaction_id);
+                          setConfirmingUnmatchId(null);
+                        } else {
+                          setConfirmingUnmatchId(transaction.id);
+                        }
+                      }}
+                      type="button"
+                    >
+                      {confirmingUnmatchId === transaction.id ? "Confirm" : "Unmatch"}
+                    </button>
+                  </div>
+                ) : null}
+                {editingTransactionId === transaction.id ? (
+                  <div className="mt-3 grid gap-2 rounded-xl border border-white/10 bg-black/15 p-3 sm:grid-cols-2">
+                    <label>
+                      <span className="text-[10px] uppercase tracking-[0.12em] text-muted">Match</span>
+                      <select
+                        className="mt-1 h-9 w-full rounded-lg border border-white/10 bg-[#0b1714] px-2 text-xs text-white"
+                        onChange={(event) => setEditForm((current) => ({ ...current, match_type: event.target.value as "exact" | "starts_with" }))}
+                        value={editForm.match_type}
+                      >
+                        <option value="exact">Description equals</option>
+                        <option value="starts_with">Description starts with</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span className="text-[10px] uppercase tracking-[0.12em] text-muted">Description</span>
+                      <input
+                        className="mt-1 h-9 w-full rounded-lg border border-white/10 bg-[#0b1714] px-2 text-xs text-white"
+                        onChange={(event) => setEditForm((current) => ({ ...current, match_value: event.target.value }))}
+                        value={editForm.match_value}
+                      />
+                    </label>
+                    <label>
+                      <span className="text-[10px] uppercase tracking-[0.12em] text-muted">Category</span>
+                      <select
+                        className="mt-1 h-9 w-full rounded-lg border border-white/10 bg-[#0b1714] px-2 text-xs text-white"
+                        onChange={(event) => setEditForm((current) => ({ ...current, category: event.target.value }))}
+                        value={editForm.category}
+                      >
+                        {Object.entries(transactionCategoryLabels).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span className="text-[10px] uppercase tracking-[0.12em] text-muted">Tags</span>
+                      <input
+                        className="mt-1 h-9 w-full rounded-lg border border-white/10 bg-[#0b1714] px-2 text-xs text-white"
+                        onChange={(event) => setEditForm((current) => ({ ...current, tags: event.target.value }))}
+                        placeholder="shopping, household"
+                        value={editForm.tags}
+                      />
+                    </label>
+                    <div className="flex items-center gap-2 sm:col-span-2">
+                      <button
+                        className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
+                        disabled={savingTransactionId === transaction.id}
+                        onClick={() => void saveTransactionEditor(transaction)}
+                        type="button"
+                      >
+                        {savingTransactionId === transaction.id ? "Saving…" : "Save"}
+                      </button>
+                      <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={() => setEditingTransactionId(null)} type="button">Cancel</button>
+                    </div>
+                    {editError ? <p className="text-xs text-rose-200 sm:col-span-2">{editError}</p> : null}
+                  </div>
+                ) : null}
               </div>
-              <span
-                className={`whitespace-nowrap text-right font-mono text-sm ${
-                  isCredit ? "text-accent" : "text-white"
-                }`}
-              >
-                {signedTransactionAmount(transaction)}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`whitespace-nowrap text-right font-mono text-sm ${isCredit ? "text-accent" : "text-white"}`}>
+                  {signedTransactionAmount(transaction)}
+                </span>
+                <button className="text-xs text-white/50 hover:text-accent" onClick={() => openTransactionEditor(transaction)} type="button">Edit</button>
+              </div>
             </div>
           );
         })}
@@ -715,15 +893,23 @@ function AccountTransactionList({
                 </>
               ) : transaction.match_status === "matched_pending" ? (
                 <>
-                  <span className="w-20 text-center text-xs font-medium text-accent">
-                    Matched
-                  </span>
                   <button
-                    className="w-20 rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-white/65 transition hover:border-white/20 hover:text-white"
-                    onClick={() => onReconcile(transaction, "undo")}
+                    className={`w-20 rounded-lg border px-3 py-2 text-xs font-medium transition ${
+                      confirmingMatchId === transaction.id
+                        ? "border-accent/35 bg-accent/15 text-accent"
+                        : "border-accent/20 text-accent hover:bg-accent/10"
+                    }`}
+                    onClick={() => {
+                      if (confirmingMatchId === transaction.id) {
+                        onReconcile(transaction, "confirm");
+                        setConfirmingMatchId(null);
+                      } else {
+                        setConfirmingMatchId(transaction.id);
+                      }
+                    }}
                     type="button"
                   >
-                    Undo
+                    {confirmingMatchId === transaction.id ? "Confirm" : "Matched"}
                   </button>
                 </>
               ) : transaction.is_cleared ? (
@@ -1344,8 +1530,30 @@ export function LiveBankValues({
       setPendingTransactions((current) =>
         current.map((item) => (item.id === updated.id ? updated : item)),
       );
+      if (expandedAccount) void loadAccountTransactions(expandedAccount);
     } else {
       setRegisterError("Unable to mark the transaction cleared.");
+    }
+  }
+
+  async function unmatchTransaction(pendingTransactionId: number) {
+    setRegisterError("");
+    const response = await fetch(
+      `${APP_BASE_PATH}/api/pending-transactions/${pendingTransactionId}/reconciliation`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "undo" }),
+      },
+    );
+    const updated = (await response.json().catch(() => null)) as PendingTransaction | null;
+    if (response.ok && updated?.id) {
+      setPendingTransactions((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      if (expandedAccount) void loadAccountTransactions(expandedAccount);
+    } else {
+      setRegisterError("Unable to unmatch the transaction.");
     }
   }
 
@@ -1369,6 +1577,7 @@ export function LiveBankValues({
       setPendingTransactions((current) =>
         current.map((item) => (item.id === updated.id ? updated : item)),
       );
+      if (expandedAccount) void loadAccountTransactions(expandedAccount);
     } else {
       setRegisterError("Unable to update the transaction match.");
     }
@@ -1723,6 +1932,8 @@ export function LiveBankValues({
                         onReconcile={reconcileTransaction}
                         onSubmitPendingTransaction={addPendingTransaction}
                         onToggleForm={togglePendingTransactionForm}
+                        onTransactionsChanged={() => void loadAccountTransactions("citi_current")}
+                        onUnmatch={(id) => void unmatchTransaction(id)}
                         transactions={citiTransactions?.transactions || []}
                         transactionForm={transactionForm}
                       />
@@ -1878,6 +2089,8 @@ export function LiveBankValues({
                           onReconcile={reconcileTransaction}
                           onSubmitPendingTransaction={addPendingTransaction}
                           onToggleForm={togglePendingTransactionForm}
+                          onTransactionsChanged={() => void loadAccountTransactions(account.key)}
+                          onUnmatch={(id) => void unmatchTransaction(id)}
                           transactions={transactionState?.transactions || []}
                           transactionForm={transactionForm}
                         />

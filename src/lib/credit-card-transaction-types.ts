@@ -33,5 +33,11 @@ export type CreditCardTransaction = {
   plaid_counterparty_type: string;
   plaid_counterparty_entity_id: string;
   pending: boolean;
+  manual_match: {
+    pending_transaction_id: number;
+    note: string;
+    status: "matched_pending" | "reconciled";
+    matched_at: string;
+  } | null;
   created_at: string;
 };
