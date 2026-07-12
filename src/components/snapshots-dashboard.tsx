@@ -284,7 +284,7 @@ function SnapshotTrendChart({
                 y2={y}
               />
               <text
-                fill="rgba(255,255,255,0.42)"
+                fill="var(--snapshot-chart-axis)"
                 fontSize="11"
                 textAnchor="end"
                 x={chart.padding.left - 12}
@@ -360,7 +360,7 @@ function SnapshotTrendChart({
           const snapshot = chart.data[index];
           return (
             <text
-              fill="rgba(255,255,255,0.46)"
+              fill="var(--snapshot-chart-axis)"
               fontSize="11"
               key={snapshot.id}
               textAnchor={

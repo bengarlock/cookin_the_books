@@ -10,6 +10,7 @@
   --accent: #56e2aa;
   --accent-strong: #20bc7d;
   --gold: #f0c978;
+  --snapshot-chart-axis: rgba(255, 255, 255, 0.46);
   color-scheme: dark;
 }
 
@@ -23,6 +24,7 @@
   --accent: #0868c7;
   --accent-strong: #004f9e;
   --gold: #875b08;
+  --snapshot-chart-axis: #111827;
   --color-white: #111827;
   --color-black: #ffffff;
   color-scheme: light;
