@@ -49,7 +49,7 @@ Update `.env.local` for the local backend:
 ```dotenv
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 PORTFOLIO_API_BASE_URL=http://127.0.0.1:8000
-PORTFOLIO_WEBSOCKET_BASE_URL=ws://127.0.0.1:8001
+PORTFOLIO_WEBSOCKET_BASE_URL=ws://127.0.0.1:8000
 AUTH_COOKIE_NAME=cookinTheBooksToken
 AUTH_COOKIE_MAX_AGE_SECONDS=86400
 ```
@@ -57,6 +57,12 @@ AUTH_COOKIE_MAX_AGE_SECONDS=86400
 `PORTFOLIO_API_BASE_URL` is preferred for server-side requests. Keep secrets
 out of variables prefixed with `NEXT_PUBLIC_`; those values are embedded in
 browser bundles.
+
+`npm run dev` validates that both configured backend targets are loopback
+addresses before starting. `npm start` performs the inverse production check:
+it refuses loopback targets and requires HTTPS/WSS. This prevents a local
+backend URL from surviving a production deployment while keeping environment
+selection outside the committed application bundle.
 
 Start the app:
 
