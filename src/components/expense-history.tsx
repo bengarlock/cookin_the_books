@@ -130,12 +130,13 @@ export function ExpenseHistory({
     dining: "Dining", groceries: "Groceries", transportation: "Transportation",
     housing: "Housing", utilities: "Utilities", shopping: "Shopping", health: "Health",
     entertainment: "Entertainment", travel: "Travel", subscriptions: "Subscriptions",
-    fees_interest: "Fees & interest", needs_review: "Needs review",
+    fees_interest: "Fees & interest", account_payment: "Account Payment", needs_review: "Needs review",
   };
   const normalizedTransactionSearch = transactionSearch.trim().toLocaleLowerCase();
   const categorizedTransactions = creditCardTransactions.filter((item) => {
     if (
       !item.category ||
+      (item.category === "account_payment" && item.include === false) ||
       !["purchase", "fee", "interest"].includes(item.transaction_type)
     ) {
       return false;

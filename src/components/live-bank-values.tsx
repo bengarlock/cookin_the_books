@@ -73,6 +73,7 @@ const transactionCategoryLabels: Record<string, string> = {
   travel: "Travel",
   subscriptions: "Subscriptions",
   fees_interest: "Fees & interest",
+  account_payment: "Account Payment",
 };
 
 const accountLoginUrls: Partial<
@@ -836,7 +837,9 @@ function AccountTransactionList({
                   {formatTransactionDate(transaction.posting_date || transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}
                 </p>
                 <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45">
-                  {transactionCategoryLabels[transaction.category] ||
+                  {transaction.category === "account_payment" && !transaction.include
+                    ? "Account Payment · Excluded from ledgers"
+                    : transactionCategoryLabels[transaction.category] ||
                     (transaction.category === "needs_review"
                       ? "Needs review"
                       : transaction.category || transaction.transaction_type)}
