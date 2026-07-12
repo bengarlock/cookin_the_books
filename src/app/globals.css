@@ -288,6 +288,12 @@ input {
   color: #111827 !important;
 }
 
+:root[data-theme="light"] [class~="bg-accent"],
+:root[data-theme="light"] [class~="bg-accent-strong"],
+:root[data-theme="light"] [class~="hover:bg-accent"]:hover {
+  color: #ffffff !important;
+}
+
 :root[data-theme="light"] .themed-popover {
   border-color: rgba(8, 104, 199, 0.2) !important;
   background: linear-gradient(145deg, #ffffff, #eaf4ff) !important;
