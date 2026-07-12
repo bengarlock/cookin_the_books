@@ -837,9 +837,7 @@ function AccountTransactionList({
                   {formatTransactionDate(transaction.posting_date || transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}
                 </p>
                 <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45">
-                  {transaction.category === "account_payment" && !transaction.include
-                    ? "Account Payment · Excluded from ledgers"
-                    : transactionCategoryLabels[transaction.category] ||
+                  {transactionCategoryLabels[transaction.category] ||
                     (transaction.category === "needs_review"
                       ? "Needs review"
                       : transaction.category || transaction.transaction_type)}
