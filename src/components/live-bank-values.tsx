@@ -853,7 +853,7 @@ function AccountTransactionList({
       <div className="mb-3 overflow-hidden rounded-xl border border-amber-100/15 bg-amber-200/[0.04]">
         {items.map((transaction) => (
           <div
-            className={`grid gap-3 border-b border-white/[0.07] px-3 py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center ${
+            className={`grid gap-3 border-b border-white/[0.07] px-3 py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_7rem_6rem] sm:items-center ${
               transaction.is_cleared ? "opacity-45" : ""
             }`}
             key={transaction.id}
@@ -894,10 +894,10 @@ function AccountTransactionList({
               ) : transaction.match_status === "matched_pending" ? (
                 <>
                   <button
-                    className={`w-20 rounded-lg border px-3 py-2 text-xs font-medium transition ${
+                    className={`inline-flex h-8 w-24 items-center justify-center gap-1.5 rounded-full border px-2 text-[11px] font-semibold transition ${
                       confirmingMatchId === transaction.id
-                        ? "border-accent/35 bg-accent/15 text-accent"
-                        : "border-accent/20 text-accent hover:bg-accent/10"
+                        ? "border-amber-200/30 bg-amber-200/10 text-amber-100"
+                        : "border-accent/25 bg-accent/[0.07] text-accent hover:border-accent/40 hover:bg-accent/10"
                     }`}
                     onClick={() => {
                       if (confirmingMatchId === transaction.id) {
@@ -909,6 +909,14 @@ function AccountTransactionList({
                     }}
                     type="button"
                   >
+                    <span
+                      aria-hidden="true"
+                      className={`size-1.5 rounded-full ${
+                        confirmingMatchId === transaction.id
+                          ? "bg-amber-200"
+                          : "bg-accent"
+                      }`}
+                    />
                     {confirmingMatchId === transaction.id ? "Confirm" : "Matched"}
                   </button>
                 </>
