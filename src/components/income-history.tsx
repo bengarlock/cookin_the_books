@@ -12,6 +12,7 @@ import {
   type ExpenseDateRange,
 } from "@/lib/expense-date-range";
 import type { IncomeEntry } from "@/lib/income-entry-types";
+import { reconcileSyncedIncome } from "@/lib/income-reconciliation";
 import { validatePdfImportFiles } from "@/lib/pdf-import";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -173,9 +174,27 @@ export function IncomeHistory() {
         ),
     [dateRange.end, dateRange.start, entries],
   );
+  const reconciledIncome = useMemo(
+    () =>
+      reconcileSyncedIncome(
+        entries,
+        cashAccountIncomeTransactions(creditCardTransactions),
+      ),
+    [creditCardTransactions, entries],
+  );
+  const syncedIncomeByEntryId = useMemo(
+    () =>
+      new Map(
+        reconciledIncome.matches.map(({ incomeEntry, transaction }) => [
+          incomeEntry.id,
+          transaction,
+        ]),
+      ),
+    [reconciledIncome.matches],
+  );
   const syncedAccountIncome = useMemo(
     () =>
-      cashAccountIncomeTransactions(creditCardTransactions)
+      reconciledIncome.unmatchedTransactions
         .filter(
           (transaction) =>
             transaction.transaction_date >= dateRange.start &&
@@ -186,7 +205,7 @@ export function IncomeHistory() {
             right.transaction_date.localeCompare(left.transaction_date) ||
             right.id - left.id,
         ),
-    [creditCardTransactions, dateRange.end, dateRange.start],
+    [dateRange.end, dateRange.start, reconciledIncome.unmatchedTransactions],
   );
   const syncedAccountIncomeTotal = syncedAccountIncome.reduce(
     (total, transaction) => total + Number(transaction.amount),
@@ -644,6 +663,7 @@ export function IncomeHistory() {
           </div>
           {filteredEntries.length ? (
             filteredEntries.map((entry) => {
+              const syncedTransaction = syncedIncomeByEntryId.get(entry.id);
               const taxEntries = breakdownEntries(entry.breakdown?.taxes, {
                 onlyNegative: true,
               });
@@ -696,6 +716,13 @@ export function IncomeHistory() {
                           >
                             PDF
                           </a>
+                        </>
+                      ) : null}
+                      {syncedTransaction ? (
+                        <>
+                          {" "}
+                          · Synced to {syncedTransaction.issuer} ••••{" "}
+                          {syncedTransaction.account_last_four}
                         </>
                       ) : null}
                     </p>
@@ -754,7 +781,7 @@ export function IncomeHistory() {
           <div className="flex items-center justify-between gap-4 border-b border-white/[0.07] bg-black/10 px-5 py-3">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gold">Synced account income</p>
-              <p className="mt-1 text-xs text-muted">Plaid income deposited into checking and savings; transfers and Account Payments are excluded.</p>
+              <p className="mt-1 text-xs text-muted">Unmatched Plaid income deposited into checking and savings; paycheck deposits are merged with imported statements.</p>
             </div>
             <p className="font-mono text-sm font-semibold text-accent">{money(syncedAccountIncomeTotal)}</p>
           </div>
