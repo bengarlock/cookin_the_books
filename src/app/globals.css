@@ -290,6 +290,22 @@ input {
   color: #b91c1c !important;
 }
 
+:root[data-theme="light"] .text-sky-100,
+:root[data-theme="light"] .text-sky-100\/65,
+:root[data-theme="light"] .hover\:text-sky-100:hover {
+  color: #0759ad !important;
+}
+
+:root[data-theme="light"] .bg-sky-400\/10 {
+  background-color: rgba(8, 104, 199, 0.12) !important;
+}
+
+:root[data-theme="light"] .border-sky-300\/20,
+:root[data-theme="light"] .hover\:border-sky-300\/20:hover,
+:root[data-theme="light"] .hover\:border-sky-300\/30:hover {
+  border-color: rgba(8, 104, 199, 0.28) !important;
+}
+
 :root[data-theme="light"] main [class~="bg-black/10"],
 :root[data-theme="light"] main [class~="bg-black/15"],
 :root[data-theme="light"] main [class~="bg-black/20"] {
