@@ -875,7 +875,7 @@ export function SnapshotsDashboard({
                 <col className="w-[18%]" />
                 <col className="w-[23%]" />
               </colgroup>
-              <thead className="sticky top-0 z-10 border-b border-white/10 bg-[#07130f] text-[9px] uppercase tracking-[0.11em] text-muted">
+              <thead className="snapshot-history-table-head sticky top-0 z-10 border-b border-white/10 bg-[#07130f] text-[9px] uppercase tracking-[0.11em] text-muted">
                 <tr>
                   <th className="px-3 py-2.5 font-semibold">Date</th>
                   <th className="px-3 py-2.5 text-right font-semibold">

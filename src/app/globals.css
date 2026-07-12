@@ -276,6 +276,12 @@ input {
   color: #ffffff !important;
 }
 
+:root[data-theme="light"] .snapshot-history-table-head {
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  background: linear-gradient(90deg, #0759ad, #0872cf) !important;
+  color: rgba(255, 255, 255, 0.84) !important;
+}
+
 :root[data-theme="light"] .condition-operator,
 :root[data-theme="light"] .selector-popover {
   border-color: rgba(18, 64, 112, 0.18) !important;
