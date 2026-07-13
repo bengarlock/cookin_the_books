@@ -307,6 +307,7 @@ export function AutomationRuleEditor({
 
     setSavingForm(true);
     setError("");
+    let navigatingAway = false;
     try {
       const response = await fetch(
         editingRuleId
@@ -344,6 +345,7 @@ export function AutomationRuleEditor({
         setForm(emptyRuleForm);
       }
       if (cancelHref) {
+        navigatingAway = true;
         router.push(cancelHref);
         router.refresh();
       }
@@ -356,7 +358,9 @@ export function AutomationRuleEditor({
             : "Unable to create the automation rule.",
       );
     } finally {
-      setSavingForm(false);
+      if (!navigatingAway) {
+        setSavingForm(false);
+      }
     }
   }
 
