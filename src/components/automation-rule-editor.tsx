@@ -343,20 +343,54 @@ export function AutomationRuleEditor({
     }
   }
 
+  const saveButtonLabel = savingForm
+    ? editingRuleId
+      ? "Saving..."
+      : "Creating..."
+    : editingRuleId
+      ? "Save changes"
+      : "Create rule";
+  const cancelControl = cancelHref ? (
+    <Link
+      className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-white transition hover:border-white/20 hover:bg-white/[0.08]"
+      href={cancelHref}
+    >
+      Cancel
+    </Link>
+  ) : onCancel ? (
+    <button
+      className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-white transition hover:border-white/20 hover:bg-white/[0.08] disabled:opacity-50"
+      disabled={savingForm}
+      onClick={cancelForm}
+      type="button"
+    >
+      Cancel
+    </button>
+  ) : null;
+
   return (
     <form
       className="surface overflow-hidden rounded-2xl"
       onSubmit={(event) => void saveRule(event)}
     >
-      <div className="border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
-        <h2 className="text-sm font-semibold text-white">
-          {editingRuleId ? "Edit rule" : "Create rule"}
-        </h2>
-        <p className="mt-1 text-sm text-muted">
-          Example: when a transaction description contains{" "}
-          <span className="text-white/80">MERCHANT KEYWORD</span>, create a
-          matching expense for that date and amount.
-        </p>
+      <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-white">
+            {editingRuleId ? "Edit rule" : "Create rule"}
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            Example: when a transaction description contains{" "}
+            <span className="text-white/80">MERCHANT KEYWORD</span>, create a
+            matching expense for that date and amount.
+          </p>
+        </div>
+        <button
+          className="shrink-0 rounded-xl border border-accent/30 bg-accent/15 px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/20 disabled:opacity-50"
+          disabled={savingForm}
+          type="submit"
+        >
+          {saveButtonLabel}
+        </button>
       </div>
 
       {error ? (
@@ -413,40 +447,13 @@ export function AutomationRuleEditor({
           />
         </div>
       </div>
-      <div className="border-t border-white/10 px-4 py-4 sm:px-5">
-        <div className="flex flex-wrap gap-3">
-          <button
-            className="rounded-xl border border-accent/30 bg-accent/15 px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/20 disabled:opacity-50"
-            disabled={savingForm}
-            type="submit"
-          >
-            {savingForm
-              ? editingRuleId
-                ? "Saving..."
-                : "Creating..."
-              : editingRuleId
-                ? "Save changes"
-                : "Create rule"}
-          </button>
-          {cancelHref ? (
-            <Link
-              className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-white transition hover:border-white/20 hover:bg-white/[0.08]"
-              href={cancelHref}
-            >
-              Cancel
-            </Link>
-          ) : onCancel ? (
-            <button
-              className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-white transition hover:border-white/20 hover:bg-white/[0.08] disabled:opacity-50"
-              disabled={savingForm}
-              onClick={cancelForm}
-              type="button"
-            >
-              Cancel
-            </button>
-          ) : null}
+      {cancelControl ? (
+        <div className="border-t border-white/10 px-4 py-4 sm:px-5">
+          <div className="flex flex-wrap gap-3">
+            {cancelControl}
+          </div>
         </div>
-      </div>
+      ) : null}
     </form>
   );
 }
