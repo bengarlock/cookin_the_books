@@ -96,13 +96,13 @@ describe("getNextPayCycle", () => {
   it("resolves the current pay period between scheduled paydays", () => {
     const period = getCurrentPayPeriod(localDate(2026, 7, 8));
     expectSameLocalDate(period.start, localDate(2026, 7, 1));
-    expectSameLocalDate(period.end, localDate(2026, 7, 14));
+    expectSameLocalDate(period.end, localDate(2026, 7, 15));
   });
 
   it("starts a new current period on payday", () => {
     const period = getCurrentPayPeriod(localDate(2026, 7, 15));
     expectSameLocalDate(period.start, localDate(2026, 7, 15));
-    expectSameLocalDate(period.end, localDate(2026, 7, 30));
+    expectSameLocalDate(period.end, localDate(2026, 7, 31));
   });
 
   it("excludes skipped paydays from the remaining yearly count", () => {

@@ -111,9 +111,7 @@ export function getCurrentPayPeriod(
   const nextPayday = getNextPayCycle(today, nextPaydayOverride).nextPayday;
   const startsToday = nextPayday.getTime() === today.getTime();
   const start = startsToday ? today : previousScheduledPayday(nextPayday);
-  const nextStart = startsToday ? followingPayday(today) : nextPayday;
-  const end = new Date(nextStart);
-  end.setDate(end.getDate() - 1);
+  const end = startsToday ? followingPayday(today) : nextPayday;
   return { start, end };
 }
 
