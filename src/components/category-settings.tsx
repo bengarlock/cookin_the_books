@@ -10,6 +10,10 @@ function categoryIdentity(category: ExpenseCategory) {
   return category.id ? `id:${category.id}` : `key:${category.key}`;
 }
 
+function categoryIsPersisted(category: ExpenseCategory) {
+  return category.id > 0;
+}
+
 export function CategorySettings({
   initialCategories,
 }: {
@@ -61,6 +65,10 @@ export function CategorySettings({
   }
 
   function beginEdit(category: ExpenseCategory) {
+    if (!categoryIsPersisted(category)) {
+      setError("Categories are not connected to the dev backend yet. Restart the backend and reload this page.");
+      return;
+    }
     setEditingCategory(categoryIdentity(category));
     setEditingName(category.label);
     setError("");
@@ -216,7 +224,7 @@ export function CategorySettings({
                   <>
                     <button
                       className="rounded-lg border border-accent/25 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
-                      disabled={busyCategory === identity}
+                      disabled={busyCategory === identity || !categoryIsPersisted(category)}
                       onClick={() => beginEdit(category)}
                       type="button"
                     >
