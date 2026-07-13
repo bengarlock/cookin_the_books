@@ -12,6 +12,7 @@ import {
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import type { BudgetItem } from "@/lib/budget-item-types";
 import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import type { ExpenseCategory } from "@/lib/expense-category-types";
 import type { ExpenseEntry } from "@/lib/expense-entry-types";
 import type { IncomeEntry } from "@/lib/income-entry-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
@@ -25,6 +26,8 @@ type BudgetDataContextValue = {
   setCreditCardTransactions: Dispatch<SetStateAction<CreditCardTransaction[]>>;
   incomeEntries: IncomeEntry[];
   setIncomeEntries: Dispatch<SetStateAction<IncomeEntry[]>>;
+  expenseCategories: ExpenseCategory[];
+  setExpenseCategories: Dispatch<SetStateAction<ExpenseCategory[]>>;
   pendingTransactions: PendingTransaction[];
   setPendingTransactions: Dispatch<SetStateAction<PendingTransaction[]>>;
   budgetPlanSettings: BudgetPlanSettings;
@@ -38,6 +41,7 @@ export function BudgetDataProvider({
   initialBudgetItems,
   initialExpenseEntries,
   initialCreditCardTransactions,
+  initialExpenseCategories,
   initialIncomeEntries,
   initialPendingTransactions,
   initialBudgetPlanSettings,
@@ -46,6 +50,7 @@ export function BudgetDataProvider({
   initialBudgetItems: BudgetItem[];
   initialExpenseEntries: ExpenseEntry[];
   initialCreditCardTransactions: CreditCardTransaction[];
+  initialExpenseCategories: ExpenseCategory[];
   initialIncomeEntries: IncomeEntry[];
   initialPendingTransactions: PendingTransaction[];
   initialBudgetPlanSettings: BudgetPlanSettings;
@@ -56,6 +61,7 @@ export function BudgetDataProvider({
     initialCreditCardTransactions,
   );
   const [incomeEntries, setIncomeEntries] = useState(initialIncomeEntries);
+  const [expenseCategories, setExpenseCategories] = useState(initialExpenseCategories);
   const [pendingTransactions, setPendingTransactions] = useState(
     initialPendingTransactions,
   );
@@ -74,6 +80,8 @@ export function BudgetDataProvider({
         setCreditCardTransactions,
         incomeEntries,
         setIncomeEntries,
+        expenseCategories,
+        setExpenseCategories,
         pendingTransactions,
         setPendingTransactions,
         budgetPlanSettings,

@@ -5,6 +5,7 @@ import { BudgetNavigation } from "@/components/budget-navigation";
 import { getBudgetItems } from "@/lib/budget-items";
 import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
 import { getCreditCardTransactions } from "@/lib/credit-card-transactions";
+import { getExpenseCategories } from "@/lib/expense-categories";
 import { getExpenseEntries } from "@/lib/expense-entries";
 import { getIncomeEntries } from "@/lib/income-entries";
 import { getPendingTransactions } from "@/lib/pending-transactions";
@@ -17,6 +18,7 @@ export default async function BudgetLayout({
   const [
     budgetItems,
     expenseEntries,
+    expenseCategories,
     creditCardTransactions,
     incomeEntries,
     pendingTransactions,
@@ -24,6 +26,7 @@ export default async function BudgetLayout({
   ] = await Promise.all([
     getBudgetItems(),
     getExpenseEntries(),
+    getExpenseCategories(),
     getCreditCardTransactions(),
     getIncomeEntries(),
     getPendingTransactions(),
@@ -35,6 +38,7 @@ export default async function BudgetLayout({
       initialBudgetItems={budgetItems}
       initialBudgetPlanSettings={budgetPlanSettings}
       initialCreditCardTransactions={creditCardTransactions}
+      initialExpenseCategories={expenseCategories}
       initialExpenseEntries={expenseEntries}
       initialIncomeEntries={incomeEntries}
       initialPendingTransactions={pendingTransactions}
