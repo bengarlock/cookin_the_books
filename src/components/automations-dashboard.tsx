@@ -9,6 +9,7 @@ import type {
   ExpenseTag,
 } from "@/lib/credit-card-transaction-types";
 import type {
+  ExpenseAutomationCondition,
   ExpenseAutomationRule,
   ExpenseAutomationRunResult,
 } from "@/lib/expense-automation-rule-types";
@@ -16,6 +17,7 @@ import { extractApiErrorDetail, extractApiErrorMessage } from "@/lib/api-error-m
 import { APP_BASE_PATH } from "@/lib/config";
 import { formatAutomationRunMessage } from "@/lib/format-automation-run-message";
 import { formatAutomationActionSummary } from "@/lib/expense-automation-summary";
+import { selectTransactions } from "@/lib/transaction-selector";
 import { AutomationRuleEditor } from "@/components/automation-rule-editor";
 
 export function AutomationsDashboard({
@@ -40,6 +42,34 @@ export function AutomationsDashboard({
   const budgetItemsById = useMemo(
     () => new Map(initialBudgetItems.map((item) => [item.id, item])),
     [initialBudgetItems],
+  );
+  const impactedRecordCounts = useMemo(
+    () =>
+      new Map(
+        rules.map((rule) => {
+          const conditions: ExpenseAutomationCondition[] = rule.conditions
+            ?.length
+            ? rule.conditions
+            : [
+                {
+                  id: `rule-${rule.id}`,
+                  field: rule.match_field,
+                  operator: rule.match_operator,
+                  value: rule.match_value,
+                },
+              ];
+
+          return [
+            rule.id,
+            selectTransactions(
+              initialCreditCardTransactions,
+              conditions,
+              rule.logic_operator,
+            ).length,
+          ];
+        }),
+      ),
+    [initialCreditCardTransactions, rules],
   );
 
   function openCreateForm() {
@@ -223,51 +253,59 @@ export function AutomationsDashboard({
           </p>
         </div>
         {rules.length ? (
-          rules.map((rule) => (
-            <div
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/[0.07] px-4 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5"
-              key={rule.id}
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-3">
-                  <Link
-                    className="min-w-0 text-sm font-semibold text-white transition hover:text-accent"
-                    href={`/dashboard/automations/${rule.id}`}
-                  >
-                    {rule.name}
-                  </Link>
-                  {!rule.enabled ? (
-                    <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted">
-                      Disabled
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-1 text-sm text-muted">
-                  {formatAutomationActionSummary(rule, budgetItemsById)}
-                </p>
-              </div>
-              <label className="flex items-center gap-2 text-xs text-white/60">
-                <input
-                  checked={rule.enabled}
-                  className="size-4 rounded border-white/20 bg-black/20 text-accent focus:ring-accent/40 disabled:opacity-50"
-                  disabled={savingRuleId === rule.id}
-                  onChange={(event) =>
-                    void toggleRule(rule, event.target.checked)
-                  }
-                  type="checkbox"
-                />
-                <span>Enabled</span>
-              </label>
-              <button
-                className="justify-self-end rounded-md px-2 py-1 text-xs text-rose-200/80 hover:bg-rose-500/10 hover:text-rose-200 disabled:opacity-50"
-                disabled={deletingRuleId === rule.id}
-                onClick={() => void deleteRule(rule.id)}
-                type="button"
+          rules.map((rule) => {
+            const impactedRecordCount = impactedRecordCounts.get(rule.id) ?? 0;
+
+            return (
+              <div
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/[0.07] px-4 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5"
+                key={rule.id}
               >
-                {deletingRuleId === rule.id ? "Deleting…" : "Delete"}
-              </button>
-            </div>
-          ))
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3">
+                    <Link
+                      className="min-w-0 text-sm font-semibold text-white transition hover:text-accent"
+                      href={`/dashboard/automations/${rule.id}`}
+                    >
+                      {rule.name}
+                    </Link>
+                    {!rule.enabled ? (
+                      <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted">
+                        Disabled
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+                    <p>{formatAutomationActionSummary(rule, budgetItemsById)}</p>
+                    <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-white/60">
+                      {impactedRecordCount} impacted{" "}
+                      {impactedRecordCount === 1 ? "record" : "records"}
+                    </span>
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-white/60">
+                  <input
+                    checked={rule.enabled}
+                    className="size-4 rounded border-white/20 bg-black/20 text-accent focus:ring-accent/40 disabled:opacity-50"
+                    disabled={savingRuleId === rule.id}
+                    onChange={(event) =>
+                      void toggleRule(rule, event.target.checked)
+                    }
+                    type="checkbox"
+                  />
+                  <span>Enabled</span>
+                </label>
+                <button
+                  className="justify-self-end rounded-md px-2 py-1 text-xs text-rose-200/80 hover:bg-rose-500/10 hover:text-rose-200 disabled:opacity-50"
+                  disabled={deletingRuleId === rule.id}
+                  onClick={() => void deleteRule(rule.id)}
+                  type="button"
+                >
+                  {deletingRuleId === rule.id ? "Deleting…" : "Delete"}
+                </button>
+              </div>
+            );
+          })
         ) : (
           <p className="px-4 py-8 text-sm text-muted sm:px-5">
             Create a rule to turn matching credit-card transactions into expense
