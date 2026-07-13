@@ -394,7 +394,7 @@ export function AutomationRuleEditor({
 
   return (
     <form
-      className="surface overflow-hidden rounded-2xl"
+      className="surface overflow-visible rounded-2xl"
       onSubmit={(event) => void saveRule(event)}
     >
       <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:px-5">
