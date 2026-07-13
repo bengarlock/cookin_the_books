@@ -258,7 +258,7 @@ export function AutomationsDashboard({
 
             return (
               <div
-                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/[0.07] px-4 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5"
+                className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 border-b border-white/[0.07] px-4 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:px-5"
                 key={rule.id}
               >
                 <div className="min-w-0">
@@ -275,14 +275,21 @@ export function AutomationsDashboard({
                       </span>
                     ) : null}
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
-                    <p>{formatAutomationActionSummary(rule, budgetItemsById)}</p>
-                    <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-white/60">
-                      {impactedRecordCount} impacted{" "}
-                      {impactedRecordCount === 1 ? "record" : "records"}
-                    </span>
-                  </div>
+                  <p className="mt-1 text-sm text-muted">
+                    {formatAutomationActionSummary(rule, budgetItemsById)}
+                  </p>
                 </div>
+                <span
+                  aria-label={`${impactedRecordCount} impacted ${
+                    impactedRecordCount === 1 ? "record" : "records"
+                  }`}
+                  className="justify-self-end text-sm font-semibold tabular-nums text-white/70"
+                  title={`${impactedRecordCount} impacted ${
+                    impactedRecordCount === 1 ? "record" : "records"
+                  }`}
+                >
+                  {impactedRecordCount}
+                </span>
                 <label className="flex items-center gap-2 text-xs text-white/60">
                   <input
                     checked={rule.enabled}
