@@ -31,4 +31,26 @@ describe("calculateFinancialGoalMetrics", () => {
     expect(metrics.projectedCycleExpenses).toBe(500);
     expect(metrics.projectedSavings).toBe(500);
   });
+
+  it("includes the ending payday in the days remaining", () => {
+    const metrics = calculateFinancialGoalMetrics({
+      cap: 1600,
+      periodStart: "2026-07-01",
+      periodEnd: "2026-07-15",
+      today: "2026-07-13",
+      projectedPaycheck: 2608.83,
+      averageDailyExpenses: 0,
+      snapshot: {
+        ...snapshot,
+        chase_credit: "1365.35",
+        citi_current: "0.00",
+        citi_pending: "0.00",
+        barclays_card: "0.00",
+      },
+      pendingTransactions: [],
+    });
+
+    expect(metrics.daysLeft).toBe(2);
+    expect(metrics.dailyAllowance).toBeCloseTo(117.325);
+  });
 });
