@@ -22,7 +22,7 @@ import type {
 } from "@/lib/expense-automation-rule-types";
 import {
   conditionIsEmpty,
-  transactionMatchesCondition,
+  selectTransactions,
 } from "@/lib/transaction-selector";
 
 const emptyRuleForm = {
@@ -227,14 +227,11 @@ export function AutomationRuleEditor({
       logic_operator: form.logic_operator,
     };
 
-    return initialCreditCardTransactions.filter((transaction) => {
-      const results = draftRule.conditions.map((condition) =>
-        transactionMatchesCondition(transaction, condition),
-      );
-      return draftRule.logic_operator === "or"
-        ? results.some(Boolean)
-        : results.every(Boolean);
-    });
+    return selectTransactions(
+      initialCreditCardTransactions,
+      draftRule.conditions,
+      draftRule.logic_operator,
+    );
   }, [
     displayName,
     editingRuleId,
@@ -299,11 +296,14 @@ export function AutomationRuleEditor({
           ?.budget_item || null,
       note_template: form.note_template.trim(),
       exclude_from_credit_card: form.exclude_from_credit_card,
-      conditions: form.conditions.map(({ field, operator, value }) => ({
-        field,
-        operator,
-        value,
-      })),
+      conditions: form.conditions.map(
+        ({ field, logic_operator, operator, value }, index) => ({
+          field,
+          operator,
+          value,
+          ...(index ? { logic_operator: logic_operator || form.logic_operator } : {}),
+        }),
+      ),
       logic_operator: form.logic_operator,
       actions: form.actions.map(serializeAction),
     };
@@ -461,9 +461,6 @@ export function AutomationRuleEditor({
             matches={previewMatches}
             onChange={(conditions) =>
               setForm((current) => ({ ...current, conditions }))
-            }
-            onLogicChange={(logic_operator) =>
-              setForm((current) => ({ ...current, logic_operator }))
             }
           />
         </div>
