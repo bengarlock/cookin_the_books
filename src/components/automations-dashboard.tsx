@@ -8,6 +8,7 @@ import type {
   CreditCardTransaction,
   ExpenseTag,
 } from "@/lib/credit-card-transaction-types";
+import type { ExpenseCategory } from "@/lib/expense-category-types";
 import type {
   ExpenseAutomationCondition,
   ExpenseAutomationRule,
@@ -22,11 +23,13 @@ import { AutomationRuleEditor } from "@/components/automation-rule-editor";
 
 export function AutomationsDashboard({
   initialBudgetItems,
+  initialCategories,
   initialCreditCardTransactions,
   initialRules,
   initialTags,
 }: {
   initialBudgetItems: BudgetItem[];
+  initialCategories: ExpenseCategory[];
   initialCreditCardTransactions: CreditCardTransaction[];
   initialRules: ExpenseAutomationRule[];
   initialTags: ExpenseTag[];
@@ -236,6 +239,7 @@ export function AutomationsDashboard({
       {formOpen ? (
         <AutomationRuleEditor
           initialBudgetItems={initialBudgetItems}
+          initialCategories={initialCategories}
           initialCreditCardTransactions={initialCreditCardTransactions}
           initialTags={initialTags}
           onCancel={closeForm}

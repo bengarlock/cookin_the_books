@@ -8,6 +8,7 @@ import { AutomationActionBuilder } from "@/components/automation-action-builder"
 import { AutomationSelectorBuilder } from "@/components/automation-selector-builder";
 import { APP_BASE_PATH } from "@/lib/config";
 import type { BudgetItem } from "@/lib/budget-item-types";
+import type { ExpenseCategory } from "@/lib/expense-category-types";
 import type {
   CreditCardTransaction,
   ExpenseTag,
@@ -113,6 +114,7 @@ export function AutomationRuleEditor({
   cancelHref,
   displayName,
   initialBudgetItems,
+  initialCategories,
   initialCreditCardTransactions,
   initialRule,
   initialTags,
@@ -123,6 +125,7 @@ export function AutomationRuleEditor({
   cancelHref?: string;
   displayName?: string;
   initialBudgetItems: BudgetItem[];
+  initialCategories: ExpenseCategory[];
   initialCreditCardTransactions: CreditCardTransaction[];
   initialRule?: ExpenseAutomationRule;
   initialTags: ExpenseTag[];
@@ -467,6 +470,7 @@ export function AutomationRuleEditor({
         <div className="sm:col-span-2">
           <AutomationActionBuilder
             actions={form.actions}
+            categories={initialCategories}
             expenses={expenseTargets}
             tags={availableTags}
             onChange={(actions) =>

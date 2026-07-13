@@ -12,6 +12,7 @@ import type {
   CreditCardTransaction,
   ExpenseTag,
 } from "@/lib/credit-card-transaction-types";
+import type { ExpenseCategory } from "@/lib/expense-category-types";
 import type { ExpenseAutomationRule } from "@/lib/expense-automation-rule-types";
 
 function PencilIcon() {
@@ -35,11 +36,13 @@ function PencilIcon() {
 
 export function AutomationEditPageClient({
   initialBudgetItems,
+  initialCategories,
   initialCreditCardTransactions,
   initialRule,
   initialTags,
 }: {
   initialBudgetItems: BudgetItem[];
+  initialCategories: ExpenseCategory[];
   initialCreditCardTransactions: CreditCardTransaction[];
   initialRule: ExpenseAutomationRule;
   initialTags: ExpenseTag[];
@@ -182,6 +185,7 @@ export function AutomationEditPageClient({
         cancelHref="/dashboard/automations"
         displayName={rule.name}
         initialBudgetItems={initialBudgetItems}
+        initialCategories={initialCategories}
         initialCreditCardTransactions={initialCreditCardTransactions}
         initialRule={rule}
         initialTags={initialTags}

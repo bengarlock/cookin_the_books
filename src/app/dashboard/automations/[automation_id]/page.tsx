@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { AutomationEditPageClient } from "@/components/automation-edit-page-client";
 import { getBudgetItems } from "@/lib/budget-items";
 import { getCreditCardTransactions } from "@/lib/credit-card-transactions";
+import { getExpenseCategories } from "@/lib/expense-categories";
 import { getExpenseAutomationRules } from "@/lib/expense-automation-rules";
 import { getExpenseTags } from "@/lib/expense-tags";
 
@@ -22,10 +23,11 @@ export default async function AutomationEditPage({
     notFound();
   }
 
-  const [budgetItems, creditCardTransactions, rules, expenseTags] =
+  const [budgetItems, creditCardTransactions, expenseCategories, rules, expenseTags] =
     await Promise.all([
       getBudgetItems(),
       getCreditCardTransactions(),
+      getExpenseCategories(),
       getExpenseAutomationRules(),
       getExpenseTags(),
     ]);
@@ -37,6 +39,7 @@ export default async function AutomationEditPage({
   return (
     <AutomationEditPageClient
       initialBudgetItems={budgetItems}
+      initialCategories={expenseCategories}
       initialCreditCardTransactions={creditCardTransactions}
       initialRule={rule}
       initialTags={expenseTags}

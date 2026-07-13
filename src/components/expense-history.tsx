@@ -6,6 +6,7 @@ import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
 import { creditCardExpenditureAverages, effectiveCreditCardTransactionAmount } from "@/lib/credit-card-averages";
 import type { CreditCardTransaction, ExpenseTag } from "@/lib/credit-card-transaction-types";
+import type { ExpenseCategory } from "@/lib/expense-category-types";
 import {
   budgetItemExpenseAverages,
   effectiveExpenseAmount,
@@ -28,6 +29,7 @@ import {
   normalizeCurrencyInput,
   normalizeDateInput,
 } from "@/lib/form-input-normalization";
+import { categoryLabelMap, sortedCategoryOptions } from "@/lib/transaction-categories";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -54,8 +56,10 @@ function todayString() {
 }
 
 export function ExpenseHistory({
+  initialCategories = [],
   initialTags,
 }: {
+  initialCategories?: ExpenseCategory[];
   initialTags: ExpenseTag[];
 }) {
   const {
@@ -65,6 +69,7 @@ export function ExpenseHistory({
     setExpenseEntries: setEntries,
     creditCardTransactions,
     setCreditCardTransactions,
+    expenseCategories,
   } = useBudgetData();
   const [tagLibrary, setTagLibrary] = useState(initialTags);
   const [openItemId, setOpenItemId] = useState<number | null>(null);
@@ -126,12 +131,9 @@ export function ExpenseHistory({
       ),
   );
   const today = todayString();
-  const categoryLabels: Record<string, string> = {
-    dining: "Dining", groceries: "Groceries", transportation: "Transportation",
-    housing: "Housing", utilities: "Utilities", shopping: "Shopping", health: "Health",
-    entertainment: "Entertainment", travel: "Travel", subscriptions: "Subscriptions",
-    fees_interest: "Fees & interest", account_payment: "Account Payment", needs_review: "Needs review",
-  };
+  const categoryList = expenseCategories.length ? expenseCategories : initialCategories;
+  const categoryLabels = categoryLabelMap(categoryList);
+  const categoryOptions = sortedCategoryOptions(categoryList);
   const normalizedTransactionSearch = transactionSearch.trim().toLocaleLowerCase();
   const categorizedTransactions = creditCardTransactions.filter((item) => {
     if (
@@ -763,7 +765,7 @@ export function ExpenseHistory({
                       </select>
                       <input aria-label="Match value" className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" onChange={(event) => setCorrectionRuleForm((current) => ({ ...current, match_value: event.target.value }))} value={correctionRuleForm.match_value} />
                       <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Set category</span>
-                      <select aria-label={`Correct category for ${transaction.description}`} className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" onChange={(event) => setCorrectionRuleForm((current) => ({ ...current, category: event.target.value }))} value={correctionRuleForm.category}>{Object.entries(categoryLabels).filter(([value]) => value !== "needs_review").map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+                      <select aria-label={`Correct category for ${transaction.description}`} className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" onChange={(event) => setCorrectionRuleForm((current) => ({ ...current, category: event.target.value }))} value={correctionRuleForm.category}>{categoryOptions.map((category) => <option key={category.key} value={category.key}>{category.label}</option>)}</select>
                       <div className="flex items-center gap-2">
                       <button
                         className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"

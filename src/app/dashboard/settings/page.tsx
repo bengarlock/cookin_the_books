@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 
+import { CategorySettings } from "@/components/category-settings";
 import { PlaidConnections } from "@/components/plaid-connections";
 import { ThemeSetting } from "@/components/theme-setting";
+import { getExpenseCategories } from "@/lib/expense-categories";
 import { getPlaidConnections } from "@/lib/plaid-connections";
 
 export const metadata: Metadata = {
@@ -9,7 +11,10 @@ export const metadata: Metadata = {
 };
 
 export default async function SettingsPage() {
-  const plaidConnections = await getPlaidConnections();
+  const [expenseCategories, plaidConnections] = await Promise.all([
+    getExpenseCategories(),
+    getPlaidConnections(),
+  ]);
 
   return (
     <div className="w-full space-y-6">
@@ -26,6 +31,7 @@ export default async function SettingsPage() {
       </section>
 
       <ThemeSetting />
+      <CategorySettings initialCategories={expenseCategories} />
       <PlaidConnections initialConnections={plaidConnections} />
     </div>
   );

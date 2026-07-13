@@ -12,11 +12,13 @@ import { useOptionalBudgetData } from "@/components/budget-data-provider";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import { APP_BASE_PATH } from "@/lib/config";
 import type { CreditCardTransaction, ExpenseTag, SuggestedRelatedTransaction } from "@/lib/credit-card-transaction-types";
+import type { ExpenseCategory } from "@/lib/expense-category-types";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import { getSavingsReservePosition } from "@/lib/savings-reserve";
 import type { BankValueSnapshot } from "@/lib/snapshot-types";
+import { categoryLabelMap, sortedCategoryOptions } from "@/lib/transaction-categories";
 
 type FinancialView = "overview" | "accounts" | "budget";
 
@@ -60,21 +62,6 @@ const liabilityAccounts = new Set<keyof BankValueSnapshot>([
   "citi_pending",
   "barclays_card",
 ]);
-
-const transactionCategoryLabels: Record<string, string> = {
-  dining: "Dining",
-  groceries: "Groceries",
-  transportation: "Transportation",
-  housing: "Housing",
-  utilities: "Utilities",
-  shopping: "Shopping",
-  health: "Health",
-  entertainment: "Entertainment",
-  travel: "Travel",
-  subscriptions: "Subscriptions",
-  fees_interest: "Fees & interest",
-  account_payment: "Account Payment",
-};
 
 const accountLoginUrls: Partial<
   Record<keyof BankValueSnapshot, string>
@@ -577,6 +564,7 @@ function AccountTransactionToggle({
 function AccountTransactionList({
   accountKey,
   accountLabel,
+  categories,
   confirmingDeleteId,
   deletingId,
   error,
@@ -600,6 +588,7 @@ function AccountTransactionList({
 }: {
   accountKey: keyof BankValueSnapshot;
   accountLabel: string;
+  categories: ExpenseCategory[];
   confirmingDeleteId: number | null;
   deletingId: number | null;
   error: string;
@@ -636,6 +625,8 @@ function AccountTransactionList({
     expected_post_date: string;
   };
 }) {
+  const transactionCategoryLabels = categoryLabelMap(categories);
+  const transactionCategoryOptions = sortedCategoryOptions(categories);
   const linkedPendingIds = new Set(
     manualPendingTransactions
       .filter((transaction) => transaction.match_status === "matched_pending")
@@ -1193,8 +1184,8 @@ function AccountTransactionList({
                       onChange={(event) => setEditForm((current) => ({ ...current, category: event.target.value }))}
                       value={editForm.category}
                     >
-                      {Object.entries(transactionCategoryLabels).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
+                      {transactionCategoryOptions.map((category) => (
+                        <option key={category.key} value={category.key}>{category.label}</option>
                       ))}
                     </select>
                     <div className="flex items-center gap-2">
@@ -1474,17 +1465,20 @@ function AccountTransactionList({
 
 export function LiveBankValues({
   initialBudgetPlanSettings,
+  initialExpenseCategories = [],
   initialExpenseTags = [],
   initialPendingTransactions,
   view = "overview",
 }: {
   initialBudgetPlanSettings?: BudgetPlanSettings;
+  initialExpenseCategories?: ExpenseCategory[];
   initialExpenseTags?: ExpenseTag[];
   initialPendingTransactions?: PendingTransaction[];
   view?: FinancialView;
 }) {
   const budgetData = useOptionalBudgetData();
   const { snapshot } = useLiveSnapshot();
+  const expenseCategories = budgetData?.expenseCategories ?? initialExpenseCategories;
   const [localPendingTransactions, setLocalPendingTransactions] = useState(
     initialPendingTransactions ?? [],
   );
@@ -2321,6 +2315,7 @@ export function LiveBankValues({
                       <AccountTransactionList
                         accountKey="citi_current"
                         accountLabel="Citi Card"
+                        categories={expenseCategories}
                         confirmingDeleteId={confirmingDeleteId}
                         deletingId={deletingId}
                         error={citiTransactions?.error || ""}
@@ -2480,6 +2475,7 @@ export function LiveBankValues({
                         <AccountTransactionList
                           accountKey={account.key}
                           accountLabel={account.label}
+                          categories={expenseCategories}
                           confirmingDeleteId={confirmingDeleteId}
                           deletingId={deletingId}
                           error={transactionState?.error || ""}

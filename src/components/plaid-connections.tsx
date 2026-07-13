@@ -10,6 +10,15 @@ import {
 import { APP_BASE_PATH } from "@/lib/config";
 import type { PlaidConnection, PlaidSyncResult } from "@/lib/plaid-types";
 
+const actionButtonClass =
+  "h-9 min-w-20 rounded-lg border px-3 text-xs font-semibold transition disabled:opacity-50";
+const primaryActionClass = `${actionButtonClass} border-accent/25 text-accent hover:border-accent/40 hover:bg-accent/10`;
+const investmentActionClass = `${actionButtonClass} min-w-24 border-gold/35 text-gold hover:border-gold/50 hover:bg-gold/10`;
+const quietActionClass =
+  "h-9 min-w-20 rounded-lg border border-white/10 px-3 text-xs font-semibold text-muted transition hover:border-white/20 hover:text-white disabled:opacity-50";
+const dangerActionClass =
+  "h-9 min-w-20 rounded-lg border border-rose-300/30 bg-rose-300/10 px-3 text-xs font-semibold text-rose-100 transition hover:bg-rose-300/15 disabled:opacity-50";
+
 function messageFrom(data: unknown, fallback: string) {
   if (data && typeof data === "object") {
     if ("message" in data && typeof data.message === "string") return data.message;
@@ -178,7 +187,7 @@ export function PlaidConnections({ initialConnections }: { initialConnections: P
       {status ? <p className="border-b border-accent/15 bg-accent/10 px-5 py-3 text-sm text-accent" role="status">{status}</p> : null}
       {connections.length ? connections.map((connection) => (
         <div className="border-b border-white/10 p-5 last:border-b-0" key={connection.id}>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold text-white">{connection.institution_name || "Connected institution"}</h3>
@@ -189,29 +198,32 @@ export function PlaidConnections({ initialConnections }: { initialConnections: P
                 {connection.accounts.map((account) => <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-white/75" key={account.id}>{account.name}{account.mask ? ` •••• ${account.mask}` : ""}</span>)}
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-start lg:max-w-[30rem] lg:justify-end">
               <button
-                className="rounded-lg border border-accent/25 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
+                className={primaryActionClass}
                 disabled={busyId === connection.id || Boolean(linkRequest)}
                 onClick={() => void updateConnection(connection.id, "reauthorize")}
                 type="button"
               >
-                {busyId === connection.id ? "Working…" : "Re-authorize"}
+                {busyId === connection.id ? "Working..." : "Reauth"}
               </button>
               {connection.accounts.some((account) => account.account_type === "investment") ? (
                 <button
-                  className="rounded-lg border border-gold/35 px-3 py-2 text-xs font-semibold text-gold disabled:opacity-50"
+                  className={investmentActionClass}
                   disabled={busyId === connection.id || Boolean(linkRequest)}
                   onClick={() => void updateConnection(connection.id, "investments")}
                   type="button"
                 >
-                  {busyId === connection.id ? "Working…" : "Enable investments"}
+                  {busyId === connection.id ? "Working..." : "Investments"}
                 </button>
               ) : null}
-              <button className="rounded-lg border border-accent/25 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50" disabled={busyId === connection.id} onClick={() => syncConnection(connection.id)} type="button">{busyId === connection.id ? "Working…" : "Sync"}</button>
+              <button className={primaryActionClass} disabled={busyId === connection.id} onClick={() => syncConnection(connection.id)} type="button">{busyId === connection.id ? "Working..." : "Sync"}</button>
               {confirmingDeleteId === connection.id ? (
-                <><button className="rounded-lg bg-rose-300 px-3 py-2 text-xs font-semibold text-[#22090f] disabled:opacity-50" disabled={busyId === connection.id} onClick={() => disconnect(connection.id)} type="button">Confirm disconnect</button><button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-muted" onClick={() => setConfirmingDeleteId(null)} type="button">Cancel</button></>
-              ) : <button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-muted" onClick={() => setConfirmingDeleteId(connection.id)} type="button">Disconnect</button>}
+                <>
+                  <button className={dangerActionClass} disabled={busyId === connection.id} onClick={() => disconnect(connection.id)} type="button">Confirm</button>
+                  <button className={quietActionClass} onClick={() => setConfirmingDeleteId(null)} type="button">Cancel</button>
+                </>
+              ) : <button className={quietActionClass} onClick={() => setConfirmingDeleteId(connection.id)} type="button">Remove</button>}
             </div>
           </div>
         </div>

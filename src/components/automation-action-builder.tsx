@@ -3,7 +3,9 @@
 import { useState } from "react";
 
 import type { BudgetItem } from "@/lib/budget-item-types";
+import type { ExpenseCategory } from "@/lib/expense-category-types";
 import type { ExpenseAutomationAction } from "@/lib/expense-automation-rule-types";
+import { slugifyCategoryLabel, sortedCategoryOptions } from "@/lib/transaction-categories";
 
 const choices = [
   { type: "assign_category", label: "Assign Category" },
@@ -12,28 +14,16 @@ const choices = [
   { type: "create_expense", label: "Create Expense" },
 ] as const;
 
-export const defaultAutomationCategories = [
-  { value: "dining", label: "Dining" },
-  { value: "groceries", label: "Groceries" },
-  { value: "transportation", label: "Transportation" },
-  { value: "housing", label: "Housing" },
-  { value: "utilities", label: "Utilities" },
-  { value: "shopping", label: "Shopping" },
-  { value: "health", label: "Health" },
-  { value: "entertainment", label: "Entertainment" },
-  { value: "travel", label: "Travel" },
-  { value: "subscriptions", label: "Subscriptions" },
-  { value: "fees_interest", label: "Fees & interest" },
-];
-
 export function AutomationActionBuilder({
   actions,
+  categories,
   expenses,
   tags,
   onChange,
   onCreateTag,
 }: {
   actions: ExpenseAutomationAction[];
+  categories: ExpenseCategory[];
   expenses: BudgetItem[];
   tags: string[];
   onChange: (actions: ExpenseAutomationAction[]) => void;
@@ -49,9 +39,15 @@ export function AutomationActionBuilder({
       ? [{ value: action.category, label: action.category_label || action.category }]
       : [],
   );
-  const categories = Array.from(
+  const categoryOptions = Array.from(
     new Map(
-      [...defaultAutomationCategories, ...customCategories].map((category) => [
+      [
+        ...sortedCategoryOptions(categories).map((category) => ({
+          value: category.key,
+          label: category.label,
+        })),
+        ...customCategories,
+      ].map((category) => [
         category.value,
         category,
       ]),
@@ -92,15 +88,9 @@ export function AutomationActionBuilder({
 
   function createCategory(actionId: string) {
     const label = newCategoryName.trim().replace(/\s+/g, " ");
-    const category = label
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .slice(0, 60);
+    const category = slugifyCategoryLabel(label);
     if (!label || !category) return;
-    const existing = categories.find(
+    const existing = categoryOptions.find(
       (option) => option.value === category || option.label.toLowerCase() === label.toLowerCase(),
     );
     update(actionId, {
@@ -222,7 +212,7 @@ export function AutomationActionBuilder({
                     <select
                       className="min-w-0 flex-1 rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-sm text-white"
                       onChange={(event) => {
-                        const selected = categories.find((category) => category.value === event.target.value);
+                        const selected = categoryOptions.find((category) => category.value === event.target.value);
                         update(action.id, {
                           category: event.target.value,
                           category_label: selected?.label,
@@ -231,7 +221,7 @@ export function AutomationActionBuilder({
                       value={action.category}
                     >
                       <option value="">Select a category</option>
-                      {categories.map((category) => (
+                      {categoryOptions.map((category) => (
                         <option key={category.value} value={category.value}>
                           {category.label}
                         </option>
