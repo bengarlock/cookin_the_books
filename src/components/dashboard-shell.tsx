@@ -50,6 +50,11 @@ const navigation: Array<{
   { name: "Automations", href: "/dashboard/automations", icon: AutomationsIcon },
 ];
 
+const exactActiveHrefs = new Set([
+  "/dashboard",
+  ...navigation.flatMap((item) => (item.parent ? [item.parent] : [])),
+]);
+
 function NavIconFrame({
   children,
   className = "size-5",
@@ -296,6 +301,12 @@ function SettingsLink() {
   );
 }
 
+function isNavigationItemActive(pathname: string, href: string) {
+  return exactActiveHrefs.has(href)
+    ? pathname === href
+    : pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
@@ -341,8 +352,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 <Link
                   href={item.href}
                   className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition lg:w-full ${
-                    pathname === item.href ||
-                    pathname.startsWith(`${item.href}/`)
+                    isNavigationItemActive(pathname, item.href)
                       ? "border-accent/15 bg-accent/10 text-accent"
                       : "border-transparent text-white/60 hover:border-white/10 hover:bg-white/[0.04] hover:text-white"
                   }`}

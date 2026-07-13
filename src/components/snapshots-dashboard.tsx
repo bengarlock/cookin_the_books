@@ -62,6 +62,16 @@ const accountDefinitions: Array<{
 
 type BalanceForm = Record<SnapshotAccountKey, string>;
 
+type YearlyNetChange = {
+  change: number;
+  endDate: string;
+  endValue: number;
+  percentage: number;
+  startDate: string;
+  startValue: number;
+  year: string;
+};
+
 function formatDate(value: string) {
   return dateFormatter.format(new Date(`${value}T12:00:00`));
 }
@@ -84,6 +94,40 @@ function balancesFromSnapshot(
       snapshot?.[key] || "0.00",
     ]),
   ) as BalanceForm;
+}
+
+function calculateYearlyNetChanges(
+  snapshots: BankValueSnapshot[],
+): YearlyNetChange[] {
+  const chronological = [...snapshots].sort((left, right) =>
+    left.snapshot_date.localeCompare(right.snapshot_date),
+  );
+  const yearlySnapshots = new Map<string, BankValueSnapshot[]>();
+
+  for (const snapshot of chronological) {
+    const year = snapshot.snapshot_date.slice(0, 4);
+    yearlySnapshots.set(year, [...(yearlySnapshots.get(year) || []), snapshot]);
+  }
+
+  return [...yearlySnapshots.entries()]
+    .map(([year, yearSnapshots]) => {
+      const first = yearSnapshots[0];
+      const last = yearSnapshots[yearSnapshots.length - 1];
+      const startValue = Number(first.net_assets);
+      const endValue = Number(last.net_assets);
+      const change = endValue - startValue;
+
+      return {
+        change,
+        endDate: last.snapshot_date,
+        endValue,
+        percentage: startValue ? (change / startValue) * 100 : 0,
+        startDate: first.snapshot_date,
+        startValue,
+        year,
+      };
+    })
+    .sort((left, right) => right.year.localeCompare(left.year));
 }
 
 function Metric({
@@ -120,6 +164,114 @@ function Metric({
         {value}
       </p>
     </div>
+  );
+}
+
+function YearlyNetChangeTile({
+  isLoading,
+  yearlyChanges,
+  yearlyError,
+}: {
+  isLoading: boolean;
+  yearlyChanges: YearlyNetChange[];
+  yearlyError: string;
+}) {
+  const totalChange = yearlyChanges.reduce(
+    (sum, item) => sum + item.change,
+    0,
+  );
+
+  return (
+    <section className="surface overflow-hidden rounded-2xl">
+      <div className="border-b border-white/10 bg-white/[0.035] px-5 py-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-white">
+              Net gain/loss by year
+            </h2>
+            <p className="mt-1 text-xs text-muted">
+              All-time yearly movement from first snapshot to last snapshot in
+              each calendar year.
+            </p>
+          </div>
+          <span
+            className={`w-fit rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] ${
+              totalChange < 0
+                ? "border-rose-300/20 bg-rose-500/10 text-rose-300"
+                : "border-accent/20 bg-accent/10 text-accent"
+            }`}
+          >
+            All time {currencyFormatter.format(totalChange)}
+          </span>
+        </div>
+      </div>
+
+      {yearlyError ? (
+        <p
+          className="border-b border-rose-300/15 bg-rose-500/10 px-5 py-3 text-sm text-rose-100"
+          role="alert"
+        >
+          {yearlyError}
+        </p>
+      ) : null}
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[680px] text-left">
+          <thead className="border-b border-white/10 bg-black/10 text-[10px] uppercase tracking-[0.13em] text-muted">
+            <tr>
+              <th className="px-5 py-3 font-semibold">Year</th>
+              <th className="px-5 py-3 text-right font-semibold">Start</th>
+              <th className="px-5 py-3 text-right font-semibold">End</th>
+              <th className="px-5 py-3 text-right font-semibold">Change</th>
+              <th className="px-5 py-3 text-right font-semibold">Percent</th>
+            </tr>
+          </thead>
+          <tbody>
+            {yearlyChanges.map((item) => (
+              <tr
+                className="border-b border-white/[0.07] last:border-b-0"
+                key={item.year}
+              >
+                <td className="px-5 py-3">
+                  <p className="font-semibold text-white">{item.year}</p>
+                  <p className="mt-0.5 text-[11px] text-muted">
+                    {formatDate(item.startDate)} to {formatDate(item.endDate)}
+                  </p>
+                </td>
+                <td className="px-5 py-3 text-right font-mono text-sm text-white/75">
+                  {currencyFormatter.format(item.startValue)}
+                </td>
+                <td className="px-5 py-3 text-right font-mono text-sm text-white/75">
+                  {currencyFormatter.format(item.endValue)}
+                </td>
+                <td
+                  className={`px-5 py-3 text-right font-mono text-sm font-semibold ${
+                    item.change < 0 ? "text-rose-300" : "text-accent"
+                  }`}
+                >
+                  {currencyFormatter.format(item.change)}
+                </td>
+                <td
+                  className={`px-5 py-3 text-right font-mono text-sm ${
+                    item.percentage < 0 ? "text-rose-300" : "text-accent"
+                  }`}
+                >
+                  {item.percentage.toFixed(2)}%
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {!yearlyChanges.length ? (
+        <p className="px-5 py-8 text-center text-sm text-muted">
+          {isLoading
+            ? "Loading yearly movement..."
+            : "No yearly snapshot history is available yet."}
+        </p>
+      ) : null}
+    </section>
   );
 }
 
@@ -474,6 +626,10 @@ export function SnapshotsDashboard({
     useState<ExpenseDateRange>(initialRange);
   const [showTrendLine, setShowTrendLine] = useState(true);
   const [isLoadingRange, setIsLoadingRange] = useState(false);
+  const [allTimeSnapshots, setAllTimeSnapshots] = useState(initialSnapshots);
+  const [isLoadingAllTimeSnapshots, setIsLoadingAllTimeSnapshots] =
+    useState(false);
+  const [allTimeSnapshotsError, setAllTimeSnapshotsError] = useState("");
   const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
   const [historyScrollEnabled, setHistoryScrollEnabled] = useState(false);
   const historyTileRef = useRef<HTMLElement | null>(null);
@@ -563,6 +719,12 @@ export function SnapshotsDashboard({
           right.snapshot_date.localeCompare(left.snapshot_date),
         );
       });
+      setAllTimeSnapshots((current) => {
+        const withoutSaved = current.filter((item) => item.id !== result.id);
+        return [result, ...withoutSaved].sort((left, right) =>
+          right.snapshot_date.localeCompare(left.snapshot_date),
+        );
+      });
       setSelectedId(result.id);
       setIsCreating(false);
       setNotes(result.notes);
@@ -644,6 +806,82 @@ export function SnapshotsDashboard({
       disposed = true;
     };
   }, [chartRange, loadedRanges]);
+
+  useEffect(() => {
+    if (!allTimeStart) return;
+
+    let disposed = false;
+    const allTimeStartDate = allTimeStart;
+    async function loadAllTimeSnapshots() {
+      setIsLoadingAllTimeSnapshots(true);
+      setAllTimeSnapshotsError("");
+      const allTimeRange = {
+        end: localToday(),
+        start: allTimeStartDate,
+      };
+      const params = new URLSearchParams({
+        end_date: allTimeRange.end,
+        include_account_balances: "0",
+        start_date: allTimeRange.start,
+      });
+
+      try {
+        const response = await fetch(`${APP_BASE_PATH}/api/snapshots?${params}`);
+        const result = (await response.json().catch(() => null)) as
+          | BankValueSnapshot[]
+          | { detail?: string; message?: string }
+          | null;
+        if (!response.ok || !Array.isArray(result)) {
+          throw new Error(
+            result && "detail" in result && result.detail
+              ? result.detail
+              : result && "message" in result && result.message
+                ? result.message
+                : "Unable to load all-time snapshots.",
+          );
+        }
+        if (disposed) return;
+        setAllTimeSnapshots(result);
+        setSnapshots((current) => {
+          const merged = new Map<number, BankValueSnapshot>();
+          for (const snapshot of current) merged.set(snapshot.id, snapshot);
+          for (const snapshot of result) {
+            merged.set(snapshot.id, {
+              ...snapshot,
+              account_balances:
+                merged.get(snapshot.id)?.account_balances ||
+                snapshot.account_balances,
+            });
+          }
+          return [...merged.values()].sort((left, right) =>
+            right.snapshot_date.localeCompare(left.snapshot_date),
+          );
+        });
+        setLoadedRanges((current) => {
+          const alreadyLoaded = current.some(
+            (range) =>
+              range.start <= allTimeRange.start &&
+              range.end >= allTimeRange.end,
+          );
+          return alreadyLoaded ? current : [...current, allTimeRange];
+        });
+      } catch (allTimeError) {
+        if (disposed) return;
+        setAllTimeSnapshotsError(
+          allTimeError instanceof Error
+            ? allTimeError.message
+            : "Unable to load all-time snapshots.",
+        );
+      } finally {
+        if (!disposed) setIsLoadingAllTimeSnapshots(false);
+      }
+    }
+
+    loadAllTimeSnapshots();
+    return () => {
+      disposed = true;
+    };
+  }, [allTimeStart]);
 
   useEffect(() => {
     if (!selectedSnapshot || selectedSnapshot.account_balances?.length) return;
@@ -745,6 +983,10 @@ export function SnapshotsDashboard({
       : chartRangeChange.amount > 0
         ? "Range gain"
         : "Range change";
+  const yearlyNetChanges = useMemo(
+    () => calculateYearlyNetChanges(allTimeSnapshots),
+    [allTimeSnapshots],
+  );
 
   return (
     <div className="mt-8 space-y-6">
@@ -1182,6 +1424,12 @@ export function SnapshotsDashboard({
           value={current ? formatDate(current.snapshot_date) : "No snapshot"}
         />
       </section>
+
+      <YearlyNetChangeTile
+        isLoading={isLoadingAllTimeSnapshots}
+        yearlyChanges={yearlyNetChanges}
+        yearlyError={allTimeSnapshotsError}
+      />
     </div>
   );
 }
