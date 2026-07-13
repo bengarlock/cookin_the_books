@@ -402,10 +402,16 @@ export function AutomationRuleEditor({
           </p>
         </div>
         <button
-          className="shrink-0 rounded-xl border border-accent/30 bg-accent/15 px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/20 disabled:opacity-50"
+          className="inline-flex min-w-[8.5rem] shrink-0 items-center justify-center gap-2 rounded-xl border border-accent/30 bg-accent/15 px-4 py-2 text-sm font-medium text-accent transition hover:bg-accent/20 disabled:opacity-70"
           disabled={savingForm}
           type="submit"
         >
+          {savingForm ? (
+            <span
+              aria-hidden="true"
+              className="size-4 animate-spin rounded-full border-2 border-accent/30 border-t-accent"
+            />
+          ) : null}
           {saveButtonLabel}
         </button>
       </div>
