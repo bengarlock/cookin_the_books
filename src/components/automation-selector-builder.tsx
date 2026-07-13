@@ -17,12 +17,13 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 const selectors = [
-  { field: "account_last_four", label: "Account", operators: ["equals"] },
+  { field: "account_last_four", label: "Account", operators: ["equals", "not_equals"] },
   {
     field: "amount",
     label: "Amount",
     operators: [
       "equals",
+      "not_equals",
       "greater_than",
       "greater_than_or_equal",
       "less_than",
@@ -54,12 +55,12 @@ const selectors = [
   {
     field: "tags",
     label: "Tags",
-    operators: ["contains", "not_contains", "equals"],
+    operators: ["contains", "not_contains", "equals", "not_equals"],
   },
   {
     field: "transaction_date",
     label: "Transaction date",
-    operators: ["equals", "on_or_after", "on_or_before"],
+    operators: ["equals", "not_equals", "on_or_after", "on_or_before"],
   },
   {
     field: "transaction_type",

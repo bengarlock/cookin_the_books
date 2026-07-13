@@ -3,7 +3,7 @@ export type ExpenseAutomationMatchField =
   | "issuer"
   | "transaction_type";
 
-export type ExpenseAutomationMatchOperator = "contains" | "equals";
+export type ExpenseAutomationMatchOperator = "contains" | "equals" | "not_equals";
 export type ExpenseAutomationCondition = {
   id: string;
   logic_operator?: "and" | "or";
