@@ -54,3 +54,8 @@ export type RelatedTransaction = {
   category: string;
   tags: ExpenseTag[];
 };
+
+export type SuggestedRelatedTransaction = CreditCardTransaction & {
+  match_reason: string;
+  match_score: number;
+};
