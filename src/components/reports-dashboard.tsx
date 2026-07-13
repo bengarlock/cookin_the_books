@@ -14,7 +14,6 @@ const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 export function ReportsDashboard({ transactions }: { transactions: CreditCardTransaction[] }) {
   const [conditions, setConditions] = useState<ExpenseAutomationCondition[]>([]);
-  const [logic, setLogic] = useState<"and" | "or">("and");
   const [results, setResults] = useState<CreditCardTransaction[] | null>(null);
   const [stale, setStale] = useState(false);
   const accounts = useMemo(() => Array.from(new Map(transactions
@@ -22,10 +21,9 @@ export function ReportsDashboard({ transactions }: { transactions: CreditCardTra
     .map((item) => [item.account_last_four, `${item.issuer} •••• ${item.account_last_four}`])), ([value, label]) => ({ value, label })), [transactions]);
   const descriptions = useMemo(() => Array.from(new Set(transactions.map((item) => item.description).filter(Boolean))).sort(), [transactions]);
   const tags = useMemo(() => Array.from(new Set(transactions.flatMap((item) => item.tags?.map((tag) => tag.name) || []))).sort(), [transactions]);
-  const preview = useMemo(() => selectTransactions(transactions, conditions, logic), [transactions, conditions, logic]);
+  const preview = useMemo(() => selectTransactions(transactions, conditions, "and"), [transactions, conditions]);
 
   function changeConditions(next: ExpenseAutomationCondition[]) { setConditions(next); if (results) setStale(true); }
-  function changeLogic(next: "and" | "or") { setLogic(next); if (results) setStale(true); }
   function runReport() { setResults(preview); setStale(false); }
 
   const metrics = useMemo(() => {
@@ -58,7 +56,7 @@ export function ReportsDashboard({ transactions }: { transactions: CreditCardTra
         <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold">Report criteria</p><h2 className="mt-2 text-xl font-semibold text-white">What would you like to analyze?</h2><p className="mt-1 text-sm text-muted">Build a reusable slice of your transaction history with the same selectors used by automations.</p></div>
         <button className="rounded-xl border border-accent/30 bg-accent/15 px-5 py-2.5 text-sm font-semibold text-accent disabled:cursor-not-allowed disabled:opacity-40" disabled={!conditions.length || conditions.some(conditionIsEmpty)} onClick={runReport} type="button">Run report →</button>
       </div>
-      <AutomationSelectorBuilder accounts={accounts} conditions={conditions} descriptions={descriptions} tags={tags} logic={logic} matches={preview} onChange={changeConditions} onLogicChange={changeLogic} />
+      <AutomationSelectorBuilder accounts={accounts} conditions={conditions} descriptions={descriptions} tags={tags} logic="and" matches={preview} onChange={changeConditions} />
     </section>
 
     {results ? <>

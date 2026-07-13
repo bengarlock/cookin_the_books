@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { CreditCardTransaction } from "./credit-card-transaction-types";
-import { transactionMatchesCondition } from "./transaction-selector";
+import {
+  selectTransactions,
+  transactionMatchesCondition,
+} from "./transaction-selector";
 
 const transaction = {
   amount: "100.00",
@@ -25,5 +28,42 @@ describe("transactionMatchesCondition amount comparisons", () => {
       operator: "less_than_or_equal",
       value: "100",
     })).toBe(true);
+  });
+});
+
+describe("selectTransactions row logic", () => {
+  it("evaluates each row connector from left to right", () => {
+    const matching = {
+      ...transaction,
+      id: 1,
+      description: "Coffee shop",
+      issuer: "Chase",
+    } as CreditCardTransaction;
+    const conditions = [
+      {
+        id: "description",
+        field: "description" as const,
+        operator: "contains" as const,
+        value: "coffee",
+      },
+      {
+        id: "high-amount",
+        field: "amount" as const,
+        operator: "greater_than" as const,
+        value: "200",
+        logic_operator: "and" as const,
+      },
+      {
+        id: "issuer",
+        field: "issuer" as const,
+        operator: "equals" as const,
+        value: "Chase",
+        logic_operator: "or" as const,
+      },
+    ];
+
+    expect(selectTransactions([matching], conditions, "and")).toEqual([
+      matching,
+    ]);
   });
 });

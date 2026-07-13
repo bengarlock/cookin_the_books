@@ -152,11 +152,17 @@ function ExistingValueSelector({
   const [textMode, setTextMode] = useState(false);
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState(value);
-  const filtered = query.trim()
-    ? options
-        .filter((option) => option.toLowerCase().includes(query.toLowerCase()))
-        .slice(0, 50)
-    : options.slice(0, 50);
+  const selectedKeys = new Set(
+    draft.map((item) => item.toLocaleLowerCase()),
+  );
+  const filtered = options
+    .filter((option) => !selectedKeys.has(option.toLocaleLowerCase()))
+    .filter(
+      (option) =>
+        !query.trim() ||
+        option.toLowerCase().includes(query.trim().toLowerCase()),
+    )
+    .slice(0, 50);
   function begin() {
     setDraft(value);
     setQuery("");
@@ -203,27 +209,56 @@ function ExistingValueSelector({
                 placeholder={`Search existing ${label.toLowerCase()}`}
                 value={query}
               />
+              {draft.length ? (
+                <div className="mt-3 shrink-0 rounded-lg border border-accent/20 bg-accent/[0.06] p-2.5">
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent">
+                    Selected
+                  </p>
+                  <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto overscroll-contain">
+                    {draft.map((item) => (
+                      <button
+                        className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-accent/25 bg-accent/10 px-2.5 py-1 text-left text-[11px] font-medium text-accent"
+                        key={item.toLocaleLowerCase()}
+                        onClick={() =>
+                          setDraft(
+                            draft.filter(
+                              (selected) =>
+                                selected.toLocaleLowerCase() !==
+                                item.toLocaleLowerCase(),
+                            ),
+                          )
+                        }
+                        title={`Remove ${item}`}
+                        type="button"
+                      >
+                        <span className="truncate">{item}</span>
+                        <span aria-hidden="true" className="shrink-0">×</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              <p className="mt-3 shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                Available
+              </p>
               <div className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                {filtered.map((option) => {
-                  const selected = draft.includes(option);
+                {filtered.length ? filtered.map((option) => {
                   return (
                     <button
-                      className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs ${selected ? "bg-accent/10 text-accent" : "text-white/70 hover:bg-white/[0.05]"}`}
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-white/70 hover:bg-white/[0.05]"
                       key={option}
-                      onClick={() =>
-                        setDraft(
-                          selected
-                            ? draft.filter((item) => item !== option)
-                            : [...draft, option],
-                        )
-                      }
+                      onClick={() => setDraft([...draft, option])}
                       type="button"
                     >
                       <span className="truncate">{option}</span>
-                      <span>{selected ? "✓" : "+"}</span>
+                      <span>+</span>
                     </button>
                   );
-                })}
+                }) : (
+                  <p className="px-3 py-4 text-center text-xs text-muted">
+                    No available values match this search.
+                  </p>
+                )}
               </div>
             </>
           )}
@@ -266,7 +301,6 @@ export function AutomationSelectorBuilder({
   tags,
   matches,
   onChange,
-  onLogicChange,
 }: {
   conditions: ExpenseAutomationCondition[];
   logic: "and" | "or";
@@ -275,7 +309,6 @@ export function AutomationSelectorBuilder({
   tags: string[];
   matches: CreditCardTransaction[];
   onChange: (conditions: ExpenseAutomationCondition[]) => void;
-  onLogicChange: (logic: "and" | "or") => void;
 }) {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"selectors" | "matches">("selectors");
@@ -296,6 +329,7 @@ export function AutomationSelectorBuilder({
         field,
         operator: selector.operators[0],
         value: field === "account_last_four" ? [] : "",
+        logic_operator: conditions.length ? logic : undefined,
       },
     ]);
   }
@@ -356,24 +390,6 @@ export function AutomationSelectorBuilder({
               <span>{matches.length}</span>
               <span className="font-normal text-sky-100/65">records</span>
             </div>
-            {conditions.length > 1 && tab === "selectors" ? (
-              <div className="flex rounded-lg border border-white/10 p-1">
-                <button
-                  className={`rounded px-2 py-1 text-xs ${logic === "and" ? "bg-accent/15 text-accent" : "text-muted"}`}
-                  onClick={() => onLogicChange("and")}
-                  type="button"
-                >
-                  AND
-                </button>
-                <button
-                  className={`rounded px-2 py-1 text-xs ${logic === "or" ? "bg-accent/15 text-accent" : "text-muted"}`}
-                  onClick={() => onLogicChange("or")}
-                  type="button"
-                >
-                  OR
-                </button>
-              </div>
-            ) : null}
           </div>
         </div>
         {tab === "selectors" ? (
@@ -389,9 +405,32 @@ export function AutomationSelectorBuilder({
                     key={condition.id}
                   >
                     {index ? (
-                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-gold">
-                        {logic}
-                      </p>
+                      <div className="mb-3 flex items-center gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                          Combine with previous row
+                        </span>
+                        <div className="flex rounded-lg border border-white/10 p-1">
+                          {(["and", "or"] as const).map((connector) => (
+                            <button
+                              aria-pressed={(condition.logic_operator || logic) === connector}
+                              className={`rounded px-2.5 py-1 text-[10px] font-semibold uppercase ${
+                                (condition.logic_operator || logic) === connector
+                                  ? "bg-accent/15 text-accent"
+                                  : "text-muted"
+                              }`}
+                              key={connector}
+                              onClick={() =>
+                                update(condition.id, {
+                                  logic_operator: connector,
+                                })
+                              }
+                              type="button"
+                            >
+                              {connector}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     ) : null}
                     <div className="grid items-center gap-2 sm:grid-cols-[1fr_auto_minmax(10rem,1fr)_auto]">
                       <span className="text-sm font-medium text-white">

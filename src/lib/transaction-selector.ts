@@ -53,8 +53,19 @@ export function selectTransactions(
   logic: "and" | "or",
 ) {
   if (!conditions.length || conditions.some(conditionIsEmpty)) return [];
-  return transactions.filter((transaction) => {
-    const results = conditions.map((condition) => transactionMatchesCondition(transaction, condition));
-    return logic === "and" ? results.every(Boolean) : results.some(Boolean);
-  });
+  return transactions.filter((transaction) =>
+    conditions.reduce(
+      (matches, condition, index) => {
+        const conditionMatches = transactionMatchesCondition(
+          transaction,
+          condition,
+        );
+        if (index === 0) return conditionMatches;
+        return (condition.logic_operator || logic) === "or"
+          ? matches || conditionMatches
+          : matches && conditionMatches;
+      },
+      false,
+    ),
+  );
 }
