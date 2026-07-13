@@ -111,20 +111,24 @@ function serializeAction(
 
 export function AutomationRuleEditor({
   cancelHref,
+  displayName,
   initialBudgetItems,
   initialCreditCardTransactions,
   initialRule,
   initialTags,
   onCancel,
   onSaved,
+  showNameField = true,
 }: {
   cancelHref?: string;
+  displayName?: string;
   initialBudgetItems: BudgetItem[];
   initialCreditCardTransactions: CreditCardTransaction[];
   initialRule?: ExpenseAutomationRule;
   initialTags: ExpenseTag[];
   onCancel?: () => void;
   onSaved?: (rule: ExpenseAutomationRule) => void;
+  showNameField?: boolean;
 }) {
   const router = useRouter();
   const editingRuleId = initialRule?.id ?? null;
@@ -199,10 +203,13 @@ export function AutomationRuleEditor({
     if (!form.conditions.length || form.conditions.some(conditionIsEmpty)) {
       return [];
     }
+    const activeRuleName = showNameField
+      ? form.name
+      : displayName || form.name;
 
     const draftRule: ExpenseAutomationRule = {
       id: editingRuleId || 0,
-      name: form.name || "Draft rule",
+      name: activeRuleName || "Draft rule",
       enabled: initialRule?.enabled ?? true,
       match_field: form.match_field,
       match_operator: form.match_operator,
@@ -225,7 +232,14 @@ export function AutomationRuleEditor({
         ? results.some(Boolean)
         : results.every(Boolean);
     });
-  }, [editingRuleId, form, initialCreditCardTransactions, initialRule]);
+  }, [
+    displayName,
+    editingRuleId,
+    form,
+    initialCreditCardTransactions,
+    initialRule,
+    showNameField,
+  ]);
 
   function cancelForm() {
     setError("");
@@ -234,8 +248,11 @@ export function AutomationRuleEditor({
 
   async function saveRule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const activeRuleName = showNameField
+      ? form.name.trim()
+      : (displayName || form.name).trim();
     if (
-      !form.name.trim() ||
+      !activeRuleName ||
       !form.conditions.length ||
       form.conditions.some(conditionIsEmpty) ||
       !form.actions.length ||
@@ -270,7 +287,7 @@ export function AutomationRuleEditor({
       ? firstCondition.value.join(",")
       : firstCondition.value;
     const payload = {
-      name: form.name.trim(),
+      name: activeRuleName,
       match_field: compatibilityField,
       match_operator: compatibilityOperator,
       match_value: compatibilityValue,
@@ -403,22 +420,24 @@ export function AutomationRuleEditor({
       ) : null}
 
       <div className="grid gap-4 px-4 py-5 sm:grid-cols-2 sm:px-5">
-        <label className="block sm:col-span-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-            Rule name
-          </span>
-          <input
-            className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-accent/40"
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                name: event.target.value,
-              }))
-            }
-            placeholder="Recurring bill"
-            value={form.name}
-          />
-        </label>
+        {showNameField ? (
+          <label className="block sm:col-span-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+              Rule name
+            </span>
+            <input
+              className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-accent/40"
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  name: event.target.value,
+                }))
+              }
+              placeholder="Recurring bill"
+              value={form.name}
+            />
+          </label>
+        ) : null}
         <div className="sm:col-span-2">
           <AutomationSelectorBuilder
             accounts={accountOptions}
