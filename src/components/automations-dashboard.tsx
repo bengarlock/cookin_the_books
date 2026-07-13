@@ -225,12 +225,17 @@ export function AutomationsDashboard({
         {rules.length ? (
           rules.map((rule) => (
             <div
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/[0.07] px-4 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:px-5"
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/[0.07] px-4 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5"
               key={rule.id}
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-3">
-                  <p className="text-sm font-semibold text-white">{rule.name}</p>
+                  <Link
+                    className="min-w-0 text-sm font-semibold text-white transition hover:text-accent"
+                    href={`/dashboard/automations/${rule.id}`}
+                  >
+                    {rule.name}
+                  </Link>
                   {!rule.enabled ? (
                     <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted">
                       Disabled
@@ -253,12 +258,6 @@ export function AutomationsDashboard({
                 />
                 <span>Enabled</span>
               </label>
-              <Link
-                className="justify-self-end rounded-md px-2 py-1 text-xs text-white/70 hover:bg-white/10 hover:text-white"
-                href={`/dashboard/automations/${rule.id}`}
-              >
-                Edit
-              </Link>
               <button
                 className="justify-self-end rounded-md px-2 py-1 text-xs text-rose-200/80 hover:bg-rose-500/10 hover:text-rose-200 disabled:opacity-50"
                 disabled={deletingRuleId === rule.id}
