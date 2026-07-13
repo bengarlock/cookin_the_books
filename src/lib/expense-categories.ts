@@ -8,18 +8,18 @@ import type { ExpenseCategory } from "@/lib/expense-category-types";
 import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
 export const fallbackExpenseCategories: ExpenseCategory[] = [
-  { id: 0, key: "dining", label: "Dining", is_default: true, created_at: "", updated_at: "" },
-  { id: 0, key: "groceries", label: "Groceries", is_default: true, created_at: "", updated_at: "" },
-  { id: 0, key: "transportation", label: "Transportation", is_default: true, created_at: "", updated_at: "" },
-  { id: 0, key: "housing", label: "Housing", is_default: true, created_at: "", updated_at: "" },
-  { id: 0, key: "utilities", label: "Utilities", is_default: true, created_at: "", updated_at: "" },
-  { id: 0, key: "shopping", label: "Shopping", is_default: true, created_at: "", updated_at: "" },
-  { id: 0, key: "health", label: "Health", is_default: true, created_at: "", updated_at: "" },
-  { id: 0, key: "entertainment", label: "Entertainment", is_default: true, created_at: "", updated_at: "" },
-  { id: 0, key: "travel", label: "Travel", is_default: true, created_at: "", updated_at: "" },
-  { id: 0, key: "subscriptions", label: "Subscriptions", is_default: true, created_at: "", updated_at: "" },
-  { id: 0, key: "fees_interest", label: "Fees & interest", is_default: true, created_at: "", updated_at: "" },
-  { id: 0, key: "account_payment", label: "Account Payment", is_default: true, created_at: "", updated_at: "" },
+  { id: -1, key: "dining", label: "Dining", is_default: true, created_at: "", updated_at: "" },
+  { id: -2, key: "groceries", label: "Groceries", is_default: true, created_at: "", updated_at: "" },
+  { id: -3, key: "transportation", label: "Transportation", is_default: true, created_at: "", updated_at: "" },
+  { id: -4, key: "housing", label: "Housing", is_default: true, created_at: "", updated_at: "" },
+  { id: -5, key: "utilities", label: "Utilities", is_default: true, created_at: "", updated_at: "" },
+  { id: -6, key: "shopping", label: "Shopping", is_default: true, created_at: "", updated_at: "" },
+  { id: -7, key: "health", label: "Health", is_default: true, created_at: "", updated_at: "" },
+  { id: -8, key: "entertainment", label: "Entertainment", is_default: true, created_at: "", updated_at: "" },
+  { id: -9, key: "travel", label: "Travel", is_default: true, created_at: "", updated_at: "" },
+  { id: -10, key: "subscriptions", label: "Subscriptions", is_default: true, created_at: "", updated_at: "" },
+  { id: -11, key: "fees_interest", label: "Fees & interest", is_default: true, created_at: "", updated_at: "" },
+  { id: -12, key: "account_payment", label: "Account Payment", is_default: true, created_at: "", updated_at: "" },
 ];
 
 export const getExpenseCategories = cache(async (): Promise<ExpenseCategory[]> => {
