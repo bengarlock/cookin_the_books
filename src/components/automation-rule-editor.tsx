@@ -278,7 +278,7 @@ export function AutomationRuleEditor({
     ].includes(firstCondition.field)
       ? (firstCondition.field as ExpenseAutomationMatchField)
       : "description";
-    const compatibilityOperator = ["contains", "equals"].includes(
+    const compatibilityOperator = ["contains", "equals", "not_equals"].includes(
       firstCondition.operator,
     )
       ? (firstCondition.operator as ExpenseAutomationMatchOperator)

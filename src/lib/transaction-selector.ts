@@ -22,7 +22,10 @@ export function transactionMatchesCondition(
               : (transaction.tags || []).map((tag) => tag.name).join(" ");
 
   if (condition.field === "account_last_four") {
-    return Array.isArray(condition.value) && condition.value.includes(transaction.account_last_four);
+    const selectedAccounts = Array.isArray(condition.value) ? condition.value : [condition.value];
+    return condition.operator === "not_equals"
+      ? !selectedAccounts.includes(transaction.account_last_four)
+      : selectedAccounts.includes(transaction.account_last_four);
   }
   const normalizeDescription = (text: string) => text.toLowerCase().match(/[a-z0-9]+/g)
     ?.filter((token) => !["null", "none", "nan"].includes(token) && !/^x{4,}\d{0,4}$/.test(token)).join(" ") || "";

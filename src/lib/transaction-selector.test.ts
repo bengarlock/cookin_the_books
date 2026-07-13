@@ -31,6 +31,28 @@ describe("transactionMatchesCondition amount comparisons", () => {
   });
 });
 
+describe("transactionMatchesCondition text comparisons", () => {
+  it("supports does not equal", () => {
+    const textTransaction = {
+      ...transaction,
+      description: "Coffee shop",
+    } as CreditCardTransaction;
+
+    expect(transactionMatchesCondition(textTransaction, {
+      id: "not-equals",
+      field: "description",
+      operator: "not_equals",
+      value: "Tea shop",
+    })).toBe(true);
+    expect(transactionMatchesCondition(textTransaction, {
+      id: "not-equals-match",
+      field: "description",
+      operator: "not_equals",
+      value: "Coffee shop",
+    })).toBe(false);
+  });
+});
+
 describe("selectTransactions row logic", () => {
   it("evaluates each row connector from left to right", () => {
     const matching = {
