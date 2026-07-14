@@ -142,6 +142,34 @@ function median(values: number[]) {
   return percentile(sorted, 0.5);
 }
 
+function paycheckSlot(value: string | Date) {
+  const day =
+    typeof value === "string"
+      ? Number(value.slice(8, 10))
+      : value.getDate();
+  if (!Number.isFinite(day)) return null;
+
+  if (day <= 3 || day >= 27) return "end-month";
+  if (day <= 16) return "mid-month";
+  return "end-month";
+}
+
+function regularPaycheckCandidates(entries: IncomeEntry[]) {
+  const grossPays = entries
+    .map((entry) => Number(entry.gross_pay))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const medianGrossPay = median(grossPays);
+  const regularGrossFloor = medianGrossPay > 0 ? medianGrossPay * 0.8 : 0;
+
+  return entries.filter((entry) => {
+    const netPay = Number(entry.net_pay);
+    if (!Number.isFinite(netPay) || netPay <= 0) return false;
+
+    const grossPay = Number(entry.gross_pay);
+    return !regularGrossFloor || grossPay >= regularGrossFloor;
+  });
+}
+
 export function incomeEntriesInLookback(
   entries: IncomeEntry[],
   currentDate = new Date(),
@@ -170,12 +198,15 @@ export function incomeEntriesInLookback(
 export function classifyPaychecks(
   entries: IncomeEntry[],
   currentDate = new Date(),
+  targetPayday?: Date | null,
 ): PaycheckProjection {
   const recentEntries = incomeEntriesInLookback(entries, currentDate);
   const lookbackStart = oneYearAgo(currentDate);
   const lookbackEnd = localDateString(currentDate);
 
-  if (!recentEntries.length) {
+  const regularEntries = regularPaycheckCandidates(recentEntries);
+
+  if (!regularEntries.length) {
     return {
       predictedNetPay: 0,
       normalPaychecks: [],
@@ -185,7 +216,7 @@ export function classifyPaychecks(
     };
   }
 
-  const netPays = recentEntries.map((entry) => Number(entry.net_pay));
+  const netPays = regularEntries.map((entry) => Number(entry.net_pay));
   const sortedNetPays = [...netPays].sort((left, right) => left - right);
   const q1 = percentile(sortedNetPays, 0.25);
   const q3 = percentile(sortedNetPays, 0.75);
@@ -195,7 +226,7 @@ export function classifyPaychecks(
   const normalPaychecks: ClassifiedPaycheck[] = [];
   const bonusPaychecks: ClassifiedPaycheck[] = [];
 
-  for (const entry of recentEntries) {
+  for (const entry of regularEntries) {
     const netPay = Number(entry.net_pay);
     const isHighOutlier = netPay > upperFence;
     const isBonusSized = netPay > medianNet * 1.35 && netPay > q3;
@@ -211,16 +242,26 @@ export function classifyPaychecks(
   }
 
   const basis =
-    normalPaychecks.length > 0 ? normalPaychecks : recentEntries.map(
+    normalPaychecks.length > 0 ? normalPaychecks : regularEntries.map(
       (entry) => ({
         entry,
         classification: "normal" as const,
         netPay: Number(entry.net_pay),
       }),
     );
+  const targetSlot = targetPayday ? paycheckSlot(targetPayday) : null;
+  const latestMatchingPaycheck = targetSlot
+    ? [...basis]
+        .filter((paycheck) => paycheckSlot(paycheck.entry.pay_date) === targetSlot)
+        .sort((left, right) =>
+          right.entry.pay_date.localeCompare(left.entry.pay_date),
+        )[0]
+    : null;
 
   return {
-    predictedNetPay: median(basis.map((paycheck) => paycheck.netPay)),
+    predictedNetPay:
+      latestMatchingPaycheck?.netPay ??
+      median(basis.map((paycheck) => paycheck.netPay)),
     normalPaychecks: basis,
     bonusPaychecks,
     lookbackStart,
@@ -401,7 +442,11 @@ export function projectRevenueAfterPayCycle({
   nextPaydayOverride?: string | null;
 }): PayCycleProjection {
   const payCycle = getNextPayCycle(currentDate, nextPaydayOverride);
-  const paycheckProjection = classifyPaychecks(incomeEntries, currentDate);
+  const paycheckProjection = classifyPaychecks(
+    incomeEntries,
+    currentDate,
+    payCycle.nextPayday,
+  );
   const dailyAverageExpense = dailyExpenseAverage({
     budgetItems,
     expenseEntries,
