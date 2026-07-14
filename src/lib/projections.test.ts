@@ -112,6 +112,70 @@ describe("classifyPaychecks", () => {
     expect(result.normalPaychecks).toHaveLength(5);
     expect(result.predictedNetPay).toBe(3190);
   });
+
+  it("forecasts the next paycheck from the latest matching pay slot", () => {
+    const entries = [
+      incomeEntry({
+        id: 1,
+        pay_date: "2026-01-15",
+        net_pay: "2608.83",
+        gross_pay: "4016.67",
+      }),
+      incomeEntry({
+        id: 2,
+        pay_date: "2026-01-30",
+        net_pay: "1448.86",
+        gross_pay: "2318.00",
+      }),
+      incomeEntry({
+        id: 3,
+        pay_date: "2026-01-30",
+        net_pay: "2658.84",
+        gross_pay: "4016.67",
+      }),
+      incomeEntry({
+        id: 4,
+        pay_date: "2026-04-15",
+        net_pay: "2685.01",
+        gross_pay: "4154.17",
+      }),
+      incomeEntry({
+        id: 5,
+        pay_date: "2026-04-30",
+        net_pay: "1500.12",
+        gross_pay: "2400.00",
+      }),
+      incomeEntry({
+        id: 6,
+        pay_date: "2026-04-30",
+        net_pay: "2735.00",
+        gross_pay: "4154.17",
+      }),
+      incomeEntry({
+        id: 7,
+        pay_date: "2026-06-15",
+        net_pay: "2555.19",
+        gross_pay: "4154.17",
+      }),
+      incomeEntry({
+        id: 8,
+        pay_date: "2026-06-30",
+        net_pay: "2605.17",
+        gross_pay: "4154.17",
+      }),
+    ];
+
+    const result = classifyPaychecks(
+      entries,
+      new Date(2026, 6, 14),
+      new Date(2026, 6, 15),
+    );
+
+    expect(result.normalPaychecks.map((paycheck) => paycheck.entry.id)).toEqual([
+      1, 3, 4, 6, 7, 8,
+    ]);
+    expect(result.predictedNetPay).toBe(2555.19);
+  });
 });
 
 function budgetItem(overrides: Partial<BudgetItem> = {}): BudgetItem {
@@ -266,13 +330,13 @@ describe("projectRevenueAfterPayCycle", () => {
       currentDate: new Date(2026, 5, 27),
     });
 
-    expect(result.predictedNextPaycheck).toBe(3190);
+    expect(result.predictedNextPaycheck).toBe(3180);
     expect(result.dailyAverageExpense).toBe(10);
     expect(result.spentThisPayCycle).toBe(0);
     expect(result.predictedAdditionalSpend).toBe(40);
     expect(result.predictedSpend).toBe(40);
     expect(result.creditCardPayoff).toBe(1100);
-    expect(result.projectedCashAfterPayCycle).toBe(3150);
+    expect(result.projectedCashAfterPayCycle).toBe(3140);
     expect(result.daysRemaining).toBeGreaterThan(0);
   });
 
