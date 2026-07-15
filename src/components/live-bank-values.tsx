@@ -169,6 +169,10 @@ function valueFromSnapshot(
   return Number.isFinite(value) ? value : 0;
 }
 
+function isPendingPayment(transaction: PendingTransaction) {
+  return transaction.settled_accounts.length > 0;
+}
+
 function nextBusinessDayString() {
   const candidate = new Date();
   candidate.setDate(candidate.getDate() + 1);
@@ -1565,6 +1569,7 @@ export function LiveBankValues({
 
   const calculations = useMemo(() => {
     const pendingByAccount = new Map<keyof BankValueSnapshot, number>();
+    const liabilityPendingByAccount = new Map<keyof BankValueSnapshot, number>();
     const settledAccounts = new Set<keyof BankValueSnapshot>();
     for (const transaction of pendingTransactions) {
       if (transaction.is_cleared || transaction.match_status === "matched_pending") continue;
@@ -1576,13 +1581,22 @@ export function LiveBankValues({
         (pendingByAccount.get(transaction.account) || 0) +
           Number(transaction.amount),
       );
+      if (!isPendingPayment(transaction)) {
+        liabilityPendingByAccount.set(
+          transaction.account,
+          (liabilityPendingByAccount.get(transaction.account) || 0) +
+            Number(transaction.amount),
+        );
+      }
     }
 
     const adjustedValue = (key: keyof BankValueSnapshot) => {
-      const posted = valueFromSnapshot(snapshot, key);
-      if (settledAccounts.has(key) && key !== "citi_pending") return 0;
-      const pending = pendingByAccount.get(key) || 0;
-      return liabilityAccounts.has(key) ? posted + pending : posted - pending;
+      const isLiability = liabilityAccounts.has(key);
+      const posted =
+        isLiability && settledAccounts.has(key) ? 0 : valueFromSnapshot(snapshot, key);
+      const pending =
+        (isLiability ? liabilityPendingByAccount : pendingByAccount).get(key) || 0;
+      return isLiability ? posted + pending : posted - pending;
     };
 
     const chaseChecking = adjustedValue("chase_checking");
@@ -1622,6 +1636,7 @@ export function LiveBankValues({
       savingsReserve,
       netAssets: grossAssets - grossLiabilities,
       pendingByAccount,
+      liabilityPendingByAccount,
       settledAccounts,
       adjustedValue,
       overdrawnAccounts: accounts
@@ -2219,7 +2234,11 @@ export function LiveBankValues({
                     <span className="text-right">Available</span>
                   ) : (
                     <>
-                      <span className="text-right">Available</span>
+                      <span className="text-right">
+                        {section.title === "Liability accounts"
+                          ? "Posted"
+                          : "Available"}
+                      </span>
                       <span className="text-right">Pending</span>
                       <span className="text-right">Adjusted</span>
                     </>
@@ -2235,9 +2254,9 @@ export function LiveBankValues({
                 const currentPosted = valueFromSnapshot(snapshot, "citi_current");
                 const pendingPosted = valueFromSnapshot(snapshot, "citi_pending");
                 const currentManual =
-                  calculations.pendingByAccount.get("citi_current") || 0;
+                  calculations.liabilityPendingByAccount.get("citi_current") || 0;
                 const pendingManual =
-                  calculations.pendingByAccount.get("citi_pending") || 0;
+                  calculations.liabilityPendingByAccount.get("citi_pending") || 0;
                 const totalPending =
                   pendingPosted + currentManual + pendingManual;
                 const adjusted =
@@ -2344,7 +2363,9 @@ export function LiveBankValues({
 
                   const posted = valueFromSnapshot(snapshot, account.key);
                   const pending =
-                    calculations.pendingByAccount.get(account.key) || 0;
+                    liabilityAccounts.has(account.key)
+                      ? calculations.liabilityPendingByAccount.get(account.key) || 0
+                      : calculations.pendingByAccount.get(account.key) || 0;
                   const adjusted = calculations.adjustedValue(account.key);
                   const overdrawn =
                     !liabilityAccounts.has(account.key) && adjusted < 0;
