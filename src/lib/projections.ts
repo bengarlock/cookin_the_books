@@ -284,6 +284,7 @@ function adjustedAccountValue(
   key: SnapshotAccountKey,
 ) {
   const pendingByAccount = new Map<keyof BankValueSnapshot, number>();
+  const liabilityPendingByAccount = new Map<keyof BankValueSnapshot, number>();
   const settledAccounts = new Set<keyof BankValueSnapshot>();
 
   for (const transaction of pendingTransactions) {
@@ -296,13 +297,20 @@ function adjustedAccountValue(
       (pendingByAccount.get(transaction.account) || 0) +
         Number(transaction.amount),
     );
+    if (!transaction.settled_accounts.length) {
+      liabilityPendingByAccount.set(
+        transaction.account,
+        (liabilityPendingByAccount.get(transaction.account) || 0) +
+          Number(transaction.amount),
+      );
+    }
   }
 
-  if (settledAccounts.has(key) && key !== "citi_pending") return 0;
-
-  const posted = valueFromSnapshot(snapshot, key);
-  const pending = pendingByAccount.get(key) || 0;
   const isLiability = LIABILITY_ACCOUNTS.includes(key);
+  const posted =
+    isLiability && settledAccounts.has(key) ? 0 : valueFromSnapshot(snapshot, key);
+  const pending =
+    (isLiability ? liabilityPendingByAccount : pendingByAccount).get(key) || 0;
 
   return isLiability ? posted + pending : posted - pending;
 }

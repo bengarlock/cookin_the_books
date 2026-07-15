@@ -219,10 +219,16 @@ function pendingCardPayment(
     account: "chase_checking",
     note: "Credit Card Payment",
     amount: "600.00",
-    settled_accounts: ["citi_current", "citi_pending"],
+    settled_accounts: ["citi_current"],
     expected_post_date: "2026-07-01",
     is_cleared: false,
     cleared_at: null,
+    matched_transaction: null,
+    matched_transaction_detail: null,
+    match_status: "none",
+    match_confidence: null,
+    match_method: "",
+    matched_at: null,
     created_at: "2026-06-30T09:00:00Z",
     updated_at: "2026-06-30T09:00:00Z",
     ...overrides,
@@ -385,6 +391,46 @@ describe("projectRevenueAfterPayCycle", () => {
     });
 
     expect(result.creditCardPayoff).toBe(47.99);
+  });
+
+  it("keeps pending liability charges but excludes pending payments from payoff totals", () => {
+    const result = projectRevenueAfterPayCycle({
+      incomeEntries: [],
+      budgetItems: [],
+      expenseEntries: [],
+      creditCardTransactions: [],
+      snapshot: snapshot({
+        chase_credit: "400.00",
+        citi_current: "0.00",
+        citi_pending: "0.00",
+        barclays_card: "0.00",
+      }),
+      pendingTransactions: [
+        pendingCardPayment({
+          id: 1,
+          account: "chase_checking",
+          amount: "400.00",
+          settled_accounts: ["chase_credit"],
+        }),
+        pendingCardPayment({
+          id: 2,
+          account: "chase_credit",
+          note: "Pending dinner",
+          amount: "35.50",
+          settled_accounts: [],
+        }),
+        pendingCardPayment({
+          id: 3,
+          account: "chase_credit",
+          note: "Pending payment",
+          amount: "400.00",
+          settled_accounts: ["chase_credit"],
+        }),
+      ],
+      currentDate: new Date(2026, 5, 30),
+    });
+
+    expect(result.creditCardPayoff).toBe(35.5);
   });
 });
 

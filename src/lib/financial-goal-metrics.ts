@@ -23,14 +23,19 @@ function snapshotValue(snapshot: BankValueSnapshot | null, key: SnapshotAccountK
 }
 
 function pendingTotals(transactions: PendingTransaction[]) {
-  const totals = new Map<string, number>();
+  const liabilityTotals = new Map<string, number>();
   const settled = new Set<string>();
   for (const transaction of transactions) {
     if (transaction.is_cleared || transaction.match_status === "matched_pending") continue;
-    totals.set(transaction.account, (totals.get(transaction.account) || 0) + Number(transaction.amount));
     transaction.settled_accounts.forEach((account) => settled.add(account));
+    if (!transaction.settled_accounts.length) {
+      liabilityTotals.set(
+        transaction.account,
+        (liabilityTotals.get(transaction.account) || 0) + Number(transaction.amount),
+      );
+    }
   }
-  return { totals, settled };
+  return { liabilityTotals, settled };
 }
 
 export function calculateFinancialGoalMetrics({
@@ -50,11 +55,10 @@ export function calculateFinancialGoalMetrics({
   const totalDays = inclusiveDays(periodStart, periodEnd);
   const elapsedDays = Math.min(totalDays, inclusiveDays(periodStart, effectiveToday));
   const daysLeft = Math.max(0, totalDays - elapsedDays);
-  const { totals, settled } = pendingTotals(pendingTransactions);
+  const { liabilityTotals, settled } = pendingTotals(pendingTransactions);
   const adjustedLiability = (key: SnapshotAccountKey) => {
-    if (settled.has(key) && key !== "citi_pending") return 0;
-    const posted = snapshotValue(snapshot, key);
-    const pending = totals.get(key) || 0;
+    const posted = settled.has(key) ? 0 : snapshotValue(snapshot, key);
+    const pending = liabilityTotals.get(key) || 0;
     return posted + pending;
   };
   const currentLiabilities = LIABILITY_ACCOUNTS.reduce(
