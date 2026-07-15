@@ -17,6 +17,7 @@ import type { ExpenseCategory } from "@/lib/expense-category-types";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
+import { pendingCreditCardTransactionAmount } from "@/lib/pending-liability-transactions";
 import { getSavingsReservePosition } from "@/lib/savings-reserve";
 import type { BankValueSnapshot } from "@/lib/snapshot-types";
 import { categoryLabelMap, sortedCategoryOptions } from "@/lib/transaction-categories";
@@ -172,15 +173,6 @@ function valueFromSnapshot(
 
 function isPendingPayment(transaction: PendingTransaction) {
   return transaction.settled_accounts.length > 0;
-}
-
-function pendingCreditCardTransactionAmount(transaction: CreditCardTransaction) {
-  if (!transaction.pending || transaction.transaction_type === "payment") {
-    return 0;
-  }
-  const amount = Number(transaction.amount);
-  if (!Number.isFinite(amount)) return 0;
-  return transaction.transaction_type === "credit" ? -amount : amount;
 }
 
 function nextBusinessDayString() {
