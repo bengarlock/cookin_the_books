@@ -2219,7 +2219,11 @@ export function LiveBankValues({
                     <span className="text-right">Available</span>
                   ) : (
                     <>
-                      <span className="text-right">Available</span>
+                      <span className="text-right">
+                        {section.title === "Liability accounts"
+                          ? "Posted"
+                          : "Available"}
+                      </span>
                       <span className="text-right">Pending</span>
                       <span className="text-right">Adjusted</span>
                     </>
