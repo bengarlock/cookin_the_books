@@ -1621,11 +1621,15 @@ export function LiveBankValues({
     const chaseChecking = adjustedValue("chase_checking");
     const chaseSavings = adjustedValue("chase_savings");
     const savingsReserve = getSavingsReservePosition(chaseSavings);
-    const grossLiabilities =
+    const creditCardLiabilities =
       valueFromSnapshot(snapshot, "chase_credit") +
       valueFromSnapshot(snapshot, "citi_current") +
       valueFromSnapshot(snapshot, "citi_pending") +
       valueFromSnapshot(snapshot, "barclays_card");
+    const cashPendingLiabilities =
+      (pendingByAccount.get("chase_checking") || 0) +
+      (pendingByAccount.get("chase_savings") || 0);
+    const liabilities = creditCardLiabilities + cashPendingLiabilities;
     const nonRetirementCash =
       valueFromSnapshot(snapshot, "chase_checking") +
       valueFromSnapshot(snapshot, "chase_savings") +
@@ -1636,15 +1640,7 @@ export function LiveBankValues({
       valueFromSnapshot(snapshot, "betterment_retirement") +
       valueFromSnapshot(snapshot, "fidelity_retirement");
     const grossAssets = nonRetirementCash + retirementCash;
-    const adjustedAssets =
-      chaseChecking +
-      chaseSavings +
-      adjustedValue("etrade") +
-      adjustedValue("betterment_general") +
-      adjustedValue("betterment_safety") +
-      adjustedValue("betterment_retirement") +
-      adjustedValue("fidelity_retirement");
-    const budgetDifference = budgetSettings.totalBudget - grossLiabilities;
+    const budgetDifference = budgetSettings.totalBudget - liabilities;
     const remainingBudget = budgetDifference + budgetOffset;
     const dailyBudget =
       payCycle.daysRemaining > 0
@@ -1652,7 +1648,7 @@ export function LiveBankValues({
         : 0;
 
     return {
-      grossLiabilities,
+      liabilities,
       nonRetirementCash,
       retirementCash,
       grossAssets,
@@ -1661,7 +1657,7 @@ export function LiveBankValues({
       dailyBudget,
       checkingAvailable: chaseChecking,
       savingsReserve,
-      netAssets: adjustedAssets - grossLiabilities,
+      netAssets: grossAssets - liabilities,
       pendingByAccount,
       liabilityPendingByAccount,
       settledAccounts,
@@ -2172,10 +2168,10 @@ export function LiveBankValues({
               description="Cash and investment balances combined."
             />
             <MetricCard
-              label="Gross liabilities"
-              value={formatCurrency(calculations.grossLiabilities)}
-              description="Current and pending credit-card balances."
-              negative={calculations.grossLiabilities > 0}
+              label="Liabilities"
+              value={formatCurrency(calculations.liabilities)}
+              description="Pending cash obligations plus credit-card balances."
+              negative={calculations.liabilities > 0}
             />
             <MetricCard
               label="Snapshot"
@@ -2223,7 +2219,7 @@ export function LiveBankValues({
             <MetricCard
               label="Net assets"
               value={formatCurrency(calculations.netAssets)}
-              description="Adjusted assets after subtracting current liabilities."
+              description="Gross assets after subtracting liabilities."
               featured
               negative={calculations.netAssets < 0}
             />
@@ -2629,9 +2625,9 @@ export function LiveBankValues({
               value={formatCurrency(budgetSettings.totalBudget)}
             />
             <SummaryRow
-              label="Credit card debt"
-              value={formatCurrency(calculations.grossLiabilities)}
-              negative={calculations.grossLiabilities > 0}
+              label="Liabilities"
+              value={formatCurrency(calculations.liabilities)}
+              negative={calculations.liabilities > 0}
             />
             <SummaryRow
               label="Budget difference"
