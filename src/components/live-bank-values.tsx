@@ -1622,10 +1622,10 @@ export function LiveBankValues({
     const chaseSavings = adjustedValue("chase_savings");
     const savingsReserve = getSavingsReservePosition(chaseSavings);
     const creditCardBalance =
-      valueFromSnapshot(snapshot, "chase_credit") +
-      valueFromSnapshot(snapshot, "citi_current") +
-      valueFromSnapshot(snapshot, "citi_pending") +
-      valueFromSnapshot(snapshot, "barclays_card");
+      adjustedValue("chase_credit") +
+      adjustedValue("citi_current") +
+      adjustedValue("citi_pending") +
+      adjustedValue("barclays_card");
     const cashPendingLiabilities =
       (pendingByAccount.get("chase_checking") || 0) +
       (pendingByAccount.get("chase_savings") || 0);
