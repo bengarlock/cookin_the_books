@@ -3,6 +3,7 @@
 import {
   FormEvent,
   type ReactNode,
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -171,6 +172,15 @@ function valueFromSnapshot(
 
 function isPendingPayment(transaction: PendingTransaction) {
   return transaction.settled_accounts.length > 0;
+}
+
+function pendingCreditCardTransactionAmount(transaction: CreditCardTransaction) {
+  if (!transaction.pending || transaction.transaction_type === "payment") {
+    return 0;
+  }
+  const amount = Number(transaction.amount);
+  if (!Number.isFinite(amount)) return 0;
+  return transaction.transaction_type === "credit" ? -amount : amount;
 }
 
 function nextBusinessDayString() {
@@ -1589,6 +1599,21 @@ export function LiveBankValues({
         );
       }
     }
+    for (const account of accounts) {
+      if (!liabilityAccounts.has(account.key)) continue;
+      const importedPendingTotal =
+        accountTransactions[account.key]?.transactions.reduce(
+          (total, transaction) =>
+            total + pendingCreditCardTransactionAmount(transaction),
+          0,
+        ) || 0;
+      if (!importedPendingTotal) continue;
+      liabilityPendingByAccount.set(
+        account.key,
+        (liabilityPendingByAccount.get(account.key) || 0) +
+          importedPendingTotal,
+      );
+    }
 
     const adjustedValue = (key: keyof BankValueSnapshot) => {
       const isLiability = liabilityAccounts.has(key);
@@ -1650,7 +1675,13 @@ export function LiveBankValues({
           adjustedBalance: adjustedValue(account.key),
         })),
     };
-  }, [budgetOffset, payCycle.daysRemaining, pendingTransactions, snapshot]);
+  }, [
+    accountTransactions,
+    budgetOffset,
+    payCycle.daysRemaining,
+    pendingTransactions,
+    snapshot,
+  ]);
 
   function beginBudgetOffsetEdit() {
     setBudgetOffsetDraft(budgetOffset.toFixed(2));
@@ -1825,7 +1856,7 @@ export function LiveBankValues({
     }
   }
 
-  async function loadAccountTransactions(accountKey: keyof BankValueSnapshot) {
+  const loadAccountTransactions = useCallback(async (accountKey: keyof BankValueSnapshot) => {
     const filters = transactionAccountFilters[accountKey];
     if (!filters) {
       setAccountTransactions((current) => ({
@@ -1892,7 +1923,16 @@ export function LiveBankValues({
         },
       }));
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    if (view !== "accounts") return;
+    for (const accountKey of ["chase_credit", "citi_current", "barclays_card"] as const) {
+      if (!accountTransactions[accountKey]) {
+        void loadAccountTransactions(accountKey);
+      }
+    }
+  }, [accountTransactions, loadAccountTransactions, view]);
 
   function toggleAccountTransactions(accountKey: keyof BankValueSnapshot) {
     const nextAccount = expandedAccount === accountKey ? null : accountKey;
@@ -2258,7 +2298,9 @@ export function LiveBankValues({
                 const pendingManual =
                   calculations.liabilityPendingByAccount.get("citi_pending") || 0;
                 const totalPending =
-                  pendingPosted + currentManual + pendingManual;
+                  pendingPosted +
+                  currentManual +
+                  pendingManual;
                 const adjusted =
                   calculations.adjustedValue("citi_current") +
                   calculations.adjustedValue("citi_pending");
