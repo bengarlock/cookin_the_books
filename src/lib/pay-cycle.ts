@@ -44,7 +44,7 @@ export function getNextPayCycle(
 ): PayCycle {
   const today = startOfLocalDay(currentDate);
   const overriddenPayday = dateFromOverride(nextPaydayOverride);
-  if (overriddenPayday && overriddenPayday >= today) {
+  if (overriddenPayday && overriddenPayday > today) {
     return {
       nextPayday: overriddenPayday,
       daysRemaining:
@@ -66,7 +66,7 @@ export function getNextPayCycle(
   }
 
   const nextPayday = candidates
-    .filter((candidate) => candidate >= today)
+    .filter((candidate) => candidate > today)
     .sort((left, right) => left.getTime() - right.getTime())[0];
 
   if (!nextPayday) {

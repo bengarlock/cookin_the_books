@@ -67,8 +67,12 @@ describe("getNextPayCycle", () => {
     expectPayCycle(localDate(2026, 12, 16), localDate(2027, 1, 1), 16);
   });
 
-  it("returns zero when today is payday", () => {
-    expectPayCycle(localDate(2026, 8, 14), localDate(2026, 8, 14), 0);
+  it("advances to the next pay cycle when today is payday", () => {
+    expectPayCycle(localDate(2026, 7, 15), localDate(2026, 7, 31), 16);
+  });
+
+  it("advances when today is a weekend-adjusted payday", () => {
+    expectPayCycle(localDate(2026, 8, 14), localDate(2026, 9, 1), 18);
   });
 
   it("handles leap day while counting calendar days", () => {
@@ -84,6 +88,12 @@ describe("getNextPayCycle", () => {
   it("ignores an override after it passes", () => {
     const result = getNextPayCycle(localDate(2026, 7, 16), "2026-07-15");
     expectSameLocalDate(result.nextPayday, localDate(2026, 7, 31));
+  });
+
+  it("ignores an override when it is today", () => {
+    const result = getNextPayCycle(localDate(2026, 7, 15), "2026-07-15");
+    expectSameLocalDate(result.nextPayday, localDate(2026, 7, 31));
+    expect(result.daysRemaining).toBe(16);
   });
 
   it("finds the following scheduled payday", () => {
