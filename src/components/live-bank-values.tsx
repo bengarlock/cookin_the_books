@@ -1621,7 +1621,7 @@ export function LiveBankValues({
     const chaseChecking = adjustedValue("chase_checking");
     const chaseSavings = adjustedValue("chase_savings");
     const savingsReserve = getSavingsReservePosition(chaseSavings);
-    const creditCardLiabilities =
+    const creditCardBalance =
       valueFromSnapshot(snapshot, "chase_credit") +
       valueFromSnapshot(snapshot, "citi_current") +
       valueFromSnapshot(snapshot, "citi_pending") +
@@ -1629,7 +1629,7 @@ export function LiveBankValues({
     const cashPendingLiabilities =
       (pendingByAccount.get("chase_checking") || 0) +
       (pendingByAccount.get("chase_savings") || 0);
-    const liabilities = creditCardLiabilities + cashPendingLiabilities;
+    const liabilities = creditCardBalance + cashPendingLiabilities;
     const nonRetirementCash =
       valueFromSnapshot(snapshot, "chase_checking") +
       valueFromSnapshot(snapshot, "chase_savings") +
@@ -1640,7 +1640,7 @@ export function LiveBankValues({
       valueFromSnapshot(snapshot, "betterment_retirement") +
       valueFromSnapshot(snapshot, "fidelity_retirement");
     const grossAssets = nonRetirementCash + retirementCash;
-    const budgetDifference = budgetSettings.totalBudget - liabilities;
+    const budgetDifference = budgetSettings.totalBudget - creditCardBalance;
     const remainingBudget = budgetDifference + budgetOffset;
     const dailyBudget =
       payCycle.daysRemaining > 0
@@ -1655,6 +1655,7 @@ export function LiveBankValues({
       budgetDifference,
       remainingBudget,
       dailyBudget,
+      creditCardBalance,
       checkingAvailable: chaseChecking,
       savingsReserve,
       netAssets: grossAssets - liabilities,
@@ -2168,10 +2169,10 @@ export function LiveBankValues({
               description="Cash and investment balances combined."
             />
             <MetricCard
-              label="Liabilities"
-              value={formatCurrency(calculations.liabilities)}
-              description="Pending cash obligations plus credit-card balances."
-              negative={calculations.liabilities > 0}
+              label="Credit card balance"
+              value={formatCurrency(calculations.creditCardBalance)}
+              description="Total balance across current credit-card accounts."
+              negative={calculations.creditCardBalance > 0}
             />
             <MetricCard
               label="Snapshot"
@@ -2625,9 +2626,9 @@ export function LiveBankValues({
               value={formatCurrency(budgetSettings.totalBudget)}
             />
             <SummaryRow
-              label="Liabilities"
-              value={formatCurrency(calculations.liabilities)}
-              negative={calculations.liabilities > 0}
+              label="Credit card balance"
+              value={formatCurrency(calculations.creditCardBalance)}
+              negative={calculations.creditCardBalance > 0}
             />
             <SummaryRow
               label="Budget difference"
