@@ -23,6 +23,16 @@ import type { BankValueSnapshot } from "@/lib/snapshot-types";
 import { categoryLabelMap, sortedCategoryOptions } from "@/lib/transaction-categories";
 
 type FinancialView = "overview" | "accounts" | "budget";
+type AccountTransactionState = Partial<
+  Record<
+    keyof BankValueSnapshot,
+    {
+      isLoading: boolean;
+      error: string;
+      transactions: CreditCardTransaction[];
+    }
+  >
+>;
 
 const accounts: Array<{
   key: keyof BankValueSnapshot;
@@ -105,6 +115,33 @@ const transactionAccountFilters: Partial<
   citi_current: { issuer: "Citibank Online", accountLastFour: "4596" },
   barclays_card: { issuer: "Barclays - Cards", accountLastFour: "2028" },
 };
+
+function transactionsForAccount(
+  transactions: CreditCardTransaction[],
+  accountKey: keyof BankValueSnapshot,
+) {
+  const filters = transactionAccountFilters[accountKey];
+  if (!filters) return [];
+  return transactions.filter(
+    (transaction) =>
+      transaction.issuer === filters.issuer &&
+      transaction.account_last_four === filters.accountLastFour,
+  );
+}
+
+function initialAccountTransactionState(
+  transactions: CreditCardTransaction[],
+): AccountTransactionState {
+  const state: AccountTransactionState = {};
+  for (const accountKey of ["chase_credit", "citi_current", "barclays_card"] as const) {
+    state[accountKey] = {
+      isLoading: false,
+      error: "",
+      transactions: transactionsForAccount(transactions, accountKey),
+    };
+  }
+  return state;
+}
 
 const accountSections: Array<{
   title: string;
@@ -1473,12 +1510,14 @@ function AccountTransactionList({
 
 export function LiveBankValues({
   initialBudgetPlanSettings,
+  initialCreditCardTransactions = [],
   initialExpenseCategories = [],
   initialExpenseTags = [],
   initialPendingTransactions,
   view = "overview",
 }: {
   initialBudgetPlanSettings?: BudgetPlanSettings;
+  initialCreditCardTransactions?: CreditCardTransaction[];
   initialExpenseCategories?: ExpenseCategory[];
   initialExpenseTags?: ExpenseTag[];
   initialPendingTransactions?: PendingTransaction[];
@@ -1526,18 +1565,10 @@ export function LiveBankValues({
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [expandedAccount, setExpandedAccount] =
     useState<keyof BankValueSnapshot | null>(null);
-  const [accountTransactions, setAccountTransactions] = useState<
-    Partial<
-      Record<
-        keyof BankValueSnapshot,
-        {
-          isLoading: boolean;
-          error: string;
-          transactions: CreditCardTransaction[];
-        }
-      >
-    >
-  >({});
+  const [accountTransactions, setAccountTransactions] =
+    useState<AccountTransactionState>(() =>
+      initialAccountTransactionState(initialCreditCardTransactions),
+    );
   const [transactionForm, setTransactionForm] = useState({
     note: "",
     amount: "",
