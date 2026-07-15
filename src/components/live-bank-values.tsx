@@ -1689,7 +1689,7 @@ export function LiveBankValues({
       creditCardBalance,
       checkingAvailable: chaseChecking,
       savingsReserve,
-      netAssets: grossAssets - liabilities,
+      netAssets: grossAssets - creditCardBalance,
       pendingByAccount,
       liabilityPendingByAccount,
       settledAccounts,
