@@ -1294,14 +1294,14 @@ function AccountTransactionList({
               {transaction.match_status === "suggested" ? (
                 <>
                   <button
-                    className="w-20 rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-xs font-medium text-accent transition hover:bg-accent/15"
+                    className="inline-flex h-10 w-20 items-center justify-center whitespace-nowrap rounded-lg border border-accent/25 bg-accent/10 px-3 text-xs font-medium text-accent transition hover:bg-accent/15"
                     onClick={() => onReconcile(transaction, "confirm")}
                     type="button"
                   >
                     Match
                   </button>
                   <button
-                    className="w-20 rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-white/65 transition hover:border-white/20 hover:text-white"
+                    className="inline-flex h-10 min-w-20 items-center justify-center whitespace-nowrap rounded-lg border border-white/10 px-3 text-xs font-medium text-white/65 transition hover:border-white/20 hover:text-white"
                     onClick={() => onReconcile(transaction, "reject")}
                     type="button"
                   >
