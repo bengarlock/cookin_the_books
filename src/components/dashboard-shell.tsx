@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 
 import { LogoutButton } from "@/components/logout-button";
@@ -54,6 +55,10 @@ const exactActiveHrefs = new Set([
   "/dashboard",
   ...navigation.flatMap((item) => (item.parent ? [item.parent] : [])),
 ]);
+const budgetParentHref = "/dashboard/budget";
+const budgetChildren = navigation.filter(
+  (item) => item.parent === budgetParentHref,
+);
 
 function NavIconFrame({
   children,
@@ -280,6 +285,25 @@ function GearIcon() {
   );
 }
 
+function ChevronIcon({ isExpanded }: { isExpanded: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={`size-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="m9 6 6 6-6 6"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
 function SettingsLink() {
   const pathname = usePathname();
   const isActive = pathname === "/dashboard/settings";
@@ -307,8 +331,19 @@ function isNavigationItemActive(pathname: string, href: string) {
     : pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function isNavigationSectionActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const isBudgetSectionActive = isNavigationSectionActive(
+    pathname,
+    budgetParentHref,
+  );
+  const [isBudgetExpanded, setIsBudgetExpanded] = useState(
+    isBudgetSectionActive,
+  );
 
   return (
     <div className="app-backdrop min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
@@ -331,6 +366,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
         <nav className="mt-5 flex flex-wrap gap-2 lg:mt-10 lg:block lg:space-y-2">
           {navigation.map((item) => {
+            if (item.parent) return null;
+
             const Icon = item.icon;
 
             return item.disabled ? (
@@ -344,6 +381,73 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   Soon
                 </span>
               </span>
+            ) : item.href === budgetParentHref ? (
+              <div key={item.name} className="w-full lg:w-auto">
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={item.href}
+                    onClick={() => setIsBudgetExpanded(true)}
+                    className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition lg:w-full ${
+                      isBudgetSectionActive
+                        ? "border-accent/15 bg-accent/10 text-accent"
+                        : "border-transparent text-white/60 hover:border-white/10 hover:bg-white/[0.04] hover:text-white"
+                    }`}
+                  >
+                    <Icon />
+                    {item.name}
+                  </Link>
+                  <button
+                    type="button"
+                    aria-controls="budget-navigation-children"
+                    aria-expanded={isBudgetExpanded}
+                    aria-label={
+                      isBudgetExpanded
+                        ? "Collapse Budget pages"
+                        : "Expand Budget pages"
+                    }
+                    title={
+                      isBudgetExpanded
+                        ? "Collapse Budget pages"
+                        : "Expand Budget pages"
+                    }
+                    onClick={() => setIsBudgetExpanded((expanded) => !expanded)}
+                    className={`grid size-10 shrink-0 place-items-center rounded-xl border text-sm transition ${
+                      isBudgetSectionActive
+                        ? "border-accent/15 bg-accent/10 text-accent"
+                        : "border-transparent text-white/60 hover:border-white/10 hover:bg-white/[0.04] hover:text-white"
+                    }`}
+                  >
+                    <ChevronIcon isExpanded={isBudgetExpanded} />
+                  </button>
+                </div>
+                <div
+                  id="budget-navigation-children"
+                  className={
+                    isBudgetExpanded
+                      ? "mt-2 flex flex-wrap gap-2 lg:block lg:space-y-2"
+                      : "hidden"
+                  }
+                >
+                  {budgetChildren.map((child) => {
+                    const ChildIcon = child.icon;
+
+                    return (
+                      <Link
+                        href={child.href}
+                        className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition lg:ml-8 lg:w-[calc(100%-2rem)] ${
+                          isNavigationItemActive(pathname, child.href)
+                            ? "border-accent/15 bg-accent/10 text-accent"
+                            : "border-transparent text-white/60 hover:border-white/10 hover:bg-white/[0.04] hover:text-white"
+                        }`}
+                        key={child.name}
+                      >
+                        <ChildIcon />
+                        {child.name}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
             ) : (
               <div
                 className={item.parent ? "lg:ml-8" : undefined}
