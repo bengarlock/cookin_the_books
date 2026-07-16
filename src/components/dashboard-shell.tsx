@@ -422,9 +422,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 </div>
                 <div
                   id="budget-navigation-children"
-                  className={`mt-2 flex flex-wrap gap-2 lg:block lg:space-y-2 ${
-                    isBudgetExpanded ? "" : "hidden"
-                  }`}
+                  className={
+                    isBudgetExpanded
+                      ? "mt-2 flex flex-wrap gap-2 lg:block lg:space-y-2"
+                      : "hidden"
+                  }
                 >
                   {budgetChildren.map((child) => {
                     const ChildIcon = child.icon;
