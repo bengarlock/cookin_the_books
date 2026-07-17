@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export function AmazonOrderImport() {
@@ -9,6 +9,53 @@ export function AmazonOrderImport() {
   const [isImporting, setIsImporting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [importId, setImportId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (importId === null) return;
+    let cancelled = false;
+
+    async function readStatus() {
+      const response = await fetch(`/cookinthebooks/api/amazon-orders/imports/${importId}`, { cache: "no-store" });
+      const result = await response.json().catch(() => null) as {
+        status?: string;
+        result?: { orders?: number; items?: number; matched_orders?: number };
+        error?: string;
+        message?: string;
+      } | null;
+      if (cancelled) return;
+      if (!response.ok) {
+        setError(result?.message || "The Amazon import status could not be loaded.");
+        setImportId(null);
+        setIsImporting(false);
+        return;
+      }
+      if (result?.status === "completed") {
+        const summary = result.result || {};
+        setMessage(`${summary.orders || 0} orders and ${summary.items || 0} items imported; ${summary.matched_orders || 0} linked to card transactions.`);
+        setImportId(null);
+        setIsImporting(false);
+        router.refresh();
+      } else if (result?.status === "failed") {
+        setError(result.error || "The Amazon order import could not be completed.");
+        setImportId(null);
+        setIsImporting(false);
+      } else if (result?.status === "queued" || result?.status === "running") {
+        setMessage(result.status === "queued" ? "Amazon order history is queued for import…" : "Amazon order history is importing in the background…");
+      }
+    }
+
+    void readStatus().catch(() => {
+      if (!cancelled) setMessage("Amazon order history is still importing…");
+    });
+    const interval = window.setInterval(() => void readStatus().catch(() => {
+      if (!cancelled) setMessage("Amazon order history is still importing…");
+    }), 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [importId, router]);
 
   async function importFile(file: File) {
     setIsImporting(true);
@@ -18,14 +65,15 @@ export function AmazonOrderImport() {
     formData.append("file", file);
     try {
       const response = await fetch("/cookinthebooks/api/amazon-orders/import", { method: "POST", body: formData });
-      const result = await response.json().catch(() => null) as { orders?: number; items?: number; matched_orders?: number; message?: string } | null;
+      const result = await response.json().catch(() => null) as { import_id?: number; message?: string } | null;
       if (!response.ok) throw new Error(result?.message || "Amazon order import failed.");
-      setMessage(`${result?.orders || 0} orders and ${result?.items || 0} items imported; ${result?.matched_orders || 0} linked to card transactions.`);
-      router.refresh();
+      if (!result?.import_id) throw new Error("The Amazon import was queued without an import ID.");
+      setMessage("Amazon order history uploaded. Importing in the background…");
+      setImportId(result.import_id);
     } catch (importError) {
       setError(importError instanceof Error ? importError.message : "Amazon order import failed.");
-    } finally {
       setIsImporting(false);
+    } finally {
       if (inputRef.current) inputRef.current.value = "";
     }
   }
