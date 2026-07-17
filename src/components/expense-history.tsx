@@ -1156,7 +1156,7 @@ export function ExpenseHistory({
                               </span>
                             </p>
                             {entry.note ? <p className="mt-1 text-xs italic text-white/55">{entry.note}</p> : null}
-                            <AmazonOrderDetails orders={entry.amazon_orders || []} />
+                            <AmazonOrderDetails orders={entry.amazon_orders || []} tagLibrary={tagLibrary} />
                           </div>
                           <div className="flex flex-wrap items-center justify-end gap-2">
                           <span
