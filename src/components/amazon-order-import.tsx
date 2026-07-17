@@ -31,19 +31,23 @@ export function AmazonOrderImport() {
   }
 
   return (
-    <div className="rounded-xl border border-orange-200/15 bg-orange-100/[0.03] px-4 py-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <section className="surface overflow-hidden rounded-2xl">
+      <div className="flex flex-col gap-4 border-b border-white/10 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div>
-          <p className="text-sm font-medium text-white/85">Amazon order details</p>
-          <p className="mt-1 text-xs text-muted">Import Order History.csv to expand matching card rows into products.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold">Amazon data</p>
+          <h2 className="mt-2 text-lg font-semibold text-white">Order history</h2>
+          <p className="mt-1 max-w-2xl text-sm text-muted">Import Amazon&apos;s Order History.csv to expand matching card transactions into individual products.</p>
         </div>
-        <label className="cursor-pointer rounded-lg border border-orange-200/20 bg-orange-100/[0.06] px-3 py-2 text-xs font-semibold text-orange-100 transition hover:bg-orange-100/10">
+        <label className="inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-[#07100f] transition hover:bg-accent disabled:opacity-60">
           {isImporting ? "Importing…" : "Choose CSV"}
           <input ref={inputRef} accept=".csv,text/csv" className="sr-only" disabled={isImporting} onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} type="file" />
         </label>
       </div>
-      {message ? <p className="mt-2 text-xs text-accent" role="status">{message}</p> : null}
-      {error ? <p className="mt-2 text-xs text-rose-200" role="alert">{error}</p> : null}
-    </div>
+      {message ? <p className="border-b border-accent/15 bg-accent/10 px-5 py-3 text-sm text-accent" role="status">{message}</p> : null}
+      {error ? <p className="border-b border-rose-300/15 bg-rose-300/10 px-5 py-3 text-sm text-rose-200" role="alert">{error}</p> : null}
+      <div className="p-5 sm:p-6">
+        <p className="text-xs text-muted">Imported products will appear inside matching transactions on the Accounts and Expenses pages.</p>
+      </div>
+    </section>
   );
 }
