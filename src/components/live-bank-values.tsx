@@ -11,6 +11,7 @@ import {
 
 import { useOptionalBudgetData } from "@/components/budget-data-provider";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
+import { accountTransactionDisplayAmount } from "@/lib/account-transaction-display";
 import { APP_BASE_PATH } from "@/lib/config";
 import type { CreditCardTransaction, ExpenseTag, SuggestedRelatedTransaction } from "@/lib/credit-card-transaction-types";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
@@ -571,15 +572,12 @@ function formatTransactionDate(value: string | null | undefined) {
   return compactDateFormatter.format(date);
 }
 
-function signedTransactionAmount(transaction: CreditCardTransaction) {
-  const amount = Number(transaction.amount);
-  if (!Number.isFinite(amount)) return "—";
-  const sign =
-    transaction.transaction_type === "payment" ||
-    transaction.transaction_type === "credit"
-      ? -1
-      : 1;
-  return formatCurrency(amount * sign);
+function signedTransactionAmount(
+  transaction: CreditCardTransaction,
+  accountKey: keyof BankValueSnapshot,
+) {
+  const amount = accountTransactionDisplayAmount(transaction, accountKey);
+  return amount === null ? "—" : formatCurrency(amount);
 }
 
 function AccountTransactionToggle({
@@ -1252,7 +1250,7 @@ function AccountTransactionList({
               </div>
               <div className="flex items-center gap-3 self-start">
                 <span className={`whitespace-nowrap text-right font-mono text-sm ${isCredit ? "text-accent" : "text-white"}`}>
-                  {signedTransactionAmount(transaction)}
+                  {signedTransactionAmount(transaction, accountKey)}
                 </span>
                 <button className="text-xs font-medium text-white/50 hover:text-accent" onClick={() => openTransactionEditor(transaction)} type="button">Edit</button>
               </div>
