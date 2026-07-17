@@ -6,6 +6,7 @@ import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
 import { creditCardExpenditureAverages, effectiveCreditCardTransactionAmount } from "@/lib/credit-card-averages";
 import type { CreditCardTransaction, ExpenseTag } from "@/lib/credit-card-transaction-types";
+import { AmazonOrderDetails } from "@/components/amazon-order-details";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
 import {
   budgetItemExpenseAverages,
@@ -1155,6 +1156,7 @@ export function ExpenseHistory({
                               </span>
                             </p>
                             {entry.note ? <p className="mt-1 text-xs italic text-white/55">{entry.note}</p> : null}
+                            <AmazonOrderDetails orders={entry.amazon_orders || []} />
                           </div>
                           <div className="flex flex-wrap items-center justify-end gap-2">
                           <span

@@ -40,7 +40,41 @@ export type CreditCardTransaction = {
     matched_at: string;
   } | null;
   related_transactions: RelatedTransaction[];
+  amazon_orders?: AmazonOrder[];
   created_at: string;
+};
+
+export type AmazonProduct = {
+  id: number;
+  website: string;
+  asin: string;
+  name: string;
+  purchase_count: number;
+};
+
+export type AmazonOrderItem = {
+  id: number;
+  product: AmazonProduct;
+  quantity: number;
+  unit_price: string | null;
+  subtotal: string | null;
+  tax: string | null;
+  discount: string | null;
+  total_amount: string;
+};
+
+export type AmazonOrder = {
+  id: number;
+  order_id: string;
+  website: string;
+  order_date: string | null;
+  ship_date: string | null;
+  status: string;
+  payment_method: string;
+  total_amount: string;
+  match_difference: string | null;
+  match_method: "exact" | "near" | "";
+  items: AmazonOrderItem[];
 };
 
 export type RelatedTransaction = {

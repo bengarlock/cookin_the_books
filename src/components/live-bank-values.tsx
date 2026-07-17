@@ -22,6 +22,8 @@ import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import { pendingCreditCardTransactionAmount } from "@/lib/pending-liability-transactions";
+import { AmazonOrderDetails } from "@/components/amazon-order-details";
+import { AmazonOrderImport } from "@/components/amazon-order-import";
 import { getSavingsReservePosition } from "@/lib/savings-reserve";
 import type { BankValueSnapshot } from "@/lib/snapshot-types";
 import { categoryLabelMap, sortedCategoryOptions } from "@/lib/transaction-categories";
@@ -1009,6 +1011,7 @@ function AccountTransactionList({
                     {transaction.note}
                   </p>
                 ) : null}
+                <AmazonOrderDetails orders={transaction.amazon_orders || []} />
                 {transaction.related_transactions?.length ? (
                   <div className="mt-2 space-y-1.5">
                     {transaction.related_transactions.map((related) => (
@@ -2283,6 +2286,7 @@ export function LiveBankValues({
               </p>
             ) : null}
           </div>
+          <AmazonOrderImport onImported={() => window.location.reload()} />
 
           <div className="grid gap-5">
               {accountSections.map((section) => (
