@@ -625,8 +625,8 @@ function AccountTransactionList({
   onMarkCleared,
   onReconcile,
   onSubmitPendingTransaction,
+  onTransactionUpdated,
   onToggleForm,
-  onTransactionsChanged,
   onTagLibraryChanged,
   onUnmatch,
   tagLibrary,
@@ -659,8 +659,8 @@ function AccountTransactionList({
     action: "confirm" | "reject" | "undo",
   ) => void;
   onSubmitPendingTransaction: (event: FormEvent<HTMLFormElement>) => void;
+  onTransactionUpdated: (transaction: CreditCardTransaction) => void;
   onToggleForm: (accountKey: keyof BankValueSnapshot) => void;
-  onTransactionsChanged: () => void;
   onTagLibraryChanged: (tags: ExpenseTag[]) => void;
   onUnmatch: (pendingTransactionId: number) => void;
   tagLibrary: ExpenseTag[];
@@ -837,9 +837,10 @@ function AccountTransactionList({
         const data = await response.json().catch(() => null) as { message?: string; detail?: string } | null;
         throw new Error(data?.message || data?.detail || "Unable to update this relationship.");
       }
+      const updated = (await response.json()) as CreditCardTransaction;
       setRelationshipResults((current) => current.filter((item) => item.id !== relatedTransactionId));
       setRelationshipSuggestions((current) => current.filter((item) => item.id !== relatedTransactionId));
-      onTransactionsChanged();
+      onTransactionUpdated(updated);
     } catch (error) {
       setRelationshipError(error instanceof Error ? error.message : "Unable to update this relationship.");
     } finally {
@@ -873,7 +874,7 @@ function AccountTransactionList({
             : "Unable to update this transaction.",
         );
       }
-      onTransactionsChanged();
+      onTransactionUpdated(updated);
     } catch (error) {
       setBudgetFlagsError(
         error instanceof Error ? error.message : "Unable to update this transaction.",
@@ -926,8 +927,9 @@ function AccountTransactionList({
       if (!noteResponse.ok) {
         throw new Error("The category and tags were saved, but the note could not be updated.");
       }
+      const updated = (await noteResponse.json()) as CreditCardTransaction;
       setEditingTransactionId(null);
-      onTransactionsChanged();
+      onTransactionUpdated(updated);
     } catch (error) {
       setEditError(
         error instanceof Error ? error.message : "Unable to update the transaction.",
@@ -1963,6 +1965,25 @@ export function LiveBankValues({
     }
   }, []);
 
+  function updateAccountTransaction(
+    accountKey: keyof BankValueSnapshot,
+    updated: CreditCardTransaction,
+  ) {
+    setAccountTransactions((current) => {
+      const state = current[accountKey];
+      if (!state) return current;
+      return {
+        ...current,
+        [accountKey]: {
+          ...state,
+          transactions: state.transactions.map((transaction) =>
+            transaction.id === updated.id ? updated : transaction,
+          ),
+        },
+      };
+    });
+  }
+
   useEffect(() => {
     if (view !== "accounts") return;
     for (const accountKey of ["chase_credit", "citi_current", "barclays_card"] as const) {
@@ -2427,8 +2448,8 @@ export function LiveBankValues({
                         onMarkCleared={markCleared}
                         onReconcile={reconcileTransaction}
                         onSubmitPendingTransaction={addPendingTransaction}
+                        onTransactionUpdated={(updated) => updateAccountTransaction("citi_current", updated)}
                         onToggleForm={togglePendingTransactionForm}
-                        onTransactionsChanged={() => void loadAccountTransactions("citi_current")}
                         onTagLibraryChanged={mergeExpenseTags}
                         onUnmatch={(id) => void unmatchTransaction(id)}
                         tagLibrary={expenseTags}
@@ -2589,8 +2610,8 @@ export function LiveBankValues({
                           onMarkCleared={markCleared}
                           onReconcile={reconcileTransaction}
                           onSubmitPendingTransaction={addPendingTransaction}
+                          onTransactionUpdated={(updated) => updateAccountTransaction(account.key, updated)}
                           onToggleForm={togglePendingTransactionForm}
-                          onTransactionsChanged={() => void loadAccountTransactions(account.key)}
                           onTagLibraryChanged={mergeExpenseTags}
                           onUnmatch={(id) => void unmatchTransaction(id)}
                           tagLibrary={expenseTags}
