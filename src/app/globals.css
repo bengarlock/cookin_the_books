@@ -193,6 +193,9 @@ input {
 }
 
 :root[data-theme="light"] main .text-gold,
+:root[data-theme="light"] main .text-orange-100,
+:root[data-theme="light"] main .text-orange-200,
+:root[data-theme="light"] main .text-orange-300,
 :root[data-theme="light"] main .text-amber-100,
 :root[data-theme="light"] main .text-amber-100\/70,
 :root[data-theme="light"] main .text-amber-100\/80,
@@ -202,6 +205,20 @@ input {
 :root[data-theme="light"] main .text-yellow-200 {
   color: #7a4b00 !important;
 }
+
+:root[data-theme="light"] main .text-white\/30 { color: #718096 !important; }
+:root[data-theme="light"] main .text-white\/35 { color: #687789 !important; }
+:root[data-theme="light"] main .text-white\/40 { color: #607084 !important; }
+:root[data-theme="light"] main .text-white\/45 { color: #58687b !important; }
+:root[data-theme="light"] main .text-white\/50 { color: #506176 !important; }
+:root[data-theme="light"] main .text-white\/55 { color: #485a70 !important; }
+:root[data-theme="light"] main .text-white\/60 { color: #40536a !important; }
+:root[data-theme="light"] main .text-white\/65 { color: #384c63 !important; }
+:root[data-theme="light"] main .text-white\/70 { color: #30455d !important; }
+:root[data-theme="light"] main .text-white\/75 { color: #2a3f58 !important; }
+:root[data-theme="light"] main .text-white\/80 { color: #243952 !important; }
+:root[data-theme="light"] main .text-white\/85 { color: #1e334d !important; }
+:root[data-theme="light"] main .text-white\/90 { color: #182e49 !important; }
 
 :root[data-theme="light"] main .text-gold.text-white,
 :root[data-theme="light"] main .text-amber-100.text-white,
