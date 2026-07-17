@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { AmazonOrderImport } from "@/components/amazon-order-import";
 import { CategorySettings } from "@/components/category-settings";
 import { PlaidConnections } from "@/components/plaid-connections";
 import { ThemeSetting } from "@/components/theme-setting";
@@ -31,6 +32,7 @@ export default async function SettingsPage() {
       </section>
 
       <ThemeSetting />
+      <AmazonOrderImport />
       <CategorySettings initialCategories={expenseCategories} />
       <PlaidConnections initialConnections={plaidConnections} />
     </div>

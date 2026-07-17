@@ -1,8 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
-export function AmazonOrderImport({ onImported }: { onImported: () => void }) {
+export function AmazonOrderImport() {
+  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [message, setMessage] = useState("");
@@ -19,7 +21,7 @@ export function AmazonOrderImport({ onImported }: { onImported: () => void }) {
       const result = await response.json().catch(() => null) as { orders?: number; items?: number; matched_orders?: number; message?: string } | null;
       if (!response.ok) throw new Error(result?.message || "Amazon order import failed.");
       setMessage(`${result?.orders || 0} orders and ${result?.items || 0} items imported; ${result?.matched_orders || 0} linked to card transactions.`);
-      onImported();
+      router.refresh();
     } catch (importError) {
       setError(importError instanceof Error ? importError.message : "Amazon order import failed.");
     } finally {

@@ -23,7 +23,6 @@ import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import { pendingCreditCardTransactionAmount } from "@/lib/pending-liability-transactions";
 import { AmazonOrderDetails } from "@/components/amazon-order-details";
-import { AmazonOrderImport } from "@/components/amazon-order-import";
 import { getSavingsReservePosition } from "@/lib/savings-reserve";
 import type { BankValueSnapshot } from "@/lib/snapshot-types";
 import { categoryLabelMap, sortedCategoryOptions } from "@/lib/transaction-categories";
@@ -2286,8 +2285,6 @@ export function LiveBankValues({
               </p>
             ) : null}
           </div>
-          <AmazonOrderImport onImported={() => window.location.reload()} />
-
           <div className="grid gap-5">
               {accountSections.map((section) => (
                 <section
