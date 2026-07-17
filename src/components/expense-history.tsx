@@ -277,9 +277,9 @@ export function ExpenseHistory({
     }
   }
 
-  async function saveTransactionEditor(transactionId: number) {
+  async function saveTransactionEditor(transactionId: number, applyToMatching = false) {
     if (await saveTransactionNote(transactionId)) {
-      if (await correctTransactionCategory(transactionId)) {
+      if (await correctTransactionCategory(transactionId, applyToMatching)) {
         closeTransactionEditor();
       }
     }
@@ -293,7 +293,7 @@ export function ExpenseHistory({
     </div>;
   }
 
-  async function correctTransactionCategory(transactionId: number) {
+  async function correctTransactionCategory(transactionId: number, applyToMatching = false) {
     if (!correctionRuleForm.category || !correctionRuleForm.match_value.trim()) return false;
     setSavingCorrectionId(transactionId);
     setError("");
@@ -303,7 +303,7 @@ export function ExpenseHistory({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(correctionRuleForm),
+          body: JSON.stringify({ ...correctionRuleForm, apply_to_matching: applyToMatching }),
         },
       );
       const result = (await response.json().catch(() => null)) as
@@ -316,21 +316,20 @@ export function ExpenseHistory({
       if (!response.ok || !result?.transactions) {
         throw new Error(result?.message || "Unable to correct the category.");
       }
-      const refreshed = await fetch(
-        `${APP_BASE_PATH}/api/credit-card-transactions?include_unbudgeted=true`,
-        { cache: "no-store" },
-      );
-      if (!refreshed.ok) {
-        throw new Error(
-          "The rule was saved, but the updated transactions could not be refreshed.",
+      if (applyToMatching) {
+        const refreshed = await fetch(
+          `${APP_BASE_PATH}/api/credit-card-transactions?include_unbudgeted=true`,
+          { cache: "no-store" },
         );
+        if (!refreshed.ok) throw new Error("The rule was saved, but the updated transactions could not be refreshed.");
+        setCreditCardTransactions((await refreshed.json()) as CreditCardTransaction[]);
+      } else {
+        const updated = result.transactions[0];
+        setCreditCardTransactions((current) => current.map((item) => item.id === updated.id ? updated : item));
       }
-      setCreditCardTransactions(
-        (await refreshed.json()) as CreditCardTransaction[],
-      );
-      setImportMessage(
-        `Category corrected and learned for ${result.updated_count} matching ${result.updated_count === 1 ? "transaction" : "transactions"}.`,
-      );
+      setImportMessage(applyToMatching
+        ? `Category corrected and learned for ${result.updated_count} matching ${result.updated_count === 1 ? "transaction" : "transactions"}.`
+        : "Category updated for this transaction only.");
       setCorrectionRuleForm({ match_type: "exact", match_value: "", category: "dining" });
       return true;
     } catch (correctionError) {
@@ -772,12 +771,18 @@ export function ExpenseHistory({
                       <button
                         className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
                         disabled={savingCorrectionId === transaction.id || savingNoteId === transaction.id}
-                        onClick={() => void saveTransactionEditor(transaction.id)}
+                        onClick={() => void saveTransactionEditor(transaction.id, false)}
                         type="button"
-                      >{savingCorrectionId === transaction.id || savingNoteId === transaction.id ? "Saving…" : "Save"}</button>
+                      >{savingCorrectionId === transaction.id || savingNoteId === transaction.id ? "Saving…" : "Save this transaction"}</button>
+                      <button
+                        className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-muted hover:border-accent/25 hover:text-accent disabled:opacity-50"
+                        disabled={savingCorrectionId === transaction.id || savingNoteId === transaction.id}
+                        onClick={() => void saveTransactionEditor(transaction.id, true)}
+                        type="button"
+                      >Save &amp; remember</button>
                       <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={closeTransactionEditor} type="button">Cancel</button>
                       </div>
-                      <p className="text-[11px] text-muted sm:col-span-5">Creates an editable automation rule, updates matching history, and remembers it for future imports.</p>
+                      <p className="text-[11px] text-muted sm:col-span-5">Save this transaction changes only the selected row. Save &amp; remember also updates matching descriptions and future imports.</p>
                     </div> : null}
                   </div>
                   <div className="flex items-center gap-3 self-start">

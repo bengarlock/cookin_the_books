@@ -15,7 +15,7 @@ export type CreditCardTransaction = {
   source_identifier: string;
   category: string;
   category_confidence: string | null;
-  category_source: "ai" | "rules" | "user_rule" | "plaid" | "";
+  category_source: "ai" | "rules" | "user" | "user_rule" | "plaid" | "";
   categorized_at: string | null;
   tags: ExpenseTag[];
   split: boolean;

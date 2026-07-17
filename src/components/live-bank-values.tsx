@@ -884,7 +884,7 @@ function AccountTransactionList({
     }
   }
 
-  async function saveTransactionEditor(transaction: CreditCardTransaction) {
+  async function saveTransactionEditor(transaction: CreditCardTransaction, applyToMatching = false) {
     setSavingTransactionId(transaction.id);
     setEditError("");
     try {
@@ -897,6 +897,7 @@ function AccountTransactionList({
             match_type: editForm.match_type,
             match_value: editForm.match_value,
             category: editForm.category,
+            apply_to_matching: applyToMatching,
           }),
         },
       );
@@ -1245,11 +1246,17 @@ function AccountTransactionList({
                         onClick={() => void saveTransactionEditor(transaction)}
                         type="button"
                       >
-                        {savingTransactionId === transaction.id ? "Saving…" : "Save"}
+                        {savingTransactionId === transaction.id ? "Saving…" : "Save this transaction"}
                       </button>
+                      <button
+                        className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-muted hover:border-accent/25 hover:text-accent disabled:opacity-50"
+                        disabled={savingTransactionId === transaction.id}
+                        onClick={() => void saveTransactionEditor(transaction, true)}
+                        type="button"
+                      >Save &amp; remember</button>
                       <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={() => setEditingTransactionId(null)} type="button">Cancel</button>
                     </div>
-                    <p className="text-[11px] text-muted sm:col-span-5">Creates an editable automation rule, updates matching history, and remembers it for future imports.</p>
+                    <p className="text-[11px] text-muted sm:col-span-5">Save this transaction changes only the selected row. Save &amp; remember also updates matching descriptions and future imports.</p>
                     {editError ? <p className="text-xs text-rose-200 sm:col-span-5">{editError}</p> : null}
                   </div>
                   </>
