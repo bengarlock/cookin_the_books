@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { CreditCardTransaction } from "./credit-card-transaction-types";
-import { accountTransactionDisplayAmount } from "./account-transaction-display";
+import {
+  accountTransactionDisplayAmount,
+  manualPendingTransactionDisplayAmount,
+} from "./account-transaction-display";
 
 function transaction(
   overrides: Partial<CreditCardTransaction> = {},
@@ -50,6 +53,23 @@ describe("accountTransactionDisplayAmount", () => {
         transaction({ amount: "not-a-number" }),
         "chase_checking",
       ),
+    ).toBeNull();
+  });
+});
+
+describe("manualPendingTransactionDisplayAmount", () => {
+  it("shows manually entered checking and savings amounts as cash outflows", () => {
+    expect(manualPendingTransactionDisplayAmount("25.00", "chase_checking")).toBe(-25);
+    expect(manualPendingTransactionDisplayAmount("25.00", "chase_savings")).toBe(-25);
+  });
+
+  it("keeps manual liability amounts positive", () => {
+    expect(manualPendingTransactionDisplayAmount("25.00", "chase_credit")).toBe(25);
+  });
+
+  it("returns null for invalid manual pending amounts", () => {
+    expect(
+      manualPendingTransactionDisplayAmount("not-a-number", "chase_checking"),
     ).toBeNull();
   });
 });

@@ -34,3 +34,18 @@ export function accountTransactionDisplayAmount(
 
   return amount;
 }
+
+export function manualPendingTransactionDisplayAmount(
+  amount: string | number,
+  accountKey: keyof BankValueSnapshot,
+) {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return null;
+  const snapshotAccountKey = accountKey as SnapshotAccountKey;
+
+  if (cashAccounts.has(snapshotAccountKey)) {
+    return -Math.abs(value);
+  }
+
+  return value;
+}

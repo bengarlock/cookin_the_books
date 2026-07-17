@@ -11,7 +11,10 @@ import {
 
 import { useOptionalBudgetData } from "@/components/budget-data-provider";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
-import { accountTransactionDisplayAmount } from "@/lib/account-transaction-display";
+import {
+  accountTransactionDisplayAmount,
+  manualPendingTransactionDisplayAmount,
+} from "@/lib/account-transaction-display";
 import { APP_BASE_PATH } from "@/lib/config";
 import type { CreditCardTransaction, ExpenseTag, SuggestedRelatedTransaction } from "@/lib/credit-card-transaction-types";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
@@ -1286,7 +1289,12 @@ function AccountTransactionList({
               </p>
             </div>
             <span className="whitespace-nowrap text-right font-mono text-sm text-amber-100">
-              {formatCurrency(transaction.amount)}
+              {formatCurrency(
+                manualPendingTransactionDisplayAmount(
+                  transaction.amount,
+                  transaction.account,
+                ) ?? undefined,
+              )}
             </span>
             <div className="flex flex-wrap items-center justify-start gap-2 sm:flex-nowrap sm:justify-end">
               {transaction.match_status === "suggested" ? (
