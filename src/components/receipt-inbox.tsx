@@ -10,14 +10,22 @@ type ReceiptEmail = {
   subject: string;
   received_at: string | null;
   parser: string;
-  status: "received" | "processed" | "review" | "failed";
+  status: "received" | "processed" | "parsed" | "matched" | "review" | "failed";
   error_message: string;
-  amazon_order: number | null;
+  receipt_order: {
+    vendor_key: string;
+    merchant_name: string;
+    external_order_id: string;
+    total_amount: string;
+    items: { id: number; name: string; quantity: number }[];
+  } | null;
 };
 
 function statusLabel(status: ReceiptEmail["status"]) {
   return {
     received: "Received",
+    parsed: "Parsed",
+    matched: "Matched",
     processed: "Matched",
     review: "Needs review",
     failed: "Failed",
@@ -61,11 +69,14 @@ export function ReceiptInbox() {
         {receipts.length ? receipts.slice(0, 8).map((receipt) => (
           <div className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6" key={receipt.id}>
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-foreground">{receipt.subject || "Receipt email"}</p>
+              <p className="truncate text-sm font-medium text-foreground">
+                {receipt.receipt_order?.merchant_name || receipt.subject || "Receipt email"}
+              </p>
               <p className="mt-1 truncate text-xs text-muted">{receipt.sender || "Unknown sender"}{receipt.received_at ? ` · ${new Date(receipt.received_at).toLocaleString()}` : ""}</p>
+              {receipt.receipt_order ? <p className="mt-1 text-xs text-muted">Order {receipt.receipt_order.external_order_id} · {receipt.receipt_order.items.length} item{receipt.receipt_order.items.length === 1 ? "" : "s"}</p> : null}
               {receipt.error_message ? <p className="mt-1 text-xs text-amber-300">{receipt.error_message}</p> : null}
             </div>
-            <span className={`shrink-0 text-xs font-semibold ${receipt.status === "processed" ? "text-accent" : receipt.status === "failed" ? "text-rose-300" : "text-amber-300"}`}>
+            <span className={`shrink-0 text-xs font-semibold ${receipt.status === "matched" ? "text-accent" : receipt.status === "failed" ? "text-rose-300" : "text-amber-300"}`}>
               {statusLabel(receipt.status)}
             </span>
           </div>
