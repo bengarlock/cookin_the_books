@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 
 import { LogoutButton } from "@/components/logout-button";
 import { DashboardHeader } from "@/components/dashboard-header";
+import { APP_BASE_PATH } from "@/lib/config";
 
 type IconProps = {
   className?: string;
@@ -385,8 +387,15 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             >
               <MenuIcon isOpen={isMobileMenuOpen} />
             </button>
-            <div className="grid size-11 place-items-center rounded-2xl border border-accent/25 bg-accent/10 font-bold text-accent">
-              C
+            <div className="size-11 overflow-hidden rounded-2xl border border-accent/25 bg-accent/10">
+              <Image
+                src={`${APP_BASE_PATH}/favicon-dark.svg`}
+                alt="Cookin' the Books"
+                width={44}
+                height={44}
+                priority
+                className="size-full"
+              />
             </div>
             <div>
               <p className="font-semibold text-white">Cookin&apos; the Books</p>
