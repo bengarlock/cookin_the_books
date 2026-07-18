@@ -1,3 +1,5 @@
+import type { CreditCardTransaction } from "./credit-card-transaction-types";
+import { pendingCreditCardTransactionAmount } from "./pending-liability-transactions";
 import type { PendingTransaction } from "./pending-transaction-types";
 import type { BankValueSnapshot, SnapshotAccountKey } from "./snapshot-types";
 
@@ -40,7 +42,7 @@ function pendingTotals(transactions: PendingTransaction[]) {
 
 export function calculateFinancialGoalMetrics({
   cap, periodStart, periodEnd, today, projectedPaycheck,
-  averageDailyExpenses, snapshot, pendingTransactions,
+  averageDailyExpenses, snapshot, pendingTransactions, creditCardTransactions,
 }: {
   cap: number;
   periodStart: string;
@@ -50,6 +52,7 @@ export function calculateFinancialGoalMetrics({
   averageDailyExpenses: number;
   snapshot: BankValueSnapshot | null;
   pendingTransactions: PendingTransaction[];
+  creditCardTransactions: CreditCardTransaction[];
 }) {
   const effectiveToday = today < periodStart ? periodStart : today > periodEnd ? periodEnd : today;
   const totalDays = inclusiveDays(periodStart, periodEnd);
@@ -65,7 +68,12 @@ export function calculateFinancialGoalMetrics({
     (sum, key) => sum + adjustedLiability(key),
     0,
   );
-  const spent = currentLiabilities;
+  const importedPendingLiabilities = creditCardTransactions.reduce(
+    (sum, transaction) =>
+      sum + pendingCreditCardTransactionAmount(transaction),
+    0,
+  );
+  const spent = currentLiabilities + importedPendingLiabilities;
   const remaining = cap - spent;
   const dailyPace = elapsedDays > 0 ? spent / elapsedDays : 0;
   const projectedSpend = spent + dailyPace * daysLeft;

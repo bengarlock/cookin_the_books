@@ -184,6 +184,7 @@ export function FinancialGoals({
             averageDailyExpenses: nonCreditCardDailyExpenses,
             snapshot,
             pendingTransactions,
+            creditCardTransactions,
           });
           return editingId === goal.id ? (
           <form className="surface rounded-2xl p-5" key={goal.id} onSubmit={updateGoal}>

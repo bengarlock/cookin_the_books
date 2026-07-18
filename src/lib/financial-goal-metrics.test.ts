@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { calculateFinancialGoalMetrics } from "./financial-goal-metrics";
 import type { BankValueSnapshot } from "./snapshot-types";
+import type { CreditCardTransaction } from "./credit-card-transaction-types";
 
 const snapshot = {
   chase_checking: "2500.00", chase_savings: "500.00",
@@ -20,6 +21,7 @@ describe("calculateFinancialGoalMetrics", () => {
       averageDailyExpenses: 50,
       snapshot,
       pendingTransactions: [],
+      creditCardTransactions: [],
     });
 
     expect(metrics.spent).toBe(300);
@@ -48,9 +50,44 @@ describe("calculateFinancialGoalMetrics", () => {
         barclays_card: "0.00",
       },
       pendingTransactions: [],
+      creditCardTransactions: [],
     });
 
     expect(metrics.daysLeft).toBe(2);
     expect(metrics.dailyAllowance).toBeCloseTo(117.325);
+  });
+
+  it("includes pending imported card charges in spent", () => {
+    const metrics = calculateFinancialGoalMetrics({
+      cap: 1000,
+      periodStart: "2026-07-01",
+      periodEnd: "2026-07-10",
+      today: "2026-07-05",
+      projectedPaycheck: 2000,
+      averageDailyExpenses: 0,
+      snapshot: {
+        ...snapshot,
+        chase_credit: "0.00",
+        citi_current: "82.00",
+        citi_pending: "0.00",
+        barclays_card: "0.00",
+      },
+      pendingTransactions: [],
+      creditCardTransactions: [
+        {
+          id: 1,
+          account_last_four: "4596",
+          amount: "124.06",
+          category: "other",
+          transaction_date: "2026-07-04",
+          description: "Pending card charge",
+          issuer: "Citibank Online",
+          pending: true,
+          transaction_type: "purchase",
+        } as CreditCardTransaction,
+      ],
+    });
+
+    expect(metrics.spent).toBe(206.06);
   });
 });
