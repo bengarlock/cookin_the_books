@@ -118,7 +118,7 @@ function DataFreshnessIndicator({
   const icon = (
     <svg
       aria-hidden="true"
-      className={`size-5 ${isRefreshing ? "animate-spin" : ""}`}
+      className={`size-5 ${isRefreshing ? "animate-[spin_1s_linear_infinite_reverse]" : ""}`}
       fill="none"
       viewBox="0 0 24 24"
     >
