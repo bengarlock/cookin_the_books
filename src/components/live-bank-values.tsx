@@ -1542,6 +1542,8 @@ export function LiveBankValues({
 }) {
   const budgetData = useOptionalBudgetData();
   const { snapshot } = useLiveSnapshot();
+  const creditCardTransactions =
+    budgetData?.creditCardTransactions ?? initialCreditCardTransactions;
   const expenseCategories = budgetData?.expenseCategories ?? initialExpenseCategories;
   const [localPendingTransactions, setLocalPendingTransactions] = useState(
     initialPendingTransactions ?? [],
@@ -1584,7 +1586,7 @@ export function LiveBankValues({
     useState<keyof BankValueSnapshot | null>(null);
   const [accountTransactions, setAccountTransactions] =
     useState<AccountTransactionState>(() =>
-      initialAccountTransactionState(initialCreditCardTransactions),
+      initialAccountTransactionState(creditCardTransactions),
     );
   const [transactionForm, setTransactionForm] = useState({
     note: "",
