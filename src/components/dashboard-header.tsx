@@ -120,11 +120,11 @@ function DataFreshnessIndicator({
       aria-hidden="true"
       className={`size-5 ${isRefreshing ? "animate-spin" : ""}`}
       fill="none"
-      transform="translate(24 0) scale(-1 1)"
       viewBox="0 0 24 24"
     >
       <path
         d="M20 11a8 8 0 0 0-14.9-4M4 5v4h4M4 13a8 8 0 0 0 14.9 4M20 19v-4h-4"
+        transform="translate(24 0) scale(-1 1)"
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
