@@ -357,21 +357,21 @@ export function AutomationSelectorBuilder({
             addSelector(field);
         }}
       >
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
+        <div className="mb-4 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
               Staging area
             </p>
-            <div className="mt-2 flex gap-1 rounded-lg border border-white/10 p-1">
+            <div className="mt-2 grid w-full grid-cols-2 gap-1 rounded-lg border border-white/10 p-1 sm:flex sm:w-fit">
               <button
-                className={`rounded-md px-3 py-1.5 text-xs ${tab === "selectors" ? "bg-accent/15 text-accent" : "text-muted"}`}
+                className={`min-w-0 rounded-md px-2 py-1.5 text-xs sm:px-3 ${tab === "selectors" ? "bg-accent/15 text-accent" : "text-muted"}`}
                 onClick={() => setTab("selectors")}
                 type="button"
               >
                 Selectors
               </button>
               <button
-                className={`rounded-md px-3 py-1.5 text-xs ${tab === "matches" ? "bg-accent/15 text-accent" : "text-muted"}`}
+                className={`min-w-0 rounded-md px-2 py-1.5 text-xs sm:px-3 ${tab === "matches" ? "bg-accent/15 text-accent" : "text-muted"}`}
                 onClick={() => {
                   setTab("matches");
                   setPage(0);
@@ -382,7 +382,7 @@ export function AutomationSelectorBuilder({
               </button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 self-start sm:self-auto">
             <div
               className="inline-flex items-center gap-2 rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1.5 text-xs font-semibold text-sky-100"
               title="Records matching the current selectors"

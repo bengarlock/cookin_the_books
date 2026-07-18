@@ -15,7 +15,10 @@ export function BudgetNavigation() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex flex-wrap gap-2" aria-label="Budget sections">
+    <nav
+      className="flex flex-wrap justify-center gap-2 sm:justify-start"
+      aria-label="Budget sections"
+    >
       {budgetLinks.map((link) => (
         <Link
           className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${

@@ -413,10 +413,10 @@ function SnapshotTrendChart({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="w-full overflow-hidden">
       <svg
         aria-label="Net assets over time"
-        className="min-w-[680px] cursor-crosshair"
+        className="block h-auto w-full max-w-full cursor-crosshair"
         onMouseLeave={() => setHoveredIndex(null)}
         onMouseMove={handleChartHover}
         role="img"
@@ -1017,8 +1017,8 @@ export function SnapshotsDashboard({
               The selected range controls both the chart and snapshot history.
             </p>
           </div>
-          <div className="flex justify-start xl:justify-center">
-            <div className="rounded-2xl border border-accent/20 bg-accent/[0.07] p-2 shadow-lg shadow-accent/5">
+          <div className="flex min-w-0 justify-start xl:justify-center">
+            <div className="w-full min-w-0 rounded-2xl border border-accent/20 bg-accent/[0.07] p-2 shadow-lg shadow-accent/5 sm:w-auto">
               <p className="mb-1 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-accent/80">
                 Snapshot date range
               </p>
@@ -1027,7 +1027,7 @@ export function SnapshotsDashboard({
                 dialogLabel="Select snapshot date range"
                 onApply={setChartRange}
                 range={chartRange}
-                triggerClassName="snapshot-date-range-trigger inline-flex min-w-[280px] items-center justify-center gap-2 rounded-xl border border-accent/30 bg-[#061811] px-4 py-3 text-center text-sm font-semibold text-accent transition hover:border-accent/60 hover:bg-accent/10"
+                triggerClassName="snapshot-date-range-trigger inline-flex w-full min-w-0 items-center justify-center gap-2 overflow-hidden rounded-xl border border-accent/30 bg-[#061811] px-4 py-3 text-center text-sm font-semibold text-accent transition hover:border-accent/60 hover:bg-accent/10"
               />
             </div>
           </div>
@@ -1112,12 +1112,12 @@ export function SnapshotsDashboard({
             </div>
           </div>
           <div
-            className={`overflow-x-hidden ${
+            className={`overflow-x-auto ${
               historyScrollEnabled ? "overflow-y-auto" : "overflow-y-hidden"
             }`}
             style={{ maxHeight: "min(72vh, 760px)" }}
           >
-            <table className="w-full table-fixed text-left">
+            <table className="min-w-[640px] w-full table-fixed text-left">
               <colgroup>
                 <col className="w-[17%]" />
                 <col className="w-[22%]" />
