@@ -2384,13 +2384,18 @@ export function LiveBankValues({
                   <div key="citi_card">
                     <div className="grid grid-cols-[minmax(0,1fr)_8rem] items-center gap-x-5 border-b border-white/[0.07] px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_8rem] sm:px-5">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
                         <AccountTransactionToggle
                           accountLabel="Citi Card"
                           isExpanded={citiExpanded}
                           onClick={() => toggleAccountTransactions("citi_current")}
                         />
-                        <span className="text-sm text-white/75">Citi Card</span>
+                        <span
+                          className="min-w-0 flex-1 truncate text-sm text-white/75"
+                          title="Citi Card"
+                        >
+                          Citi Card
+                        </span>
                         <AccountLoginLink
                           accountKey="citi_current"
                           label="Citi Card"
@@ -2506,7 +2511,7 @@ export function LiveBankValues({
                         }`}
                       >
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
                           {canShowTransactions ? (
                             <AccountTransactionToggle
                               accountLabel={account.label}
@@ -2517,11 +2522,12 @@ export function LiveBankValues({
                             />
                           ) : null}
                           <span
-                            className={`shrink-0 whitespace-nowrap text-sm ${
+                            className={`min-w-0 flex-1 truncate text-sm ${
                               overdrawn
                                 ? "font-semibold text-rose-200"
                                 : "text-white/75"
                             }`}
+                            title={account.label}
                           >
                             {account.label}
                           </span>
