@@ -12,6 +12,9 @@ import {
 import { DateRangePicker } from "@/components/date-range-picker";
 import { APP_BASE_PATH } from "@/lib/config";
 import { type ExpenseDateRange } from "@/lib/expense-date-range";
+import { pendingCreditCardTransactionAmount } from "@/lib/pending-liability-transactions";
+import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import type {
   BankValueSnapshot,
   SnapshotAccountBalance,
@@ -94,6 +97,79 @@ function balancesFromSnapshot(
       snapshot?.[key] || "0.00",
     ]),
   ) as BalanceForm;
+}
+
+function adjustedBalancesFromSnapshot(
+  snapshot: BankValueSnapshot | undefined,
+  pendingTransactions: PendingTransaction[],
+  creditCardTransactions: CreditCardTransaction[],
+): BalanceForm {
+  const balances = balancesFromSnapshot(snapshot);
+  const settledAccounts = new Set<keyof BankValueSnapshot>();
+  const pendingCash = new Map<SnapshotAccountKey, number>();
+  const pendingLiabilities = new Map<SnapshotAccountKey, number>();
+
+  for (const transaction of pendingTransactions) {
+    if (transaction.is_cleared || transaction.match_status === "matched_pending") {
+      continue;
+    }
+    transaction.settled_accounts.forEach((account) => settledAccounts.add(account));
+    if (transaction.settled_accounts.length) continue;
+
+    const amount = Number(transaction.amount);
+    if (!Number.isFinite(amount)) continue;
+    if (transaction.account === "chase_checking" || transaction.account === "chase_savings") {
+      pendingCash.set(
+        transaction.account,
+        (pendingCash.get(transaction.account) || 0) + amount,
+      );
+    } else if (
+      transaction.account === "chase_credit" ||
+      transaction.account === "citi_current" ||
+      transaction.account === "citi_pending" ||
+      transaction.account === "barclays_card"
+    ) {
+      pendingLiabilities.set(
+        transaction.account,
+        (pendingLiabilities.get(transaction.account) || 0) + amount,
+      );
+    }
+  }
+
+  const importedCitiPending = creditCardTransactions
+    .filter(
+      (transaction) =>
+        transaction.issuer === "Citibank Online" &&
+        transaction.account_last_four === "4596",
+    )
+    .reduce(
+      (total, transaction) => total + pendingCreditCardTransactionAmount(transaction),
+      0,
+    );
+  pendingLiabilities.set(
+    "citi_current",
+    (pendingLiabilities.get("citi_current") || 0) + importedCitiPending,
+  );
+
+  for (const key of ["chase_checking", "chase_savings"] as const) {
+    balances[key] = (
+      Number(balances[key]) - (pendingCash.get(key) || 0)
+    ).toFixed(2);
+  }
+  for (const key of [
+    "chase_credit",
+    "citi_current",
+    "citi_pending",
+    "barclays_card",
+  ] as const) {
+    balances[key] = settledAccounts.has(key)
+      ? "0.00"
+      : (
+          Number(balances[key]) + (pendingLiabilities.get(key) || 0)
+        ).toFixed(2);
+  }
+
+  return balances;
 }
 
 function calculateYearlyNetChanges(
@@ -613,10 +689,14 @@ export function SnapshotsDashboard({
   allTimeStart,
   initialRange,
   initialSnapshots,
+  initialCreditCardTransactions,
+  initialPendingTransactions,
 }: {
   allTimeStart?: string;
   initialRange: ExpenseDateRange;
   initialSnapshots: BankValueSnapshot[];
+  initialCreditCardTransactions: CreditCardTransaction[];
+  initialPendingTransactions: PendingTransaction[];
 }) {
   const [snapshots, setSnapshots] = useState(initialSnapshots);
   const [loadedRanges, setLoadedRanges] = useState<ExpenseDateRange[]>([
@@ -646,7 +726,13 @@ export function SnapshotsDashboard({
   const editorBase = isCreating ? latestSnapshot : todaySnapshot;
   const [notes, setNotes] = useState(editorBase?.notes || "");
   const [balanceForm, setBalanceForm] = useState<BalanceForm>(
-    balancesFromSnapshot(editorBase),
+    isCreating
+      ? adjustedBalancesFromSnapshot(
+          editorBase,
+          initialPendingTransactions,
+          initialCreditCardTransactions,
+        )
+      : balancesFromSnapshot(editorBase),
   );
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -657,7 +743,15 @@ export function SnapshotsDashboard({
     setIsCreating(!snapshot);
     setSelectedId(snapshot?.id || null);
     setNotes(snapshot?.notes || "");
-    setBalanceForm(balancesFromSnapshot(target));
+    setBalanceForm(
+      snapshot
+        ? balancesFromSnapshot(target)
+        : adjustedBalancesFromSnapshot(
+            target,
+            initialPendingTransactions,
+            initialCreditCardTransactions,
+          ),
+    );
     setError("");
     setMessage("");
   }
