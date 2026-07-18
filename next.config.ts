@@ -7,6 +7,14 @@ const nextConfig: NextConfig = {
   },
   basePath: "/cookinthebooks",
   reactStrictMode: true,
+  experimental: {
+    // Keep recently visited dynamic dashboard pages warm for quick back-and-forth navigation.
+    // Server-side financial reads remain no-store; the refresh control still invalidates the UI.
+    staleTimes: {
+      dynamic: 30,
+      static: 300,
+    },
+  },
   async rewrites() {
     if (process.env.NODE_ENV !== "development") {
       return [];
