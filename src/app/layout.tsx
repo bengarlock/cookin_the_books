@@ -46,6 +46,11 @@ export default function RootLayout({
           rel="icon"
           type="image/svg+xml"
         />
+        <link
+          href={`${APP_BASE_PATH}/apple-icon.png`}
+          rel="apple-touch-icon"
+          sizes="180x180"
+        />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <script dangerouslySetInnerHTML={{ __html: faviconScript }} />
       </head>
