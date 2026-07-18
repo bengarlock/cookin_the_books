@@ -374,15 +374,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       <aside className="dashboard-sidebar border-b border-white/10 bg-black/15 px-5 py-5 backdrop-blur lg:fixed lg:inset-y-0 lg:w-[260px] lg:border-r lg:border-b-0 lg:px-6 lg:py-7">
         <div className="flex items-center justify-between lg:block">
           <div className="flex items-center gap-3">
-            <div className="grid size-11 place-items-center rounded-2xl border border-accent/25 bg-accent/10 font-bold text-accent">
-              C
-            </div>
-            <div>
-              <p className="font-semibold text-white">Cookin&apos; the Books</p>
-              <p className="text-xs text-muted">Financial command center</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 lg:hidden">
             <button
               type="button"
               aria-controls="dashboard-mobile-navigation"
@@ -390,10 +381,17 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               aria-label={isMobileMenuOpen ? "Close navigation" : "Open navigation"}
               title={isMobileMenuOpen ? "Close navigation" : "Open navigation"}
               onClick={() => setIsMobileMenuOpen((isOpen) => !isOpen)}
-              className="flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-medium text-white/80 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white/80 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white lg:hidden"
             >
               <MenuIcon isOpen={isMobileMenuOpen} />
             </button>
+            <div className="grid size-11 place-items-center rounded-2xl border border-accent/25 bg-accent/10 font-bold text-accent">
+              C
+            </div>
+            <div>
+              <p className="font-semibold text-white">Cookin&apos; the Books</p>
+              <p className="text-xs text-muted">Financial command center</p>
+            </div>
           </div>
         </div>
 
