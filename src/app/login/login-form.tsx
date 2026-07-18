@@ -89,11 +89,21 @@ export function LoginForm() {
       ) : null}
 
       <button
-        className="flex h-12 w-full items-center justify-center rounded-xl bg-accent-strong px-5 font-semibold text-[#03120c] transition hover:bg-accent disabled:cursor-wait disabled:opacity-60"
+        className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent-strong px-5 font-semibold text-[#03120c] transition hover:bg-accent disabled:cursor-wait disabled:opacity-60"
         type="submit"
         disabled={isSubmitting}
       >
-        {isSubmitting ? "Signing in…" : "Sign in"}
+        {isSubmitting ? (
+          <>
+            <span
+              className="size-4 animate-spin rounded-full border-2 border-current border-r-transparent"
+              aria-hidden="true"
+            />
+            <span>Logging in...</span>
+          </>
+        ) : (
+          "Sign in"
+        )}
       </button>
     </form>
   );
