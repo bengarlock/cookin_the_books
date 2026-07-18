@@ -393,7 +393,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               className="flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-medium text-white/80 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
             >
               <MenuIcon isOpen={isMobileMenuOpen} />
-              <span>Menu</span>
             </button>
           </div>
         </div>
