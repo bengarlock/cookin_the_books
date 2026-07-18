@@ -320,7 +320,7 @@ export function DashboardHeader() {
   }
 
   return (
-    <header className="dashboard-header relative h-[9.5rem] shrink-0 border-b border-white/10 bg-[#07100f]/70 px-5 backdrop-blur sm:px-8 lg:px-10">
+    <header className="dashboard-header relative h-[9.5rem] shrink-0 border-b border-white/10 bg-[#07111f]/70 px-5 backdrop-blur sm:px-8 lg:px-10">
       <div className="flex h-full min-w-0 max-w-3xl flex-col justify-center pr-32 sm:pr-36">
         <p className="line-clamp-1 text-xs font-semibold uppercase tracking-[0.24em] text-gold">
           {header.eyebrow}

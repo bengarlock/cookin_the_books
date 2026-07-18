@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background: #07100f;
-  --foreground: #eefbf6;
-  --panel: #0d1917;
-  --panel-soft: #11211e;
-  --line: rgba(189, 255, 226, 0.12);
-  --muted: #91a8a1;
-  --accent: #56e2aa;
-  --accent-strong: #20bc7d;
+  --background: #07111f;
+  --foreground: #eef6ff;
+  --panel: #0d1929;
+  --panel-soft: #11243b;
+  --line: rgba(189, 221, 255, 0.14);
+  --muted: #91a4b8;
+  --accent: #60a5fa;
+  --accent-strong: #2f80ed;
   --gold: #f0c978;
   --snapshot-chart-axis: rgba(255, 255, 255, 0.46);
-  --snapshot-chart-accent: #56e2aa;
-  --snapshot-chart-accent-area: #56e2aa;
-  --snapshot-chart-tooltip-bg: #0b1714;
-  --snapshot-chart-tooltip-border: rgba(86, 226, 170, 0.35);
+  --snapshot-chart-accent: #60a5fa;
+  --snapshot-chart-accent-area: #60a5fa;
+  --snapshot-chart-tooltip-bg: #0b1727;
+  --snapshot-chart-tooltip-border: rgba(96, 165, 250, 0.35);
   --snapshot-chart-tooltip-muted: rgba(255, 255, 255, 0.6);
   --snapshot-chart-tooltip-text: #ffffff;
-  --snapshot-chart-point-fill: #07100f;
+  --snapshot-chart-point-fill: #07111f;
   --snapshot-chart-crosshair: rgba(255, 255, 255, 0.3);
   --snapshot-chart-negative: #fda4af;
   color-scheme: dark;
@@ -101,15 +101,15 @@ input {
 }
 
 ::selection {
-  background: rgba(86, 226, 170, 0.26);
+  background: rgba(96, 165, 250, 0.26);
   color: #ffffff;
 }
 
 .app-backdrop {
   background:
-    radial-gradient(circle at 12% 8%, rgba(32, 188, 125, 0.18), transparent 31rem),
+    radial-gradient(circle at 12% 8%, rgba(47, 128, 237, 0.18), transparent 31rem),
     radial-gradient(circle at 94% 4%, rgba(240, 201, 120, 0.11), transparent 28rem),
-    linear-gradient(145deg, #07100f 0%, #091411 54%, #0c1514 100%);
+    linear-gradient(145deg, #07111f 0%, #091725 54%, #0c1828 100%);
   background-attachment: fixed;
   background-position: center;
   background-repeat: no-repeat;
@@ -118,7 +118,7 @@ input {
 
 .surface {
   border: 1px solid var(--line);
-  background: linear-gradient(145deg, rgba(17, 33, 30, 0.94), rgba(10, 22, 20, 0.94));
+  background: linear-gradient(145deg, rgba(17, 36, 59, 0.94), rgba(10, 22, 38, 0.94));
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
 }
 
@@ -496,10 +496,10 @@ input {
   grid-column: 2;
 }
 
-.theme-preview-dark { background: #0d1917; }
-.theme-preview-dark i:first-child { background: #07100f; }
-.theme-preview-dark i:nth-child(2) { background: #56e2aa; }
-.theme-preview-dark i:nth-child(3) { margin: 0.35rem; border-radius: 0.25rem; background: #162724; }
+.theme-preview-dark { background: #0d1929; }
+.theme-preview-dark i:first-child { background: #07111f; }
+.theme-preview-dark i:nth-child(2) { background: #60a5fa; }
+.theme-preview-dark i:nth-child(3) { margin: 0.35rem; border-radius: 0.25rem; background: #162b46; }
 .theme-preview-light { background: #f2f5f8; }
 .theme-preview-light i:first-child { background: #ffffff; }
 .theme-preview-light i:nth-child(2) { background: #0868c7; }

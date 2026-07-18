@@ -58,7 +58,7 @@ export function ThemeSetting() {
           </span>
           <span>
             <strong>Dark</strong>
-            <small>Deep green and mint</small>
+            <small>Deep blue and sky</small>
           </span>
           <span className="theme-choice-check" aria-hidden="true">✓</span>
         </button>
