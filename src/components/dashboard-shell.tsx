@@ -304,7 +304,29 @@ function ChevronIcon({ isExpanded }: { isExpanded: boolean }) {
   );
 }
 
-function SettingsLink() {
+function MenuIcon({ isOpen }: { isOpen: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden="true">
+      {isOpen ? (
+        <path
+          d="m6 6 12 12M18 6 6 18"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeWidth="1.8"
+        />
+      ) : (
+        <path
+          d="M4.5 7h15M4.5 12h15M4.5 17h15"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeWidth="1.8"
+        />
+      )}
+    </svg>
+  );
+}
+
+function SettingsLink({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const isActive = pathname === "/dashboard/settings";
 
@@ -313,6 +335,7 @@ function SettingsLink() {
       aria-label="Settings"
       title="Settings"
       href="/dashboard/settings"
+      onClick={onNavigate}
       className={`flex size-11 items-center justify-center rounded-xl border text-sm font-medium transition ${
         isActive
           ? "border-accent/15 bg-accent/10 text-accent"
@@ -344,6 +367,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const [isBudgetExpanded, setIsBudgetExpanded] = useState(
     isBudgetSectionActive,
   );
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
     <div className="app-backdrop min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
@@ -359,12 +383,27 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             </div>
           </div>
           <div className="flex items-center gap-2 lg:hidden">
-            <SettingsLink />
-            <LogoutButton />
+            <button
+              type="button"
+              aria-controls="dashboard-mobile-navigation"
+              aria-expanded={isMobileMenuOpen}
+              aria-label={isMobileMenuOpen ? "Close navigation" : "Open navigation"}
+              title={isMobileMenuOpen ? "Close navigation" : "Open navigation"}
+              onClick={() => setIsMobileMenuOpen((isOpen) => !isOpen)}
+              className="flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-medium text-white/80 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+            >
+              <MenuIcon isOpen={isMobileMenuOpen} />
+              <span>Menu</span>
+            </button>
           </div>
         </div>
 
-        <nav className="mt-5 flex flex-wrap gap-2 lg:mt-10 lg:block lg:space-y-2">
+        <nav
+          id="dashboard-mobile-navigation"
+          className={`${
+            isMobileMenuOpen ? "mt-5 block space-y-2" : "hidden"
+          } lg:mt-10 lg:block lg:space-y-2`}
+        >
           {navigation.map((item) => {
             if (item.parent) return null;
 
@@ -373,7 +412,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             return item.disabled ? (
               <span
                 key={item.name}
-                className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/30 lg:w-full"
+                className="flex w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/30"
               >
                 <Icon />
                 {item.name}
@@ -386,8 +425,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 <div className="flex items-center gap-2">
                   <Link
                     href={item.href}
-                    onClick={() => setIsBudgetExpanded(true)}
-                    className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition lg:w-full ${
+                    onClick={() => {
+                      setIsBudgetExpanded(true);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
                       isBudgetSectionActive
                         ? "border-accent/15 bg-accent/10 text-accent"
                         : "border-transparent text-white/60 hover:border-white/10 hover:bg-white/[0.04] hover:text-white"
@@ -424,7 +466,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   id="budget-navigation-children"
                   className={
                     isBudgetExpanded
-                      ? "mt-2 flex flex-wrap gap-2 lg:block lg:space-y-2"
+                      ? "mt-2 space-y-2"
                       : "hidden"
                   }
                 >
@@ -434,6 +476,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                     return (
                       <Link
                         href={child.href}
+                        onClick={() => setIsMobileMenuOpen(false)}
                         className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition lg:ml-8 lg:w-[calc(100%-2rem)] ${
                           isNavigationItemActive(pathname, child.href)
                             ? "border-accent/15 bg-accent/10 text-accent"
@@ -455,7 +498,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               >
                 <Link
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition lg:w-full ${
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
                     isNavigationItemActive(pathname, item.href)
                       ? "border-accent/15 bg-accent/10 text-accent"
                       : "border-transparent text-white/60 hover:border-white/10 hover:bg-white/[0.04] hover:text-white"
@@ -468,6 +512,15 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
+
+        <div
+          className={`${
+            isMobileMenuOpen ? "mt-4 flex" : "hidden"
+          } items-center gap-2 lg:hidden`}
+        >
+          <SettingsLink onNavigate={() => setIsMobileMenuOpen(false)} />
+          <LogoutButton />
+        </div>
 
         <div className="absolute bottom-7 left-6 hidden space-y-2 lg:block">
           <SettingsLink />
