@@ -103,7 +103,7 @@ export function DateRangePicker({
             strokeWidth="1.7"
           />
         </svg>
-        <span>{formatExpenseDateRange(range)}</span>
+        <span className="min-w-0 truncate">{formatExpenseDateRange(range)}</span>
       </button>
 
       {isOpen ? (
