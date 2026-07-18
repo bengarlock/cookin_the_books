@@ -144,6 +144,15 @@ input {
   box-shadow: 0 16px 44px rgba(27, 64, 102, 0.09);
 }
 
+@media (max-width: 1023px) {
+  /* iOS can expose a seam when a fixed background is sized to the viewport. */
+  .app-backdrop {
+    background-attachment: scroll;
+    background-position: top center;
+    background-size: 100% 100%;
+  }
+}
+
 :root[data-theme="light"] .dashboard-sidebar {
   border-color: rgba(255, 255, 255, 0.18);
   background:
