@@ -11,7 +11,6 @@ import {
   formatSnapshotUpdatedAt,
   getSnapshotFreshness,
   snapshotFreshnessDescriptions,
-  snapshotFreshnessLabels,
   type SnapshotFreshness,
 } from "@/lib/snapshot-freshness";
 
@@ -64,21 +63,15 @@ function readableErrorMessage(data: unknown, fallback: string) {
     .trim();
 }
 
-const freshnessStyles: Record<
-  SnapshotFreshness,
-  { container: string; dot: string }
-> = {
+const freshnessStyles: Record<SnapshotFreshness, { container: string }> = {
   fresh: {
     container: "border-accent/20 bg-accent/10 text-accent",
-    dot: "bg-accent shadow-[0_0_12px_rgba(86,226,170,0.8)]",
   },
   stale: {
     container: "border-amber-200/25 bg-amber-200/10 text-amber-100",
-    dot: "bg-amber-200",
   },
   expired: {
     container: "border-rose-300/25 bg-rose-500/10 text-rose-200",
-    dot: "bg-rose-300",
   },
 };
 
@@ -109,81 +102,46 @@ function DataFreshnessIndicator({
     status === "failed"
       ? {
           container: "border-rose-300/25 bg-rose-500/10 text-rose-200",
-          dot: "bg-rose-300",
         }
       : status === "success"
         ? freshnessStyles.fresh
         : status === "syncing"
           ? {
               container: "border-accent/20 bg-accent/10 text-accent",
-              dot: "bg-accent",
             }
           : freshnessStyles[freshness];
-  const label =
-    status === "failed"
-      ? "Failed"
-      : status === "syncing"
-        ? "Syncing"
-        : status === "success"
-          ? "Success"
-          : freshness === "fresh"
-            ? "Data Current"
-            : snapshotFreshnessLabels[freshness];
   const title = error
     ? `${error} Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`
     : statusMessage
       ? `${statusMessage} Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`
     : `${snapshotFreshnessDescriptions[freshness]} Click to refresh account data. Last update: ${formatSnapshotUpdatedAt(updatedAt)}.`;
-  const icon =
-    status === "syncing" ? (
-      <span
-        aria-hidden="true"
-        className="size-3.5 animate-spin rounded-full border-2 border-current border-r-transparent"
+  const icon = (
+    <svg
+      aria-hidden="true"
+      className={`size-5 ${isRefreshing ? "animate-spin" : ""}`}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="M20 11a8 8 0 0 0-14.9-4M4 5v4h4M4 13a8 8 0 0 0 14.9 4M20 19v-4h-4"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
       />
-    ) : status === "success" ? (
-      <svg
-        aria-hidden="true"
-        className="size-3.5"
-        fill="none"
-        viewBox="0 0 16 16"
-      >
-        <path
-          d="m3.2 8.2 2.8 2.8 6.8-6.9"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2.2"
-        />
-      </svg>
-    ) : status === "failed" ? (
-      <svg
-        aria-hidden="true"
-        className="size-3.5"
-        fill="none"
-        viewBox="0 0 16 16"
-      >
-        <path
-          d="m4.2 4.2 7.6 7.6m0-7.6-7.6 7.6"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeWidth="2.2"
-        />
-      </svg>
-    ) : (
-      <span className={`size-2 rounded-full ${styles.dot}`} />
-    );
+    </svg>
+  );
 
   return (
     <button
       aria-label="Refresh account data"
-      className={`dashboard-freshness flex h-9 w-36 shrink-0 items-center justify-center gap-2 rounded-full border px-3 text-xs font-medium transition hover:brightness-110 disabled:cursor-wait disabled:opacity-80 ${styles.container}`}
+      className={`dashboard-freshness grid size-11 shrink-0 place-items-center rounded-xl border transition hover:brightness-110 disabled:cursor-wait disabled:opacity-80 ${styles.container}`}
       disabled={isRefreshing}
       onClick={onRefresh}
       title={title}
       type="button"
     >
       {icon}
-      <span className="whitespace-nowrap">{label}</span>
     </button>
   );
 }
@@ -373,7 +331,7 @@ export function DashboardHeader() {
           {header.description}
         </p>
       </div>
-      <div className="absolute right-5 top-1/2 -translate-y-1/2 sm:right-8 lg:right-10">
+      <div className="absolute right-5 top-5 sm:right-8 lg:right-10">
         <div className="flex max-w-[28rem] flex-col items-end gap-2">
           <DataFreshnessIndicator
             currentDate={currentDate}
