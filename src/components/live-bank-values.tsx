@@ -1995,15 +1995,6 @@ export function LiveBankValues({
     });
   }
 
-  useEffect(() => {
-    if (view !== "accounts") return;
-    for (const accountKey of ["chase_credit", "citi_current", "barclays_card"] as const) {
-      if (!accountTransactions[accountKey]) {
-        void loadAccountTransactions(accountKey);
-      }
-    }
-  }, [accountTransactions, loadAccountTransactions, view]);
-
   function toggleAccountTransactions(accountKey: keyof BankValueSnapshot) {
     const nextAccount = expandedAccount === accountKey ? null : accountKey;
     setExpandedAccount(nextAccount);

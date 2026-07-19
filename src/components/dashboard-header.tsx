@@ -163,10 +163,9 @@ export function DashboardHeader() {
   }, []);
 
   useEffect(() => {
-    if (isRefreshing || (!refreshError && !refreshMessage)) return;
+    if (isRefreshing || refreshError || !refreshMessage) return;
 
     const clearStatus = window.setTimeout(() => {
-      setRefreshError("");
       setRefreshMessage("");
     }, 5_000);
 

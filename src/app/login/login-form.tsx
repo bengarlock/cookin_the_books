@@ -46,7 +46,6 @@ export function LoginForm() {
     } catch {
       setError("Unable to reach the application server.");
     } finally {
-      setPassword("");
       setSubmitPhase((current) => current === "loading-profile" ? current : "idle");
     }
   }
