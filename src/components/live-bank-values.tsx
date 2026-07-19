@@ -117,9 +117,21 @@ const transactionAccountFilters: Partial<
     accountLastFour: "3060",
     includeUnbudgeted: true,
   },
-  chase_credit: { issuer: "Chase", accountLastFour: "9125" },
-  citi_current: { issuer: "Citibank Online", accountLastFour: "4596" },
-  barclays_card: { issuer: "Barclays - Cards", accountLastFour: "2028" },
+  chase_credit: {
+    issuer: "Chase",
+    accountLastFour: "9125",
+    includeUnbudgeted: true,
+  },
+  citi_current: {
+    issuer: "Citibank Online",
+    accountLastFour: "4596",
+    includeUnbudgeted: true,
+  },
+  barclays_card: {
+    issuer: "Barclays - Cards",
+    accountLastFour: "2028",
+    includeUnbudgeted: true,
+  },
 };
 
 function transactionsForAccount(
@@ -138,6 +150,8 @@ function transactionsForAccount(
 function initialAccountTransactionState(
   transactions: CreditCardTransaction[],
 ): AccountTransactionState {
+  if (!transactions.length) return {};
+
   const state: AccountTransactionState = {};
   for (const accountKey of ["chase_credit", "citi_current", "barclays_card"] as const) {
     state[accountKey] = {
