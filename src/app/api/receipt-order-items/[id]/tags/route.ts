@@ -5,8 +5,8 @@ import { AUTH_COOKIE_NAME } from "@/lib/auth";
 import { portfolioApiJsonResponse } from "@/lib/auth-responses";
 import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
-export async function GET(
-  _request: Request,
+export async function POST(
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
@@ -14,13 +14,19 @@ export async function GET(
   const { id } = await context.params;
   try {
     const response = await fetch(
-      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/amazon-orders/imports/${encodeURIComponent(id)}/`,
+      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/receipt-order-items/${encodeURIComponent(id)}/update-tags/`,
       {
-        headers: { Accept: "application/json", Authorization: `Token ${token}` },
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Token ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: await request.text(),
         cache: "no-store",
       },
     );
-    return portfolioApiJsonResponse(response, { message: "The Amazon import status could not be loaded." });
+    return portfolioApiJsonResponse(response, { message: "The receipt item tags could not be updated." });
   } catch {
     return NextResponse.json({ message: "The portfolio API is currently unavailable." }, { status: 502 });
   }

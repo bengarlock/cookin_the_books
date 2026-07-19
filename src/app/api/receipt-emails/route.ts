@@ -5,21 +5,18 @@ import { AUTH_COOKIE_NAME } from "@/lib/auth";
 import { portfolioApiJsonResponse } from "@/lib/auth-responses";
 import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
-export async function POST(request: Request) {
+export async function GET() {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
   if (!token) return NextResponse.json({ message: "Not authenticated." }, { status: 401 });
-
   try {
     const response = await fetch(
-      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/credit-card-transactions/import-amazon-orders/`,
+      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/receipt-emails/`,
       {
-        method: "POST",
-        headers: { Authorization: `Token ${token}` },
-        body: await request.formData(),
+        headers: { Accept: "application/json", Authorization: `Token ${token}` },
         cache: "no-store",
       },
     );
-    return portfolioApiJsonResponse(response, { message: "Amazon order import failed." });
+    return portfolioApiJsonResponse(response, { message: "Receipt emails could not be loaded." });
   } catch {
     return NextResponse.json({ message: "The portfolio API is currently unavailable." }, { status: 502 });
   }

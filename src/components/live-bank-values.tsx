@@ -23,6 +23,7 @@ import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import { pendingCreditCardTransactionAmount } from "@/lib/pending-liability-transactions";
 import { AmazonOrderDetails } from "@/components/amazon-order-details";
+import { ReceiptOrderDetails } from "@/components/receipt-order-details";
 import { getSavingsReservePosition } from "@/lib/savings-reserve";
 import type { BankValueSnapshot } from "@/lib/snapshot-types";
 import { categoryLabelMap, sortedCategoryOptions } from "@/lib/transaction-categories";
@@ -1014,6 +1015,7 @@ function AccountTransactionList({
                   </p>
                 ) : null}
                 <AmazonOrderDetails orders={transaction.amazon_orders || []} tagLibrary={tagLibrary} />
+                <ReceiptOrderDetails orders={transaction.receipt_orders || []} />
                 {transaction.related_transactions?.length ? (
                   <div className="mt-2 space-y-1.5">
                     {transaction.related_transactions.map((related) => (

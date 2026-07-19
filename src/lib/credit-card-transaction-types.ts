@@ -41,6 +41,7 @@ export type CreditCardTransaction = {
   } | null;
   related_transactions: RelatedTransaction[];
   amazon_orders?: AmazonOrder[];
+  receipt_orders?: ReceiptOrder[];
   created_at: string;
 };
 
@@ -76,6 +77,32 @@ export type AmazonOrder = {
   match_difference: string | null;
   match_method: "exact" | "near" | "";
   items: AmazonOrderItem[];
+};
+
+export type ReceiptOrderItem = {
+  id: number;
+  product_identifier: string;
+  name: string;
+  quantity: number;
+  unit_price: string | null;
+  total_amount: string | null;
+  tags: ExpenseTag[];
+};
+
+export type ReceiptOrder = {
+  id: number;
+  vendor_key: string;
+  merchant_name: string;
+  external_order_id: string;
+  order_date: string | null;
+  currency: string;
+  payment_method: string;
+  total_amount: string;
+  credit_card_transaction: number | null;
+  match_difference: string | null;
+  match_method: "exact" | "near" | "";
+  parser_version: string;
+  items: ReceiptOrderItem[];
 };
 
 export type RelatedTransaction = {
