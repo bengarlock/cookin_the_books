@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { AmazonOrderImport } from "@/components/amazon-order-import";
 import { CategorySettings } from "@/components/category-settings";
 import { PlaidConnections } from "@/components/plaid-connections";
 import { ReceiptInbox } from "@/components/receipt-inbox";
@@ -33,7 +32,6 @@ export default async function SettingsPage() {
       </section>
 
       <ThemeSetting />
-      <AmazonOrderImport />
       <ReceiptInbox />
       <CategorySettings initialCategories={expenseCategories} />
       <PlaidConnections initialConnections={plaidConnections} />
