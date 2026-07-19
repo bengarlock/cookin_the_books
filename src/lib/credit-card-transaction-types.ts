@@ -45,6 +45,19 @@ export type CreditCardTransaction = {
   created_at: string;
 };
 
+export type PendingCardTransaction = Pick<
+  CreditCardTransaction,
+  | "issuer"
+  | "account_last_four"
+  | "amount"
+  | "transaction_type"
+  | "category"
+  | "plaid_category_detailed"
+  | "description"
+> & {
+  pending?: boolean;
+};
+
 export type AmazonProduct = {
   id: number;
   website: string;
