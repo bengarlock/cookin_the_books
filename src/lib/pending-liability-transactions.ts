@@ -1,4 +1,4 @@
-import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import type { PendingCardTransaction } from "@/lib/credit-card-transaction-types";
 
 const accountPaymentDetailedCategories = new Set([
   "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT",
@@ -19,7 +19,7 @@ const accountTransferDescriptionPatterns = [
   /\btransfer (?:from|to) (?:chk|sav|checking|savings)\b/,
 ];
 
-export function isPendingCreditCardPayment(transaction: CreditCardTransaction) {
+export function isPendingCreditCardPayment(transaction: PendingCardTransaction) {
   if (transaction.transaction_type === "payment") return true;
   if (transaction.category === "account_payment") return true;
   if (accountPaymentDetailedCategories.has(transaction.plaid_category_detailed)) {
@@ -35,9 +35,9 @@ export function isPendingCreditCardPayment(transaction: CreditCardTransaction) {
 }
 
 export function pendingCreditCardTransactionAmount(
-  transaction: CreditCardTransaction,
+  transaction: PendingCardTransaction,
 ) {
-  if (!transaction.pending || isPendingCreditCardPayment(transaction)) {
+  if (transaction.pending === false || isPendingCreditCardPayment(transaction)) {
     return 0;
   }
   const amount = Number(transaction.amount);

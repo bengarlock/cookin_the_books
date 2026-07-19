@@ -53,6 +53,9 @@ describe("pendingCreditCardTransactionAmount", () => {
   it("includes pending purchases and subtracts pending credits", () => {
     expect(pendingCreditCardTransactionAmount(transaction())).toBe(38.94);
     expect(
+      pendingCreditCardTransactionAmount(transaction({ pending: false })),
+    ).toBe(0);
+    expect(
       pendingCreditCardTransactionAmount(
         transaction({ amount: "12.34", transaction_type: "credit" }),
       ),

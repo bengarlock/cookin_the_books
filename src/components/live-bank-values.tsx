@@ -16,7 +16,7 @@ import {
   manualPendingTransactionDisplayAmount,
 } from "@/lib/account-transaction-display";
 import { APP_BASE_PATH } from "@/lib/config";
-import type { CreditCardTransaction, ExpenseTag, SuggestedRelatedTransaction } from "@/lib/credit-card-transaction-types";
+import type { CreditCardTransaction, ExpenseTag, PendingCardTransaction, SuggestedRelatedTransaction } from "@/lib/credit-card-transaction-types";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
@@ -145,6 +145,21 @@ function transactionsForAccount(
       transaction.issuer === filters.issuer &&
       transaction.account_last_four === filters.accountLastFour,
   );
+}
+
+function accountKeyForTransaction(
+  transaction: PendingCardTransaction,
+): keyof BankValueSnapshot | null {
+  for (const [accountKey, filters] of Object.entries(transactionAccountFilters)) {
+    if (
+      filters &&
+      transaction.issuer === filters.issuer &&
+      transaction.account_last_four === filters.accountLastFour
+    ) {
+      return accountKey as keyof BankValueSnapshot;
+    }
+  }
+  return null;
 }
 
 function initialAccountTransactionState(
@@ -1544,6 +1559,7 @@ function AccountTransactionList({
 export function LiveBankValues({
   initialBudgetPlanSettings,
   initialCreditCardTransactions = [],
+  initialPendingCardTransactions = [],
   initialExpenseCategories = [],
   initialExpenseTags = [],
   initialPendingTransactions,
@@ -1551,6 +1567,7 @@ export function LiveBankValues({
 }: {
   initialBudgetPlanSettings?: BudgetPlanSettings;
   initialCreditCardTransactions?: CreditCardTransaction[];
+  initialPendingCardTransactions?: PendingCardTransaction[];
   initialExpenseCategories?: ExpenseCategory[];
   initialExpenseTags?: ExpenseTag[];
   initialPendingTransactions?: PendingTransaction[];
@@ -1659,19 +1676,25 @@ export function LiveBankValues({
         );
       }
     }
-    for (const account of accounts) {
-      if (!liabilityAccounts.has(account.key)) continue;
-      const importedPendingTotal =
-        accountTransactions[account.key]?.transactions.reduce(
-          (total, transaction) =>
-            total + pendingCreditCardTransactionAmount(transaction),
-          0,
-        ) || 0;
-      if (!importedPendingTotal) continue;
+    const importedPendingTransactions =
+      view === "overview"
+        ? initialPendingCardTransactions.map((transaction) => ({
+            accountKey: accountKeyForTransaction(transaction),
+            transaction,
+          }))
+        : accounts.flatMap((account) =>
+            accountTransactions[account.key]?.transactions.map((transaction) => ({
+              accountKey: account.key,
+              transaction,
+            })) || [],
+          );
+    for (const { accountKey, transaction } of importedPendingTransactions) {
+      if (!accountKey || !liabilityAccounts.has(accountKey)) continue;
+      const amount = pendingCreditCardTransactionAmount(transaction);
+      if (!amount) continue;
       liabilityPendingByAccount.set(
-        account.key,
-        (liabilityPendingByAccount.get(account.key) || 0) +
-          importedPendingTotal,
+        accountKey,
+        (liabilityPendingByAccount.get(accountKey) || 0) + amount,
       );
     }
 
@@ -1743,9 +1766,11 @@ export function LiveBankValues({
   }, [
     accountTransactions,
     budgetOffset,
+    initialPendingCardTransactions,
     payCycle.daysRemaining,
     pendingTransactions,
     snapshot,
+    view,
   ]);
 
   function beginBudgetOffsetEdit() {
