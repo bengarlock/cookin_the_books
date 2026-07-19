@@ -743,7 +743,7 @@ export function ExpenseHistory({
                     <p className="mt-1 text-xs text-muted">{formatDate(transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}</p>
                     {transaction.note ? <p className="mt-2 text-xs italic text-white/60">{transaction.note}</p> : null}
                     {transaction.tags?.length ? <div className="mt-2 flex flex-wrap gap-1.5">{transaction.tags.map((tag) => <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2 py-0.5 text-[10px] font-medium text-sky-100" key={tag.id}>{tag.name}</span>)}</div> : null}
-                    <AmazonOrderDetails orders={transaction.amazon_orders || []} tagLibrary={tagLibrary} />
+                    <AmazonOrderDetails orders={transaction.amazon_orders || []} />
                     <ReceiptOrderDetails orders={transaction.receipt_orders || []} />
                     {taggingTransactionId === transaction.id ? <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/10 p-3">
                       <div className="mt-3 flex flex-wrap gap-2">{tagDraft.map((tag) => <button className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[11px] text-sky-100 disabled:opacity-50" disabled={savingTagsId === transaction.id} key={tag} onClick={() => updateTransactionTag(transaction.id, tag, false)} title="Remove tag" type="button">{tag} ×</button>)}</div>
@@ -1164,7 +1164,7 @@ export function ExpenseHistory({
                               </span>
                             </p>
                             {entry.note ? <p className="mt-1 text-xs italic text-white/55">{entry.note}</p> : null}
-                            <AmazonOrderDetails orders={entry.amazon_orders || []} tagLibrary={tagLibrary} />
+                            <AmazonOrderDetails orders={entry.amazon_orders || []} />
                             <ReceiptOrderDetails orders={entry.receipt_orders || []} />
                           </div>
                           <div className="flex flex-wrap items-center justify-end gap-2">
