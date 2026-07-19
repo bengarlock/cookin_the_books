@@ -11,12 +11,12 @@ export function LoginForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitPhase, setSubmitPhase] = useState<"idle" | "signing-in" | "loading-profile">("idle");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    setIsSubmitting(true);
+    setSubmitPhase("signing-in");
 
     try {
       const response = await fetch(`${APP_BASE_PATH}/api/auth/login`, {
@@ -37,6 +37,7 @@ export function LoginForm() {
         return;
       }
 
+      setSubmitPhase("loading-profile");
       const nextPath = searchParams.get("next");
       const destination =
         nextPath?.startsWith("/dashboard") ? nextPath : "/dashboard";
@@ -46,9 +47,11 @@ export function LoginForm() {
       setError("Unable to reach the application server.");
     } finally {
       setPassword("");
-      setIsSubmitting(false);
+      setSubmitPhase((current) => current === "loading-profile" ? current : "idle");
     }
   }
+
+  const isSubmitting = submitPhase !== "idle";
 
   return (
     <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
@@ -93,18 +96,28 @@ export function LoginForm() {
         type="submit"
         disabled={isSubmitting}
       >
-        {isSubmitting ? (
+        {submitPhase !== "idle" ? (
           <>
             <span
               className="size-4 animate-spin rounded-full border-2 border-current border-r-transparent"
               aria-hidden="true"
             />
-            <span>Logging in...</span>
+            <span>{submitPhase === "loading-profile" ? "Loading profile..." : "Logging in..."}</span>
           </>
         ) : (
           "Sign in"
         )}
       </button>
+      {submitPhase === "loading-profile" ? (
+        <div
+          aria-live="polite"
+          className="flex items-center justify-center gap-2 text-sm text-muted"
+          role="status"
+        >
+          <span className="size-2 animate-pulse rounded-full bg-accent" aria-hidden="true" />
+          Loading your profile and preparing your dashboard...
+        </div>
+      ) : null}
     </form>
   );
 }
