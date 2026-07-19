@@ -1014,7 +1014,7 @@ function AccountTransactionList({
                     {transaction.note}
                   </p>
                 ) : null}
-                <AmazonOrderDetails orders={transaction.amazon_orders || []} tagLibrary={tagLibrary} />
+                    <AmazonOrderDetails orders={transaction.amazon_orders || []} />
                 <ReceiptOrderDetails orders={transaction.receipt_orders || []} />
                 {transaction.related_transactions?.length ? (
                   <div className="mt-2 space-y-1.5">

@@ -62,7 +62,6 @@ export type AmazonOrderItem = {
   tax: string | null;
   discount: string | null;
   total_amount: string;
-  tags: ExpenseTag[];
 };
 
 export type AmazonOrder = {
