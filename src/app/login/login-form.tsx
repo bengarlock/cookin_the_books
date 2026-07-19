@@ -60,10 +60,11 @@ export function LoginForm() {
           Username
         </span>
         <input
-          className="h-12 w-full rounded-xl border border-white/10 bg-black/20 px-4 text-white outline-none transition placeholder:text-white/25 focus:border-accent/60 focus:ring-4 focus:ring-accent/10"
+          className="h-12 w-full rounded-xl border border-white/10 bg-black/20 px-4 text-white outline-none transition placeholder:text-white/25 focus:border-accent/60 focus:ring-4 focus:ring-accent/10 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-white/40 disabled:opacity-70"
           value={username}
           onChange={(event) => setUsername(event.target.value)}
           autoComplete="username"
+          disabled={isSubmitting}
           required
         />
       </label>
@@ -73,11 +74,12 @@ export function LoginForm() {
           Password
         </span>
         <input
-          className="h-12 w-full rounded-xl border border-white/10 bg-black/20 px-4 text-white outline-none transition placeholder:text-white/25 focus:border-accent/60 focus:ring-4 focus:ring-accent/10"
+          className="h-12 w-full rounded-xl border border-white/10 bg-black/20 px-4 text-white outline-none transition placeholder:text-white/25 focus:border-accent/60 focus:ring-4 focus:ring-accent/10 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-white/40 disabled:opacity-70"
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           autoComplete="current-password"
+          disabled={isSubmitting}
           required
         />
       </label>
@@ -108,16 +110,6 @@ export function LoginForm() {
           "Sign in"
         )}
       </button>
-      {submitPhase === "loading-profile" ? (
-        <div
-          aria-live="polite"
-          className="flex items-center justify-center gap-2 text-sm text-muted"
-          role="status"
-        >
-          <span className="size-2 animate-pulse rounded-full bg-accent" aria-hidden="true" />
-          Loading your profile and preparing your dashboard...
-        </div>
-      ) : null}
     </form>
   );
 }
