@@ -1,12 +1,12 @@
-import type { BankValueSnapshot } from "@/lib/snapshot-types";
+import type { SnapshotAccountKey } from "@/lib/snapshot-types";
 import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
 
 export type PendingTransaction = {
   id: number;
-  account: keyof BankValueSnapshot;
+  account: SnapshotAccountKey;
   note: string;
   amount: string;
-  settled_accounts: Array<keyof BankValueSnapshot>;
+  settled_accounts: SnapshotAccountKey[];
   expected_post_date: string;
   is_cleared: boolean;
   cleared_at: string | null;
