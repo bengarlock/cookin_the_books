@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   allTimeExpenseDateRange,
@@ -16,6 +16,8 @@ const monthFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const shortcutControlClass =
+  "min-h-10 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold leading-none text-white/65 transition hover:border-accent/25 hover:bg-accent/10 hover:text-accent";
 
 function calendarDays(month: Date) {
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -35,17 +37,42 @@ function yearRange(year: number) {
   };
 }
 
+function fallbackYears(allTimeStart: string | undefined) {
+  const currentYear = new Date().getFullYear();
+  if (!allTimeStart) {
+    return [currentYear, currentYear - 1, currentYear - 2];
+  }
+
+  const startYear = parseLocalDate(allTimeStart).getFullYear();
+  return Array.from(
+    { length: Math.max(1, currentYear - startYear + 1) },
+    (_, index) => currentYear - index,
+  );
+}
+
+function uniqueDescendingYears(years: number[]) {
+  return Array.from(
+    new Set(
+      years
+        .filter((year) => Number.isInteger(year))
+        .map((year) => Math.trunc(year)),
+    ),
+  ).sort((left, right) => right - left);
+}
+
 export function DateRangePicker({
   range,
   onApply,
   dialogLabel = "Select expense date range",
   allTimeStart,
+  availableYears,
   triggerClassName,
 }: {
   range: ExpenseDateRange;
   onApply: (range: ExpenseDateRange) => void;
   dialogLabel?: string;
   allTimeStart?: string;
+  availableYears?: number[];
   triggerClassName?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -55,6 +82,18 @@ export function DateRangePicker({
     return new Date(end.getFullYear(), end.getMonth(), 1);
   });
   const [selectingEnd, setSelectingEnd] = useState(false);
+  const yearOptions = useMemo(() => {
+    const years = availableYears?.length
+      ? availableYears
+      : fallbackYears(allTimeStart);
+    return uniqueDescendingYears(years);
+  }, [allTimeStart, availableYears]);
+  const selectedYear =
+    draft.start.slice(5) === "01-01" &&
+    draft.end.slice(5) === "12-31" &&
+    yearOptions.includes(Number(draft.start.slice(0, 4)))
+      ? draft.start.slice(0, 4)
+      : "";
 
   function openPicker() {
     const end = parseLocalDate(range.end);
@@ -220,7 +259,7 @@ export function DateRangePicker({
                 { label: "YTD", value: "ytd" as const },
               ].map((preset) => (
                 <button
-                  className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/65 transition hover:border-accent/25 hover:bg-accent/10 hover:text-accent"
+                  className={shortcutControlClass}
                   key={preset.value}
                   onClick={() => {
                     const nextRange = expenseDateRangePreset(preset.value);
@@ -236,11 +275,14 @@ export function DateRangePicker({
                   {preset.label}
                 </button>
               ))}
-              {[2025, 2024, 2023].map((year) => (
-                <button
-                  className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/65 transition hover:border-accent/25 hover:bg-accent/10 hover:text-accent"
-                  key={year}
-                  onClick={() => {
+              <label className="relative block">
+                <span className="sr-only">Select year</span>
+                <select
+                  aria-label="Select year"
+                  className={`${shortcutControlClass} h-full w-full appearance-none pr-8 outline-none focus:border-accent/40 focus:text-accent`}
+                  onChange={(event) => {
+                    const year = Number(event.target.value);
+                    if (!year) return;
                     const nextRange = yearRange(year);
                     const end = parseLocalDate(nextRange.end);
                     setDraft(nextRange);
@@ -249,13 +291,24 @@ export function DateRangePicker({
                     );
                     setSelectingEnd(false);
                   }}
-                  type="button"
+                  value={selectedYear}
                 >
-                  {year}
-                </button>
-              ))}
+                  <option value="">Year</option>
+                  {yearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/45"
+                >
+                  ▾
+                </span>
+              </label>
               <button
-                className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/65 transition hover:border-accent/25 hover:bg-accent/10 hover:text-accent"
+                className={shortcutControlClass}
                 onClick={() => {
                   const nextRange = allTimeExpenseDateRange(
                     new Date(),

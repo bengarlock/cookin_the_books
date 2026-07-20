@@ -1081,6 +1081,17 @@ export function SnapshotsDashboard({
     () => calculateYearlyNetChanges(allTimeSnapshots),
     [allTimeSnapshots],
   );
+  const snapshotYears = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (allTimeSnapshots.length ? allTimeSnapshots : snapshots).map(
+            (snapshot) => Number(snapshot.snapshot_date.slice(0, 4)),
+          ),
+        ),
+      ).sort((left, right) => right - left),
+    [allTimeSnapshots, snapshots],
+  );
 
   return (
     <div className="mt-8 space-y-6">
@@ -1118,6 +1129,7 @@ export function SnapshotsDashboard({
               </p>
               <DateRangePicker
                 allTimeStart={firstSnapshotDate}
+                availableYears={snapshotYears}
                 dialogLabel="Select snapshot date range"
                 onApply={setChartRange}
                 range={chartRange}
