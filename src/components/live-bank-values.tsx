@@ -15,23 +15,27 @@ import {
   accountTransactionDisplayAmount,
   manualPendingTransactionDisplayAmount,
 } from "@/lib/account-transaction-display";
+import {
+  importedPendingLiabilityTotals,
+  transactionAccountFilters,
+  transactionsForAccount,
+} from "@/lib/account-transaction-filters";
 import { APP_BASE_PATH } from "@/lib/config";
 import type { CreditCardTransaction, ExpenseTag, PendingCardTransaction, SuggestedRelatedTransaction } from "@/lib/credit-card-transaction-types";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
-import { pendingCreditCardTransactionAmount } from "@/lib/pending-liability-transactions";
 import { AmazonOrderDetails } from "@/components/amazon-order-details";
 import { ReceiptOrderDetails } from "@/components/receipt-order-details";
 import { getSavingsReservePosition } from "@/lib/savings-reserve";
-import type { BankValueSnapshot } from "@/lib/snapshot-types";
+import type { BankValueSnapshot, SnapshotAccountKey } from "@/lib/snapshot-types";
 import { categoryLabelMap, sortedCategoryOptions } from "@/lib/transaction-categories";
 
 type FinancialView = "overview" | "accounts" | "budget";
 type AccountTransactionState = Partial<
   Record<
-    keyof BankValueSnapshot,
+    SnapshotAccountKey,
     {
       isLoading: boolean;
       error: string;
@@ -41,7 +45,7 @@ type AccountTransactionState = Partial<
 >;
 
 const accounts: Array<{
-  key: keyof BankValueSnapshot;
+  key: SnapshotAccountKey;
   label: string;
   category: string;
 }> = [
@@ -74,7 +78,7 @@ const accounts: Array<{
   },
 ];
 
-const liabilityAccounts = new Set<keyof BankValueSnapshot>([
+const liabilityAccounts = new Set<SnapshotAccountKey>([
   "chase_credit",
   "citi_current",
   "citi_pending",
@@ -82,7 +86,7 @@ const liabilityAccounts = new Set<keyof BankValueSnapshot>([
 ]);
 
 const accountLoginUrls: Partial<
-  Record<keyof BankValueSnapshot, string>
+  Record<SnapshotAccountKey, string>
 > = {
   chase_checking:
     "https://secure.chase.com/web/auth/dashboard#/dashboard/overview",
@@ -100,67 +104,6 @@ const accountLoginUrls: Partial<
   fidelity_retirement:
     "https://workplaceservices.fidelity.com/mybenefits/navstation/navigation#/",
 };
-
-const transactionAccountFilters: Partial<
-  Record<
-    keyof BankValueSnapshot,
-    { issuer: string; accountLastFour: string; includeUnbudgeted?: boolean }
-  >
-> = {
-  chase_checking: {
-    issuer: "Chase",
-    accountLastFour: "0277",
-    includeUnbudgeted: true,
-  },
-  chase_savings: {
-    issuer: "Chase",
-    accountLastFour: "3060",
-    includeUnbudgeted: true,
-  },
-  chase_credit: {
-    issuer: "Chase",
-    accountLastFour: "9125",
-    includeUnbudgeted: true,
-  },
-  citi_current: {
-    issuer: "Citibank Online",
-    accountLastFour: "4596",
-    includeUnbudgeted: true,
-  },
-  barclays_card: {
-    issuer: "Barclays - Cards",
-    accountLastFour: "2028",
-    includeUnbudgeted: true,
-  },
-};
-
-function transactionsForAccount(
-  transactions: CreditCardTransaction[],
-  accountKey: keyof BankValueSnapshot,
-) {
-  const filters = transactionAccountFilters[accountKey];
-  if (!filters) return [];
-  return transactions.filter(
-    (transaction) =>
-      transaction.issuer === filters.issuer &&
-      transaction.account_last_four === filters.accountLastFour,
-  );
-}
-
-function accountKeyForTransaction(
-  transaction: PendingCardTransaction,
-): keyof BankValueSnapshot | null {
-  for (const [accountKey, filters] of Object.entries(transactionAccountFilters)) {
-    if (
-      filters &&
-      transaction.issuer === filters.issuer &&
-      transaction.account_last_four === filters.accountLastFour
-    ) {
-      return accountKey as keyof BankValueSnapshot;
-    }
-  }
-  return null;
-}
 
 function initialAccountTransactionState(
   transactions: CreditCardTransaction[],
@@ -181,8 +124,8 @@ function initialAccountTransactionState(
 const accountSections: Array<{
   title: string;
   description: string;
-  keys: Array<keyof BankValueSnapshot>;
-  totalKeys?: Array<keyof BankValueSnapshot>;
+  keys: SnapshotAccountKey[];
+  totalKeys?: Array<SnapshotAccountKey>;
 }> = [
   {
     title: "Cash accounts",
@@ -238,7 +181,7 @@ function formatCurrency(value: string | number | undefined) {
 
 function valueFromSnapshot(
   snapshot: BankValueSnapshot | null,
-  key: keyof BankValueSnapshot,
+  key: SnapshotAccountKey,
 ) {
   if (!snapshot) return 0;
   const value = Number(snapshot[key]);
@@ -457,7 +400,7 @@ function AccountLoginLink({
   accountKey,
   label,
 }: {
-  accountKey: keyof BankValueSnapshot;
+  accountKey: SnapshotAccountKey;
   label: string;
 }) {
   const href = accountLoginUrls[accountKey];
@@ -608,7 +551,7 @@ function formatTransactionDate(value: string | null | undefined) {
 
 function signedTransactionAmount(
   transaction: CreditCardTransaction,
-  accountKey: keyof BankValueSnapshot,
+  accountKey: SnapshotAccountKey,
 ) {
   const amount = accountTransactionDisplayAmount(transaction, accountKey);
   return amount === null ? "—" : formatCurrency(amount);
@@ -663,7 +606,7 @@ function AccountTransactionList({
   transactions,
   transactionForm,
 }: {
-  accountKey: keyof BankValueSnapshot;
+  accountKey: SnapshotAccountKey;
   accountLabel: string;
   categories: ExpenseCategory[];
   confirmingDeleteId: number | null;
@@ -678,7 +621,7 @@ function AccountTransactionList({
     update: Partial<{
       note: string;
       amount: string;
-      account: keyof BankValueSnapshot;
+      account: SnapshotAccountKey;
       expected_post_date: string;
     }>,
   ) => void;
@@ -690,7 +633,7 @@ function AccountTransactionList({
   ) => void;
   onSubmitPendingTransaction: (event: FormEvent<HTMLFormElement>) => void;
   onTransactionUpdated: (transaction: CreditCardTransaction) => void;
-  onToggleForm: (accountKey: keyof BankValueSnapshot) => void;
+  onToggleForm: (accountKey: SnapshotAccountKey) => void;
   onTagLibraryChanged: (tags: ExpenseTag[]) => void;
   onUnmatch: (pendingTransactionId: number) => void;
   tagLibrary: ExpenseTag[];
@@ -698,7 +641,7 @@ function AccountTransactionList({
   transactionForm: {
     note: string;
     amount: string;
-    account: keyof BankValueSnapshot;
+    account: SnapshotAccountKey;
     expected_post_date: string;
   };
 }) {
@@ -1605,18 +1548,18 @@ export function LiveBankValues({
     );
   }
   const [formOpenAccount, setFormOpenAccount] =
-    useState<keyof BankValueSnapshot | null>(null);
+    useState<SnapshotAccountKey | null>(null);
   const [formError, setFormError] = useState("");
   const [registerError, setRegisterError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [payingAccount, setPayingAccount] =
-    useState<keyof BankValueSnapshot | null>(null);
+    useState<SnapshotAccountKey | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(
     null,
   );
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [expandedAccount, setExpandedAccount] =
-    useState<keyof BankValueSnapshot | null>(null);
+    useState<SnapshotAccountKey | null>(null);
   const [accountTransactions, setAccountTransactions] =
     useState<AccountTransactionState>(() =>
       initialAccountTransactionState(creditCardTransactions),
@@ -1624,7 +1567,7 @@ export function LiveBankValues({
   const [transactionForm, setTransactionForm] = useState({
     note: "",
     amount: "",
-    account: "chase_checking" as keyof BankValueSnapshot,
+    account: "chase_checking" as SnapshotAccountKey,
     expected_post_date: nextBusinessDayString(),
   });
   const [currentDate, setCurrentDate] = useState(() => new Date());
@@ -1639,7 +1582,7 @@ export function LiveBankValues({
   const [budgetOffsetError, setBudgetOffsetError] = useState("");
   const [isBudgetOffsetSaving, setIsBudgetOffsetSaving] = useState(false);
   const [copiedAdjustedAccount, setCopiedAdjustedAccount] =
-    useState<keyof BankValueSnapshot | null>(null);
+    useState<SnapshotAccountKey | null>(null);
   const payCycle = getNextPayCycle(
     currentDate,
     budgetPlanSettings.next_payday_override,
@@ -1655,9 +1598,9 @@ export function LiveBankValues({
   }, []);
 
   const calculations = useMemo(() => {
-    const pendingByAccount = new Map<keyof BankValueSnapshot, number>();
-    const liabilityPendingByAccount = new Map<keyof BankValueSnapshot, number>();
-    const settledAccounts = new Set<keyof BankValueSnapshot>();
+    const pendingByAccount = new Map<SnapshotAccountKey, number>();
+    const liabilityPendingByAccount = new Map<SnapshotAccountKey, number>();
+    const settledAccounts = new Set<SnapshotAccountKey>();
     for (const transaction of pendingTransactions) {
       if (transaction.is_cleared || transaction.match_status === "matched_pending") continue;
       for (const account of transaction.settled_accounts || []) {
@@ -1676,29 +1619,19 @@ export function LiveBankValues({
         );
       }
     }
-    const importedPendingTransactions =
-      view === "overview"
-        ? initialPendingCardTransactions.map((transaction) => ({
-            accountKey: accountKeyForTransaction(transaction),
-            transaction,
-          }))
-        : accounts.flatMap((account) =>
-            accountTransactions[account.key]?.transactions.map((transaction) => ({
-              accountKey: account.key,
-              transaction,
-            })) || [],
-          );
-    for (const { accountKey, transaction } of importedPendingTransactions) {
-      if (!accountKey || !liabilityAccounts.has(accountKey)) continue;
-      const amount = pendingCreditCardTransactionAmount(transaction);
-      if (!amount) continue;
+    const importedPendingTotals = importedPendingLiabilityTotals({
+      summaryTransactions: initialPendingCardTransactions,
+      loadedTransactions: view === "overview" ? undefined : accountTransactions,
+    });
+    for (const [accountKey, amount] of importedPendingTotals) {
+      if (!liabilityAccounts.has(accountKey)) continue;
       liabilityPendingByAccount.set(
         accountKey,
         (liabilityPendingByAccount.get(accountKey) || 0) + amount,
       );
     }
 
-    const adjustedValue = (key: keyof BankValueSnapshot) => {
+    const adjustedValue = (key: SnapshotAccountKey) => {
       const isLiability = liabilityAccounts.has(key);
       const posted =
         isLiability && settledAccounts.has(key) ? 0 : valueFromSnapshot(snapshot, key);
@@ -1884,7 +1817,7 @@ export function LiveBankValues({
     settledAccounts,
   }: {
     amount: number;
-    settledAccounts: Array<keyof BankValueSnapshot>;
+    settledAccounts: SnapshotAccountKey[];
   }) {
     const roundedAmount = Math.max(0, amount);
     if (roundedAmount <= 0 || !settledAccounts.length) return;
@@ -1928,7 +1861,7 @@ export function LiveBankValues({
   }
 
   async function copyAdjustedReserveValue(
-    accountKey: keyof BankValueSnapshot,
+    accountKey: SnapshotAccountKey,
     adjustedValue: number,
   ) {
     setRegisterError("");
@@ -1946,7 +1879,7 @@ export function LiveBankValues({
     }
   }
 
-  const loadAccountTransactions = useCallback(async (accountKey: keyof BankValueSnapshot) => {
+  const loadAccountTransactions = useCallback(async (accountKey: SnapshotAccountKey) => {
     const filters = transactionAccountFilters[accountKey];
     if (!filters) {
       setAccountTransactions((current) => ({
@@ -2016,7 +1949,7 @@ export function LiveBankValues({
   }, []);
 
   function updateAccountTransaction(
-    accountKey: keyof BankValueSnapshot,
+    accountKey: SnapshotAccountKey,
     updated: CreditCardTransaction,
   ) {
     setAccountTransactions((current) => {
@@ -2034,7 +1967,7 @@ export function LiveBankValues({
     });
   }
 
-  function toggleAccountTransactions(accountKey: keyof BankValueSnapshot) {
+  function toggleAccountTransactions(accountKey: SnapshotAccountKey) {
     const nextAccount = expandedAccount === accountKey ? null : accountKey;
     setExpandedAccount(nextAccount);
     if (nextAccount && !accountTransactions[nextAccount]) {
@@ -2042,7 +1975,7 @@ export function LiveBankValues({
     }
   }
 
-  function togglePendingTransactionForm(accountKey: keyof BankValueSnapshot) {
+  function togglePendingTransactionForm(accountKey: SnapshotAccountKey) {
     setFormError("");
     setFormOpenAccount((current) => {
       if (current === accountKey) return null;
