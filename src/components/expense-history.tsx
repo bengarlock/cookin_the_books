@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
 import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
@@ -177,6 +177,17 @@ export function ExpenseHistory({
         ? item.transaction_date
         : earliest,
     "",
+  );
+  const creditCardTransactionYears = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          creditCardTransactions.map((transaction) =>
+            Number(transaction.transaction_date.slice(0, 4)),
+          ),
+        ),
+      ).sort((left, right) => right - left),
+    [creditCardTransactions],
   );
   const availableTagNames = tagLibrary
     .map((tag) => tag.name)
@@ -697,6 +708,7 @@ export function ExpenseHistory({
             </label>
             <DateRangePicker
               allTimeStart={earliestTransactionDate || undefined}
+              availableYears={creditCardTransactionYears}
               dialogLabel="Select spending graph date range"
               onApply={(range) => {
                 setSpendingDateRange(range);
