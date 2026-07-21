@@ -1,5 +1,8 @@
 import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
 import type { ExpenseAutomationCondition } from "@/lib/expense-automation-rule-types";
+import { getCurrentPayPeriod, localPaydayString } from "./pay-cycle";
+
+const payPeriodRangePattern = /^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/;
 
 export function conditionIsEmpty(condition: ExpenseAutomationCondition) {
   return Array.isArray(condition.value)
@@ -10,8 +13,25 @@ export function conditionIsEmpty(condition: ExpenseAutomationCondition) {
 export function transactionMatchesCondition(
   transaction: CreditCardTransaction,
   condition: ExpenseAutomationCondition,
+  currentDate = new Date(),
 ) {
   if (!["purchase", "fee", "interest"].includes(transaction.transaction_type)) return false;
+
+  if (condition.field === "pay_period") {
+    const target = Array.isArray(condition.value) ? condition.value[0] : condition.value;
+    const currentPeriod = getCurrentPayPeriod(currentDate);
+    const currentStart = localPaydayString(currentPeriod.start);
+    const currentEnd = localPaydayString(currentPeriod.end);
+    const range =
+      target === "current"
+        ? [currentStart, currentEnd]
+        : target.match(payPeriodRangePattern)?.slice(1, 3);
+    if (!range) return false;
+    const matches =
+      transaction.transaction_date >= range[0] &&
+      transaction.transaction_date <= range[1];
+    return condition.operator === "not_equals" ? !matches : matches;
+  }
 
   const fieldValue = condition.field === "description" ? transaction.description
     : condition.field === "issuer" ? transaction.issuer
@@ -54,6 +74,7 @@ export function selectTransactions(
   transactions: CreditCardTransaction[],
   conditions: ExpenseAutomationCondition[],
   logic: "and" | "or",
+  currentDate = new Date(),
 ) {
   if (!conditions.length || conditions.some(conditionIsEmpty)) return [];
   return transactions.filter((transaction) =>
@@ -62,6 +83,7 @@ export function selectTransactions(
         const conditionMatches = transactionMatchesCondition(
           transaction,
           condition,
+          currentDate,
         );
         if (index === 0) return conditionMatches;
         return (condition.logic_operator || logic) === "or"
