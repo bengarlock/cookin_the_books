@@ -53,6 +53,45 @@ describe("transactionMatchesCondition text comparisons", () => {
   });
 });
 
+describe("transactionMatchesCondition pay period comparisons", () => {
+  const payPeriodTransaction = {
+    ...transaction,
+    transaction_date: "2026-07-20",
+  } as CreditCardTransaction;
+
+  it("matches the rolling current pay period at evaluation time", () => {
+    expect(transactionMatchesCondition(payPeriodTransaction, {
+      id: "current-pay-period",
+      field: "pay_period",
+      operator: "equals",
+      value: "current",
+    }, new Date(2026, 6, 21))).toBe(true);
+
+    expect(transactionMatchesCondition(payPeriodTransaction, {
+      id: "next-current-pay-period",
+      field: "pay_period",
+      operator: "equals",
+      value: "current",
+    }, new Date(2026, 7, 3))).toBe(false);
+  });
+
+  it("matches fixed pay period ranges", () => {
+    expect(transactionMatchesCondition(payPeriodTransaction, {
+      id: "fixed-pay-period",
+      field: "pay_period",
+      operator: "equals",
+      value: "2026-07-15..2026-07-31",
+    })).toBe(true);
+
+    expect(transactionMatchesCondition(payPeriodTransaction, {
+      id: "outside-fixed-pay-period",
+      field: "pay_period",
+      operator: "not_equals",
+      value: "2026-08-01..2026-08-14",
+    })).toBe(true);
+  });
+});
+
 describe("selectTransactions row logic", () => {
   it("evaluates each row connector from left to right", () => {
     const matching = {

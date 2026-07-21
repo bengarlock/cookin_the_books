@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { ExpenseAutomationCondition } from "@/lib/expense-automation-rule-types";
 import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import { getCurrentPayPeriod, localPaydayString } from "@/lib/pay-cycle";
 
 const pageSize = 10;
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -63,6 +64,11 @@ const selectors = [
     operators: ["equals", "not_equals", "on_or_after", "on_or_before"],
   },
   {
+    field: "pay_period",
+    label: "Pay Period",
+    operators: ["equals", "not_equals"],
+  },
+  {
     field: "transaction_type",
     label: "Transaction type",
     operators: ["equals", "not_equals"],
@@ -82,6 +88,41 @@ const operatorLabels: Record<string, string> = {
   on_or_after: "On or after",
   on_or_before: "On or before",
 };
+
+function formatPeriodLabel(start: Date, end: Date) {
+  return `${dateFormatter.format(start)} - ${dateFormatter.format(end)}`;
+}
+
+function payPeriodValue(start: Date, end: Date) {
+  return `${localPaydayString(start)}..${localPaydayString(end)}`;
+}
+
+function previousPayPeriod(periodStart: Date) {
+  const previousDay = new Date(periodStart);
+  previousDay.setDate(previousDay.getDate() - 1);
+  return getCurrentPayPeriod(previousDay);
+}
+
+function getPayPeriodOptions() {
+  const current = getCurrentPayPeriod(new Date());
+  const options = [
+    {
+      value: "current",
+      label: `Current (${formatPeriodLabel(current.start, current.end)})`,
+    },
+  ];
+  let period = current;
+
+  for (let index = 0; index < 8; index += 1) {
+    period = previousPayPeriod(period.start);
+    options.push({
+      value: payPeriodValue(period.start, period.end),
+      label: formatPeriodLabel(period.start, period.end),
+    });
+  }
+
+  return options;
+}
 
 function AccountSelector({
   accounts,
@@ -294,6 +335,29 @@ function ExistingValueSelector({
   );
 }
 
+function PayPeriodSelector({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const options = getPayPeriodOptions();
+  return (
+    <select
+      className="rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-sm text-white"
+      onChange={(event) => onChange(event.target.value)}
+      value={value || "current"}
+    >
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export function AutomationSelectorBuilder({
   conditions,
   logic,
@@ -329,7 +393,12 @@ export function AutomationSelectorBuilder({
         id: crypto.randomUUID(),
         field,
         operator: selector.operators[0],
-        value: field === "account_last_four" ? [] : "",
+        value:
+          field === "account_last_four"
+            ? []
+            : field === "pay_period"
+              ? "current"
+              : "",
         logic_operator: conditions.length ? logic : undefined,
       },
     ]);
@@ -474,6 +543,15 @@ export function AutomationSelectorBuilder({
                               : condition.value
                                 ? [condition.value]
                                 : []
+                          }
+                        />
+                      ) : condition.field === "pay_period" ? (
+                        <PayPeriodSelector
+                          onChange={(value) => update(condition.id, { value })}
+                          value={
+                            Array.isArray(condition.value)
+                              ? condition.value[0] || "current"
+                              : condition.value || "current"
                           }
                         />
                       ) : (
