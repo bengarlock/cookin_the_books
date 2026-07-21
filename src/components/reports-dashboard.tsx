@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
+import type { FormEvent } from "react";
 
 import { AutomationSelectorBuilder } from "@/components/automation-selector-builder";
 import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
@@ -11,11 +12,62 @@ const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD
 const compactMoney = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact" });
 const date = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const savedReportsStorageKey = "cookin-the-books-saved-reports";
+const savedReportsChangedEvent = "cookin-the-books-saved-reports-changed";
+const emptySavedReports: SavedReport[] = [];
+
+type SavedReport = {
+  id: string;
+  name: string;
+  conditions: ExpenseAutomationCondition[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+let savedReportsSnapshotText = "";
+let savedReportsSnapshot: SavedReport[] = emptySavedReports;
+
+function readSavedReports() {
+  if (typeof window === "undefined") return emptySavedReports;
+  const stored = window.localStorage.getItem(savedReportsStorageKey) || "[]";
+  if (stored === savedReportsSnapshotText) return savedReportsSnapshot;
+
+  try {
+    const parsed = JSON.parse(stored) as SavedReport[];
+    savedReportsSnapshot = Array.isArray(parsed)
+      ? parsed.filter((report) => report.id && report.name && Array.isArray(report.conditions))
+      : emptySavedReports;
+  } catch {
+    savedReportsSnapshot = emptySavedReports;
+  }
+  savedReportsSnapshotText = stored;
+  return savedReportsSnapshot;
+}
+
+function writeSavedReports(reports: SavedReport[]) {
+  window.localStorage.setItem(savedReportsStorageKey, JSON.stringify(reports));
+  window.dispatchEvent(new Event(savedReportsChangedEvent));
+}
+
+function subscribeSavedReports(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(savedReportsChangedEvent, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(savedReportsChangedEvent, onStoreChange);
+  };
+}
 
 export function ReportsDashboard({ transactions }: { transactions: CreditCardTransaction[] }) {
   const [conditions, setConditions] = useState<ExpenseAutomationCondition[]>([]);
   const [results, setResults] = useState<CreditCardTransaction[] | null>(null);
   const [stale, setStale] = useState(false);
+  const savedReports = useSyncExternalStore(subscribeSavedReports, readSavedReports, () => emptySavedReports);
+  const [reportName, setReportName] = useState("");
+  const [activeReportId, setActiveReportId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [saveError, setSaveError] = useState("");
   const accounts = useMemo(() => Array.from(new Map(transactions
     .filter((item) => /^\d{4}$/.test(item.account_last_four))
     .map((item) => [item.account_last_four, `${item.issuer} •••• ${item.account_last_four}`])), ([value, label]) => ({ value, label })), [transactions]);
@@ -23,8 +75,67 @@ export function ReportsDashboard({ transactions }: { transactions: CreditCardTra
   const tags = useMemo(() => Array.from(new Set(transactions.flatMap((item) => item.tags?.map((tag) => tag.name) || []))).sort(), [transactions]);
   const preview = useMemo(() => selectTransactions(transactions, conditions, "and"), [transactions, conditions]);
 
-  function changeConditions(next: ExpenseAutomationCondition[]) { setConditions(next); if (results) setStale(true); }
+  function changeConditions(next: ExpenseAutomationCondition[]) { setConditions(next); if (results) setStale(true); setSaveMessage(""); setSaveError(""); }
   function runReport() { setResults(preview); setStale(false); }
+  function resetReportForm() { setActiveReportId(null); setReportName(""); setSaveMessage(""); setSaveError(""); }
+
+  function saveReport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = reportName.trim();
+    if (!name || !conditions.length || conditions.some(conditionIsEmpty)) {
+      setSaveError("Enter a report name and at least one complete selector.");
+      setSaveMessage("");
+      return;
+    }
+    const now = new Date().toISOString();
+    const savedConditions = conditions.map((condition) => ({
+      ...condition,
+      value: Array.isArray(condition.value) ? [...condition.value] : condition.value,
+    }));
+    const existing = activeReportId
+      ? savedReports.find((report) => report.id === activeReportId)
+      : null;
+    const savedReport: SavedReport = {
+      id: existing?.id || crypto.randomUUID(),
+      name,
+      conditions: savedConditions,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    };
+    const next = existing
+      ? savedReports.map((report) => report.id === savedReport.id ? savedReport : report)
+      : [savedReport, ...savedReports];
+    const sorted = next.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    writeSavedReports(sorted);
+    setActiveReportId(savedReport.id);
+    setReportName(savedReport.name);
+    setSaveError("");
+    setSaveMessage(`${savedReport.name} saved.`);
+  }
+
+  function loadReport(report: SavedReport, run = false) {
+    setConditions(report.conditions.map((condition) => ({
+      ...condition,
+      id: condition.id || crypto.randomUUID(),
+      value: Array.isArray(condition.value) ? [...condition.value] : condition.value,
+    })));
+    setReportName(report.name);
+    setActiveReportId(report.id);
+    setPendingDeleteId(null);
+    setSaveError("");
+    setSaveMessage("");
+    setStale(false);
+    setResults(run ? selectTransactions(transactions, report.conditions, "and") : null);
+  }
+
+  function deleteReport(reportId: string) {
+    const next = savedReports.filter((report) => report.id !== reportId);
+    writeSavedReports(next);
+    setPendingDeleteId(null);
+    if (activeReportId === reportId) resetReportForm();
+    setSaveMessage("Report deleted.");
+    setSaveError("");
+  }
 
   const metrics = useMemo(() => {
     if (!results) return null;
@@ -54,7 +165,46 @@ export function ReportsDashboard({ transactions }: { transactions: CreditCardTra
     <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold">Report criteria</p><h2 className="mt-2 text-xl font-semibold text-white">What would you like to analyze?</h2><p className="mt-1 text-sm text-muted">Build a reusable slice of your transaction history with the same selectors used by automations.</p></div>
-        <button className="rounded-xl border border-accent/30 bg-accent/15 px-5 py-2.5 text-sm font-semibold text-accent disabled:cursor-not-allowed disabled:opacity-40" disabled={!conditions.length || conditions.some(conditionIsEmpty)} onClick={runReport} type="button">Run report →</button>
+        <div className="flex flex-wrap gap-2">
+          {activeReportId ? <button className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-white/70" onClick={resetReportForm} type="button">New report</button> : null}
+          <button className="rounded-xl border border-accent/30 bg-accent/15 px-5 py-2.5 text-sm font-semibold text-accent disabled:cursor-not-allowed disabled:opacity-40" disabled={!conditions.length || conditions.some(conditionIsEmpty)} onClick={runReport} type="button">Run report →</button>
+        </div>
+      </div>
+      <div className="mb-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_17rem]">
+        <form className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/10 p-3 sm:flex-row sm:items-center" onSubmit={saveReport}>
+          <input
+            className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-accent/40"
+            onChange={(event) => { setReportName(event.target.value); setSaveMessage(""); setSaveError(""); }}
+            placeholder="Report name"
+            value={reportName}
+          />
+          <button className="rounded-xl border border-gold/30 bg-gold/10 px-4 py-2 text-sm font-semibold text-gold disabled:cursor-not-allowed disabled:opacity-40" disabled={!conditions.length || conditions.some(conditionIsEmpty)} type="submit">
+            {activeReportId ? "Update report" : "Save report"}
+          </button>
+          {saveMessage || saveError ? <p className={`text-xs ${saveError ? "text-rose-200" : "text-accent"}`}>{saveError || saveMessage}</p> : null}
+        </form>
+        <div className="rounded-2xl border border-white/10 bg-black/10 p-3">
+          <p className="px-1 text-xs font-semibold uppercase tracking-[0.14em] text-gold">Saved reports</p>
+          <div className="mt-3 space-y-2">
+            {savedReports.map((report) => (
+              <div className={`rounded-xl border p-2 ${activeReportId === report.id ? "border-accent/25 bg-accent/[0.06]" : "border-white/10 bg-white/[0.025]"}`} key={report.id}>
+                <div className="flex items-start justify-between gap-2">
+                  <button className="min-w-0 flex-1 text-left" onClick={() => loadReport(report)} type="button">
+                    <span className="block truncate text-sm font-medium text-white/85">{report.name}</span>
+                    <span className="mt-0.5 block text-[11px] text-muted">{report.conditions.length} {report.conditions.length === 1 ? "selector" : "selectors"}</span>
+                  </button>
+                  <button className="rounded-md border border-accent/25 px-2 py-1 text-[11px] font-semibold text-accent" onClick={() => loadReport(report, true)} type="button">Run</button>
+                </div>
+                <div className="mt-2 flex justify-end">
+                  <button className="min-w-16 rounded-md border border-white/10 px-2 py-1 text-[11px] text-white/55 hover:text-rose-200" onClick={() => pendingDeleteId === report.id ? deleteReport(report.id) : setPendingDeleteId(report.id)} type="button">
+                    {pendingDeleteId === report.id ? "Confirm" : "Delete"}
+                  </button>
+                </div>
+              </div>
+            ))}
+            {!savedReports.length ? <p className="rounded-xl border border-dashed border-white/10 px-3 py-4 text-center text-xs text-muted">No saved reports yet.</p> : null}
+          </div>
+        </div>
       </div>
       <AutomationSelectorBuilder accounts={accounts} conditions={conditions} descriptions={descriptions} tags={tags} logic="and" matches={preview} onChange={changeConditions} />
     </section>
