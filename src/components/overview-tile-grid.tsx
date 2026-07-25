@@ -15,7 +15,6 @@ import {
   reconcileOverviewTileOrder,
 } from "@/lib/overview-tile-order";
 
-const HOLD_DELAY_MS = 250;
 const ARMING_MOVE_TOLERANCE = 8;
 const REFLOW_DURATION_MS = 500;
 
@@ -61,7 +60,6 @@ export function OverviewTileGrid({
     "idle" | "saving" | "saved" | "error"
   >("idle");
   const tileElements = useRef(new Map<string, HTMLDivElement>());
-  const holdTimer = useRef<number | null>(null);
   const pointerSession = useRef<PointerSession | null>(null);
   const activeIdRef = useRef<string | null>(null);
   const orderRef = useRef(order);
@@ -80,13 +78,6 @@ export function OverviewTileGrid({
       return next;
     });
   }, [itemIdsKey]);
-
-  useEffect(
-    () => () => {
-      if (holdTimer.current !== null) window.clearTimeout(holdTimer.current);
-    },
-    [],
-  );
 
   useLayoutEffect(() => {
     const prior = previousRects.current;
@@ -136,12 +127,17 @@ export function OverviewTileGrid({
     setTranslation(nextTranslation);
   }, [order]);
 
-  function clearHoldTimer() {
-    if (holdTimer.current !== null) {
-      window.clearTimeout(holdTimer.current);
-      holdTimer.current = null;
-    }
+  function clearArmingState() {
     setArmingId(null);
+  }
+
+  function activateDrag(session: PointerSession) {
+    activeIdRef.current = session.tileId;
+    suppressClick.current = true;
+    dragChanged.current = false;
+    lastOverId.current = null;
+    clearArmingState();
+    setActiveId(session.tileId);
   }
 
   function releasePointerCapture(session: PointerSession) {
@@ -158,7 +154,7 @@ export function OverviewTileGrid({
       return;
     }
 
-    clearHoldTimer();
+    clearArmingState();
     const element = event.currentTarget;
     const rect = element.getBoundingClientRect();
     pointerSession.current = {
@@ -174,18 +170,6 @@ export function OverviewTileGrid({
     };
     element.setPointerCapture(event.pointerId);
     setArmingId(tileId);
-
-    holdTimer.current = window.setTimeout(() => {
-      const session = pointerSession.current;
-      if (!session || session.tileId !== tileId) return;
-      holdTimer.current = null;
-      activeIdRef.current = tileId;
-      suppressClick.current = true;
-      dragChanged.current = false;
-      lastOverId.current = null;
-      setArmingId(null);
-      setActiveId(tileId);
-    }, HOLD_DELAY_MS);
   }
 
   function captureCurrentRects() {
@@ -204,17 +188,13 @@ export function OverviewTileGrid({
     session.pointerY = event.clientY;
 
     if (!activeIdRef.current) {
-      if (
+      const hasMovedEnough =
         Math.hypot(
           event.clientX - session.startX,
           event.clientY - session.startY,
-        ) > ARMING_MOVE_TOLERANCE
-      ) {
-        clearHoldTimer();
-        pointerSession.current = null;
-        releasePointerCapture(session);
-      }
-      return;
+        ) > ARMING_MOVE_TOLERANCE;
+      if (!hasMovedEnough) return;
+      activateDrag(session);
     }
 
     event.preventDefault();
@@ -273,7 +253,7 @@ export function OverviewTileGrid({
     const session = pointerSession.current;
     if (!session || session.id !== event.pointerId) return;
     const wasDragging = Boolean(activeIdRef.current);
-    clearHoldTimer();
+    clearArmingState();
     pointerSession.current = null;
     releasePointerCapture(session);
     activeIdRef.current = null;
@@ -299,7 +279,7 @@ export function OverviewTileGrid({
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-muted">
-        <p>Press and hold a tile for 0.25 seconds, then drag to reposition it.</p>
+        <p>Click and drag a tile to reposition it.</p>
         <p aria-live="polite">
           {saveStatus === "saving"
             ? "Saving layout…"
