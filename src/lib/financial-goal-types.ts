@@ -23,7 +23,8 @@ export type FinancialGoalCondition = {
 export type FinancialGoalTrackingMetric =
   | "days_left_in_pay_cycle"
   | "daily_spending_limit"
-  | "remaining_budget";
+  | "remaining_budget"
+  | "total_budget";
 
 export type FinancialGoal = {
   id: number;

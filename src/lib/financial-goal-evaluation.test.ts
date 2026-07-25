@@ -59,6 +59,7 @@ const goal: FinancialGoalInput = {
     "days_left_in_pay_cycle",
     "daily_spending_limit",
     "remaining_budget",
+    "total_budget",
   ],
   is_active: true,
 };
@@ -84,6 +85,7 @@ describe("evaluateFinancialGoal", () => {
       { metric: "days_left_in_pay_cycle", value: 6 },
       { metric: "daily_spending_limit", value: 12.5 },
       { metric: "remaining_budget", value: 75 },
+      { metric: "total_budget", value: 200 },
     ]);
   });
 

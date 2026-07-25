@@ -89,6 +89,11 @@ const trackingOptions: {
     label: "Remaining budget",
     description: "Subtract current spending from the spending target.",
   },
+  {
+    metric: "total_budget",
+    label: "Total Budget",
+    description: "Monitor the full spending target set for this goal.",
+  },
 ];
 
 function emptyGoal(): FinancialGoalInput {

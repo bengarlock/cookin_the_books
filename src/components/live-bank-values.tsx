@@ -406,12 +406,14 @@ const goalTrackingLabels: Record<FinancialGoalTrackingMetric, string> = {
   days_left_in_pay_cycle: "Days left in pay cycle",
   daily_spending_limit: "Daily spending limit",
   remaining_budget: "Remaining budget",
+  total_budget: "Total Budget",
 };
 
 const compactGoalTrackingLabels: Record<FinancialGoalTrackingMetric, string> = {
   days_left_in_pay_cycle: "Days",
   daily_spending_limit: "Daily limit",
   remaining_budget: "Remaining",
+  total_budget: "Total budget",
 };
 
 function formatGoalTrackingValue(

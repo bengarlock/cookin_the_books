@@ -296,6 +296,7 @@ export function evaluateFinancialGoal({
     days_left_in_pay_cycle: daysLeft,
     daily_spending_limit: dailySpendingLimit,
     remaining_budget: remainingBudget,
+    total_budget: Number.isFinite(spendingBudget) ? spendingBudget : null,
   };
   const trackingMetrics: EvaluatedGoalTrackingMetric[] =
     goal.tracking_metrics.map((metric) => ({
