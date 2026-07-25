@@ -23,6 +23,25 @@ describe("reconcileOverviewTileOrder", () => {
       ),
     ).toEqual(["snapshot", "net-assets"]);
   });
+
+  it("removes retired built-in tiles from saved overview layouts", () => {
+    expect(
+      reconcileOverviewTileOrder(
+        [
+          "daily-budget",
+          "gross-assets",
+          "credit-card-balance",
+          "days-until-pay-cycle",
+          "snapshot",
+          "total-budget",
+          "remaining-budget",
+          "net-assets",
+          "goal-12",
+        ],
+        ["gross-assets", "snapshot", "net-assets", "goal-12"],
+      ),
+    ).toEqual(["gross-assets", "snapshot", "net-assets", "goal-12"]);
+  });
 });
 
 describe("moveOverviewTile", () => {

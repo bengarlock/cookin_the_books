@@ -2336,67 +2336,12 @@ export function LiveBankValues({
 
   const overviewTiles = [
     {
-      id: "total-budget",
-      content: (
-        <MetricCard
-          label="Total budget"
-          value={formatCurrency(budgetSettings.totalBudget)}
-          description="Budget allocated for the current pay cycle."
-        />
-      ),
-    },
-    {
-      id: "remaining-budget",
-      content: (
-        <MetricCard
-          label="Remaining budget"
-          value={formatCurrency(calculations.remainingBudget)}
-          description="Total budget less current card obligations."
-          featured
-          negative={calculations.remainingBudget < 0}
-        />
-      ),
-    },
-    {
-      id: "days-until-pay-cycle",
-      content: (
-        <MetricCard
-          label="Days until pay cycle"
-          value={`${payCycle.daysRemaining}`}
-          description={`Next payday: ${formatPayday(payCycle.nextPayday)}.`}
-        />
-      ),
-    },
-    {
-      id: "daily-budget",
-      content: (
-        <MetricCard
-          label="Daily budget"
-          value={formatCurrency(calculations.dailyBudget)}
-          description="Remaining budget available per day."
-          featured
-          negative={calculations.dailyBudget < 0}
-        />
-      ),
-    },
-    {
       id: "gross-assets",
       content: (
         <MetricCard
           label="Gross assets"
           value={formatCurrency(calculations.grossAssets)}
           description="Cash and investment balances combined."
-        />
-      ),
-    },
-    {
-      id: "credit-card-balance",
-      content: (
-        <MetricCard
-          label="Credit card balance"
-          value={formatCurrency(calculations.creditCardBalance)}
-          description="Total balance across current credit-card accounts."
-          negative={calculations.creditCardBalance > 0}
         />
       ),
     },
