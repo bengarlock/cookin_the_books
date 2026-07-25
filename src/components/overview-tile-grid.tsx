@@ -15,7 +15,7 @@ import {
   reconcileOverviewTileOrder,
 } from "@/lib/overview-tile-order";
 
-const HOLD_DELAY_MS = 2_000;
+const HOLD_DELAY_MS = 250;
 const ARMING_MOVE_TOLERANCE = 8;
 const REFLOW_DURATION_MS = 500;
 
@@ -299,7 +299,7 @@ export function OverviewTileGrid({
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-muted">
-        <p>Press and hold a tile for 2 seconds, then drag to reposition it.</p>
+        <p>Press and hold a tile for 0.25 seconds, then drag to reposition it.</p>
         <p aria-live="polite">
           {saveStatus === "saving"
             ? "Saving layout…"
