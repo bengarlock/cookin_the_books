@@ -313,6 +313,7 @@ export function OverviewTileGrid({
                 }
               }}
               onContextMenu={(event) => event.preventDefault()}
+              onDragStart={(event) => event.preventDefault()}
               onLostPointerCapture={finishPointerSession}
               onPointerCancel={finishPointerSession}
               onPointerDown={(event) => beginPointerSession(event, id)}
