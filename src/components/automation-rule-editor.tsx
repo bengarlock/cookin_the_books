@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { AutomationActionBuilder } from "@/components/automation-action-builder";
 import { AutomationSelectorBuilder } from "@/components/automation-selector-builder";
+import { accountSelectorOptions } from "@/lib/account-transaction-filters";
 import { APP_BASE_PATH } from "@/lib/config";
 import type { BudgetItem } from "@/lib/budget-item-types";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
@@ -159,21 +160,9 @@ export function AutomationRuleEditor({
     [initialBudgetItems],
   );
   const accountOptions = useMemo(() => {
-    const accounts = new Map<string, string>();
-    initialCreditCardTransactions.forEach((transaction) => {
-      if (
-        /^\d{4}$/.test(transaction.account_last_four) &&
-        ["purchase", "fee", "interest"].includes(transaction.transaction_type)
-      ) {
-        accounts.set(
-          transaction.account_last_four,
-          `${transaction.issuer} •••• ${transaction.account_last_four}`,
-        );
-      }
+    return accountSelectorOptions(initialCreditCardTransactions, {
+      spendingOnly: true,
     });
-    return Array.from(accounts, ([value, label]) => ({ value, label })).sort(
-      (a, b) => a.label.localeCompare(b.label),
-    );
   }, [initialCreditCardTransactions]);
   const descriptionOptions = useMemo(
     () =>

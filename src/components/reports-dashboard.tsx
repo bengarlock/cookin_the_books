@@ -4,6 +4,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import type { FormEvent } from "react";
 
 import { AutomationSelectorBuilder } from "@/components/automation-selector-builder";
+import { accountSelectorOptions } from "@/lib/account-transaction-filters";
 import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
 import type { ExpenseAutomationCondition } from "@/lib/expense-automation-rule-types";
 import { conditionIsEmpty, selectTransactions } from "@/lib/transaction-selector";
@@ -68,9 +69,10 @@ export function ReportsDashboard({ transactions }: { transactions: CreditCardTra
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
-  const accounts = useMemo(() => Array.from(new Map(transactions
-    .filter((item) => /^\d{4}$/.test(item.account_last_four))
-    .map((item) => [item.account_last_four, `${item.issuer} •••• ${item.account_last_four}`])), ([value, label]) => ({ value, label })), [transactions]);
+  const accounts = useMemo(
+    () => accountSelectorOptions(transactions),
+    [transactions],
+  );
   const descriptions = useMemo(() => Array.from(new Set(transactions.map((item) => item.description).filter(Boolean))).sort(), [transactions]);
   const tags = useMemo(() => Array.from(new Set(transactions.flatMap((item) => item.tags?.map((tag) => tag.name) || []))).sort(), [transactions]);
   const preview = useMemo(() => selectTransactions(transactions, conditions, "and"), [transactions, conditions]);

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   FormEvent,
   type ReactNode,
@@ -23,6 +24,14 @@ import {
 import { APP_BASE_PATH } from "@/lib/config";
 import type { CreditCardTransaction, ExpenseTag, PendingCardTransaction, SuggestedRelatedTransaction } from "@/lib/credit-card-transaction-types";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
+import {
+  evaluateFinancialGoal,
+  normalizeFinancialGoal,
+} from "@/lib/financial-goal-evaluation";
+import type {
+  FinancialGoal,
+  FinancialGoalCondition,
+} from "@/lib/financial-goal-types";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
@@ -393,6 +402,129 @@ function MetricCard({
         {description}
       </p>
     </article>
+  );
+}
+
+const goalConditionLabels: Record<FinancialGoalCondition["field"], string> = {
+  account_balance: "Account balance",
+  spending: "Spending",
+  spending_period: "Spending period",
+};
+
+const goalOperatorLabels: Record<FinancialGoalCondition["operator"], string> = {
+  equals: "equals",
+  not_equals: "does not equal",
+  greater_than: "is greater than",
+  greater_than_or_equal: "is at least",
+  less_than: "is less than",
+  less_than_or_equal: "is at most",
+  within: "is within",
+  not_within: "is not within",
+};
+
+function PinnedGoalCard({
+  currentDate,
+  goal,
+  snapshot,
+  transactions,
+}: {
+  currentDate: Date;
+  goal: FinancialGoal;
+  snapshot: BankValueSnapshot | null;
+  transactions: CreditCardTransaction[];
+}) {
+  const evaluation = evaluateFinancialGoal({
+    goal: normalizeFinancialGoal(goal),
+    transactions,
+    snapshot,
+    currentDate,
+  });
+  const measurableCondition = evaluation.conditions.find(
+    (condition) => condition.actual !== null,
+  );
+  const metCount = evaluation.conditions.filter(
+    (condition) => condition.met,
+  ).length;
+  const status = !goal.is_active
+    ? "Paused"
+    : evaluation.met
+      ? "Conditions met"
+      : "In progress";
+  const target = measurableCondition
+    ? `${goalConditionLabels[measurableCondition.field]} ${goalOperatorLabels[measurableCondition.operator]} ${formatCurrency(Number(measurableCondition.value))}.`
+    : "Tracking the selected spending period.";
+
+  return (
+    <Link
+      className={`dashboard-tile overview-metric-card group rounded-2xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] transition hover:-translate-y-0.5 hover:border-gold/30 ${
+        goal.is_active && evaluation.met
+          ? "border-accent/25 bg-accent/[0.09]"
+          : "border-gold/20 bg-gold/[0.055]"
+      }`}
+      href="/dashboard/budget/goals"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="dashboard-tile-label overview-metric-label text-[10px] font-semibold uppercase tracking-[0.18em] text-gold">
+            Pinned goal
+          </p>
+          <h3 className="mt-1 truncate text-sm font-semibold text-white">
+            {goal.name}
+          </h3>
+        </div>
+        <span
+          aria-label="Pinned to Overview"
+          className="grid size-8 shrink-0 place-items-center rounded-full border border-gold/25 bg-gold/10 text-gold"
+          title="Pinned to Overview"
+        >
+          <svg
+            aria-hidden="true"
+            className="size-4"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="m8 4 8 0-1 5 3 3v1H6v-1l3-3-1-5Zm4 9v7"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.7"
+            />
+          </svg>
+        </span>
+      </div>
+      <p
+        className={`dashboard-tile-value overview-metric-value mt-4 font-mono text-2xl font-semibold tracking-tight sm:text-3xl ${
+          !goal.is_active
+            ? "text-white/60"
+            : evaluation.met
+              ? "text-accent"
+              : "text-gold"
+        }`}
+      >
+        {measurableCondition?.actual == null
+          ? `${evaluation.matchingTransactions.length}`
+          : formatCurrency(measurableCondition.actual)}
+      </p>
+      <div className="mt-3 flex items-center gap-2 text-xs">
+        <span
+          className={`size-2 rounded-full ${
+            !goal.is_active
+              ? "bg-white/30"
+              : evaluation.met
+                ? "bg-accent"
+                : "bg-gold"
+          }`}
+        />
+        <span className="font-semibold text-white/75">{status}</span>
+        <span className="text-muted">
+          · {metCount}/{evaluation.conditions.length} conditions
+        </span>
+      </div>
+      <p className="dashboard-tile-description overview-metric-description mt-3 text-xs leading-5 text-muted">
+        {target}
+      </p>
+    </Link>
   );
 }
 
@@ -1502,6 +1634,7 @@ function AccountTransactionList({
 export function LiveBankValues({
   initialBudgetPlanSettings,
   initialCreditCardTransactions = [],
+  initialFinancialGoals = [],
   initialPendingCardTransactions = [],
   initialExpenseCategories = [],
   initialExpenseTags = [],
@@ -1510,6 +1643,7 @@ export function LiveBankValues({
 }: {
   initialBudgetPlanSettings?: BudgetPlanSettings;
   initialCreditCardTransactions?: CreditCardTransaction[];
+  initialFinancialGoals?: FinancialGoal[];
   initialPendingCardTransactions?: PendingCardTransaction[];
   initialExpenseCategories?: ExpenseCategory[];
   initialExpenseTags?: ExpenseTag[];
@@ -2258,6 +2392,17 @@ export function LiveBankValues({
               featured
               negative={calculations.netAssets < 0}
             />
+            {initialFinancialGoals
+              .filter((goal) => goal.is_pinned)
+              .map((goal) => (
+                <PinnedGoalCard
+                  currentDate={currentDate}
+                  goal={goal}
+                  key={goal.id}
+                  snapshot={snapshot}
+                  transactions={creditCardTransactions}
+                />
+              ))}
           </div>
         </div>
       ) : null}

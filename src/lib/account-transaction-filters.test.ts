@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { PendingCardTransaction } from "./credit-card-transaction-types";
 import {
   accountKeyForTransaction,
+  accountSelectorLabel,
+  accountSelectorOptions,
   importedPendingLiabilityTotals,
   transactionsForAccount,
 } from "./account-transaction-filters";
@@ -24,6 +26,41 @@ function cardTransaction(
 }
 
 describe("credit-card account transaction filters", () => {
+  it("uses canonical account names and explicit account types in selectors", () => {
+    expect(
+      accountSelectorLabel(
+        cardTransaction({
+          issuer: "Chase",
+          account_last_four: "0277",
+        }),
+      ),
+    ).toBe("Chase Checking •••• 0277");
+    expect(accountSelectorLabel(cardTransaction())).toBe(
+      "Citi Card · Credit card •••• 4596",
+    );
+    expect(
+      accountSelectorLabel(
+        cardTransaction({
+          issuer: "Barclays - Cards",
+          account_last_four: "4198",
+        }),
+      ),
+    ).toBe("Barclays · Credit card •••• 4198");
+  });
+
+  it("deduplicates and sorts account selector options by their canonical label", () => {
+    expect(
+      accountSelectorOptions([
+        cardTransaction(),
+        cardTransaction({ issuer: "Chase", account_last_four: "0277" }),
+        cardTransaction({ amount: "99.00" }),
+      ]),
+    ).toEqual([
+      { value: "0277", label: "Chase Checking •••• 0277" },
+      { value: "4596", label: "Citi Card · Credit card •••• 4596" },
+    ]);
+  });
+
   it("maps imported Citi card transactions to the rendered Citi liability row", () => {
     expect(accountKeyForTransaction(cardTransaction())).toBe("citi_current");
     expect(
