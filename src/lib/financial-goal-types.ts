@@ -3,7 +3,11 @@ import type { ExpenseAutomationCondition } from "./expense-automation-rule-types
 export type FinancialGoalCondition = {
   id: string;
   logic_operator?: "and" | "or";
-  field: "account_balance" | "spending" | "spending_period";
+  field:
+    | "account_balance"
+    | "current_balances"
+    | "spending"
+    | "spending_period";
   operator:
     | "equals"
     | "not_equals"
@@ -19,7 +23,9 @@ export type FinancialGoalCondition = {
 export type FinancialGoalTrackingMetric =
   | "days_left_in_pay_cycle"
   | "daily_spending_limit"
-  | "remaining_budget";
+  | "remaining_budget"
+  | "total_budget"
+  | "projected_savings";
 
 export type FinancialGoal = {
   id: number;
@@ -32,6 +38,7 @@ export type FinancialGoal = {
   scope_conditions?: ExpenseAutomationCondition[];
   success_conditions?: FinancialGoalCondition[];
   tracking_metrics?: FinancialGoalTrackingMetric[];
+  pinned_tracking_metrics?: FinancialGoalTrackingMetric[];
   is_active: boolean;
   is_pinned: boolean;
   created_at: string;

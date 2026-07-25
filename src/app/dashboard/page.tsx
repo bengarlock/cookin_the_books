@@ -6,6 +6,7 @@ import { getCreditCardTransactions } from "@/lib/credit-card-transactions";
 import { getDashboardPendingCardTransactions } from "@/lib/dashboard-pending-card-transactions";
 import { getExpenseCategories } from "@/lib/expense-categories";
 import { getFinancialGoals } from "@/lib/financial-goals";
+import { getIncomeEntries } from "@/lib/income-entries";
 import { getPendingTransactions } from "@/lib/pending-transactions";
 
 export const metadata: Metadata = {
@@ -17,6 +18,7 @@ export default async function DashboardPage() {
     budgetPlanSettings,
     creditCardTransactions,
     financialGoals,
+    incomeEntries,
     pendingCardTransactions,
     expenseCategories,
     pendingTransactions,
@@ -24,6 +26,7 @@ export default async function DashboardPage() {
     getBudgetPlanSettings(),
     getCreditCardTransactions(),
     getFinancialGoals(),
+    getIncomeEntries(),
     getDashboardPendingCardTransactions(),
     getExpenseCategories(),
     getPendingTransactions(),
@@ -35,6 +38,7 @@ export default async function DashboardPage() {
         initialBudgetPlanSettings={budgetPlanSettings}
         initialCreditCardTransactions={creditCardTransactions}
         initialFinancialGoals={financialGoals}
+        initialIncomeEntries={incomeEntries}
         initialPendingCardTransactions={pendingCardTransactions}
         initialExpenseCategories={expenseCategories}
         initialPendingTransactions={pendingTransactions}

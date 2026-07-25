@@ -23,6 +23,8 @@ import type {
   FinancialGoalInput,
   FinancialGoalTrackingMetric,
 } from "@/lib/financial-goal-types";
+import { classifyPaychecks } from "@/lib/projections";
+import { getNextPayCycle } from "@/lib/pay-cycle";
 import { conditionIsEmpty, selectTransactions } from "@/lib/transaction-selector";
 
 const money = new Intl.NumberFormat("en-US", {
@@ -37,6 +39,7 @@ const date = new Intl.DateTimeFormat("en-US", {
 
 const goalFields = [
   { field: "account_balance", label: "Account balance" },
+  { field: "current_balances", label: "Current Balances" },
   { field: "spending", label: "Spending" },
   { field: "spending_period", label: "Spending period" },
 ] as const;
@@ -63,6 +66,7 @@ const operatorLabels: Record<FinancialGoalCondition["operator"], string> = {
 
 const fieldLabels: Record<FinancialGoalCondition["field"], string> = {
   account_balance: "Account balance",
+  current_balances: "Current Balances",
   spending: "Spending",
   spending_period: "Spending period",
 };
@@ -86,6 +90,17 @@ const trackingOptions: {
     metric: "remaining_budget",
     label: "Remaining budget",
     description: "Subtract current spending from the spending target.",
+  },
+  {
+    metric: "total_budget",
+    label: "Total Budget",
+    description: "Monitor the full spending target set for this goal.",
+  },
+  {
+    metric: "projected_savings",
+    label: "Projected Savings",
+    description:
+      "Compare the spending target with the next projected paycheck.",
   },
 ];
 
@@ -557,7 +572,11 @@ function trackingMetricValue(
   metric: FinancialGoalTrackingMetric,
   value: number | null,
 ) {
-  if (value === null) return "Needs a spending target and pay period";
+  if (value === null) {
+    return metric === "projected_savings"
+      ? "Needs a spending target and paycheck history"
+      : "Needs a spending target and pay period";
+  }
   if (metric === "days_left_in_pay_cycle") {
     return `${value} ${value === 1 ? "day" : "days"}`;
   }
@@ -570,7 +589,27 @@ export function FinancialGoals({
   initialGoals: FinancialGoal[];
 }) {
   const { snapshot } = useLiveSnapshot();
-  const { creditCardTransactions, pendingTransactions } = useBudgetData();
+  const {
+    budgetPlanSettings,
+    creditCardTransactions,
+    incomeEntries,
+    pendingTransactions,
+  } = useBudgetData();
+  const projectedNextPaycheck = useMemo(() => {
+    const currentDate = new Date();
+    const payCycle = getNextPayCycle(
+      currentDate,
+      budgetPlanSettings.next_payday_override,
+    );
+    const projection = classifyPaychecks(
+      incomeEntries,
+      currentDate,
+      payCycle.nextPayday,
+    );
+    return projection.normalPaychecks.length
+      ? projection.predictedNetPay
+      : null;
+  }, [budgetPlanSettings.next_payday_override, incomeEntries]);
   const [goals, setGoals] = useState(initialGoals);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<FinancialGoalInput>(emptyGoal);
@@ -578,6 +617,9 @@ export function FinancialGoals({
   const [editDraft, setEditDraft] = useState<FinancialGoalInput>(emptyGoal);
   const [saving, setSaving] = useState(false);
   const [pinningId, setPinningId] = useState<number | null>(null);
+  const [pinningTrackingKey, setPinningTrackingKey] = useState<string | null>(
+    null,
+  );
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(
     null,
   );
@@ -683,6 +725,46 @@ export function FinancialGoals({
       setError("The financial goal service is currently unavailable.");
     } finally {
       setPinningId(null);
+    }
+  }
+
+  async function toggleTrackingPinned(
+    goal: FinancialGoal,
+    metric: FinancialGoalTrackingMetric,
+  ) {
+    const key = `${goal.id}-${metric}`;
+    const pinnedMetrics = goal.pinned_tracking_metrics || [];
+    const isPinned = pinnedMetrics.includes(metric);
+    const nextPinnedMetrics = isPinned
+      ? pinnedMetrics.filter((item) => item !== metric)
+      : [...pinnedMetrics, metric];
+    setPinningTrackingKey(key);
+    setError("");
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/financial-goals/${goal.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pinned_tracking_metrics: nextPinnedMetrics,
+          }),
+        },
+      );
+      if (!response.ok) {
+        setError(await responseMessage(response));
+        return;
+      }
+      const updatedGoal = (await response.json()) as FinancialGoal;
+      setGoals((current) =>
+        current.map((item) =>
+          item.id === updatedGoal.id ? updatedGoal : item,
+        ),
+      );
+    } catch {
+      setError("The financial goal service is currently unavailable.");
+    } finally {
+      setPinningTrackingKey(null);
     }
   }
 
@@ -803,6 +885,7 @@ export function FinancialGoals({
           const evaluation = evaluateFinancialGoal({
             goal: normalized,
             pendingTransactions,
+            projectedNextPaycheck,
             transactions: creditCardTransactions,
             snapshot,
           });
@@ -1018,19 +1101,65 @@ export function FinancialGoals({
                     Tracking
                   </p>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {evaluation.trackingMetrics.map((item) => (
-                      <div
-                        className="rounded-xl border border-sky-300/15 bg-sky-400/[0.05] p-4"
-                        key={item.metric}
-                      >
-                        <p className="text-xs text-muted">
-                          {trackingMetricLabel(item.metric)}
-                        </p>
-                        <p className="mt-2 font-mono text-lg font-semibold text-sky-100">
-                          {trackingMetricValue(item.metric, item.value)}
-                        </p>
-                      </div>
-                    ))}
+                    {evaluation.trackingMetrics.map((item) => {
+                      const pinKey = `${goal.id}-${item.metric}`;
+                      const isPinned = (
+                        goal.pinned_tracking_metrics || []
+                      ).includes(item.metric);
+                      return (
+                        <div
+                          className={`rounded-xl border p-4 transition ${
+                            isPinned
+                              ? "border-gold/30 bg-gold/[0.08]"
+                              : "border-sky-300/15 bg-sky-400/[0.05]"
+                          }`}
+                          key={item.metric}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="text-xs text-muted">
+                              {trackingMetricLabel(item.metric)}
+                            </p>
+                            <button
+                              aria-label={`${isPinned ? "Unpin" : "Pin"} ${trackingMetricLabel(item.metric)} from Overview`}
+                              aria-pressed={isPinned}
+                              className={`grid size-8 shrink-0 place-items-center rounded-lg border transition disabled:cursor-wait disabled:opacity-50 ${
+                                isPinned
+                                  ? "border-gold/30 bg-gold/10 text-gold"
+                                  : "border-white/10 text-white/45 hover:border-gold/25 hover:text-gold"
+                              }`}
+                              disabled={pinningTrackingKey === pinKey}
+                              onClick={() =>
+                                void toggleTrackingPinned(goal, item.metric)
+                              }
+                              title={
+                                isPinned
+                                  ? "Remove tracking tile from Overview"
+                                  : "Pin tracking tile to Overview"
+                              }
+                              type="button"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                className="size-4"
+                                fill={isPinned ? "currentColor" : "none"}
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  d="m8 4 8 0-1 5 3 3v1H6v-1l3-3-1-5Zm4 9v7"
+                                  stroke="currentColor"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="1.7"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                          <p className="mt-2 font-mono text-lg font-semibold text-sky-100">
+                            {trackingMetricValue(item.metric, item.value)}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ) : null}

@@ -12,6 +12,7 @@ import {
 
 import { useOptionalBudgetData } from "@/components/budget-data-provider";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
+import { OverviewTileGrid } from "@/components/overview-tile-grid";
 import {
   accountTransactionDisplayAmount,
   manualPendingTransactionDisplayAmount,
@@ -30,10 +31,11 @@ import {
 } from "@/lib/financial-goal-evaluation";
 import type {
   FinancialGoal,
-  FinancialGoalCondition,
   FinancialGoalTrackingMetric,
 } from "@/lib/financial-goal-types";
+import type { IncomeEntry } from "@/lib/income-entry-types";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
+import { classifyPaychecks } from "@/lib/projections";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import { AmazonOrderDetails } from "@/components/amazon-order-details";
@@ -402,27 +404,20 @@ function MetricCard({
   );
 }
 
-const goalConditionLabels: Record<FinancialGoalCondition["field"], string> = {
-  account_balance: "Account balance",
-  spending: "Spending",
-  spending_period: "Spending period",
-};
-
-const goalOperatorLabels: Record<FinancialGoalCondition["operator"], string> = {
-  equals: "equals",
-  not_equals: "does not equal",
-  greater_than: "is greater than",
-  greater_than_or_equal: "is at least",
-  less_than: "is less than",
-  less_than_or_equal: "is at most",
-  within: "is within",
-  not_within: "is not within",
-};
-
 const goalTrackingLabels: Record<FinancialGoalTrackingMetric, string> = {
   days_left_in_pay_cycle: "Days left in pay cycle",
   daily_spending_limit: "Daily spending limit",
   remaining_budget: "Remaining budget",
+  total_budget: "Total Budget",
+  projected_savings: "Projected Savings",
+};
+
+const compactGoalTrackingLabels: Record<FinancialGoalTrackingMetric, string> = {
+  days_left_in_pay_cycle: "Days",
+  daily_spending_limit: "Daily limit",
+  remaining_budget: "Remaining",
+  total_budget: "Total budget",
+  projected_savings: "Projected savings",
 };
 
 function formatGoalTrackingValue(
@@ -441,6 +436,7 @@ function PinnedGoalCard({
   goal,
   pendingCardTransactions,
   pendingTransactions,
+  projectedNextPaycheck,
   snapshot,
   transactions,
 }: {
@@ -448,6 +444,7 @@ function PinnedGoalCard({
   goal: FinancialGoal;
   pendingCardTransactions: PendingCardTransaction[];
   pendingTransactions: PendingTransaction[];
+  projectedNextPaycheck: number | null;
   snapshot: BankValueSnapshot | null;
   transactions: CreditCardTransaction[];
 }) {
@@ -455,6 +452,7 @@ function PinnedGoalCard({
     goal: normalizeFinancialGoal(goal),
     pendingCardTransactions,
     pendingTransactions,
+    projectedNextPaycheck,
     transactions,
     snapshot,
     currentDate,
@@ -471,17 +469,10 @@ function PinnedGoalCard({
     : evaluation.met
       ? "Conditions met"
       : "In progress";
-  const target = evaluation.trackingMetrics.length
-    ? `Monitoring ${evaluation.trackingMetrics
-        .map((item) => goalTrackingLabels[item.metric].toLowerCase())
-        .join(", ")}.`
-    : measurableCondition
-    ? `${goalConditionLabels[measurableCondition.field]} ${goalOperatorLabels[measurableCondition.operator]} ${formatCurrency(Number(measurableCondition.value))}.`
-    : "Tracking the selected spending period.";
 
   return (
     <Link
-      className={`dashboard-tile overview-metric-card group rounded-2xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] transition hover:-translate-y-0.5 hover:border-gold/30 ${
+      className={`dashboard-tile overview-metric-card group block h-full w-full overflow-hidden rounded-2xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] transition-colors hover:border-gold/30 ${
         goal.is_active && evaluation.met
           ? "border-accent/25 bg-accent/[0.09]"
           : "border-gold/20 bg-gold/[0.055]"
@@ -519,7 +510,7 @@ function PinnedGoalCard({
         </span>
       </div>
       <p
-        className={`dashboard-tile-value overview-metric-value mt-4 font-mono text-2xl font-semibold tracking-tight sm:text-3xl ${
+        className={`dashboard-tile-value overview-metric-value mt-3 font-mono text-2xl font-semibold tracking-tight sm:text-3xl ${
           !goal.is_active
             ? "text-white/60"
             : evaluation.met
@@ -541,7 +532,7 @@ function PinnedGoalCard({
           {goalTrackingLabels[primaryTrackingMetric.metric]}
         </p>
       ) : null}
-      <div className="mt-3 flex items-center gap-2 text-xs">
+      <div className="mt-3 flex items-center gap-2 whitespace-nowrap text-xs">
         <span
           className={`size-2 rounded-full ${
             !goal.is_active
@@ -552,27 +543,98 @@ function PinnedGoalCard({
           }`}
         />
         <span className="font-semibold text-white/75">{status}</span>
-        <span className="text-muted">
+        <span className="truncate text-muted">
           · {metCount}/{evaluation.conditions.length} conditions
         </span>
       </div>
-      <p className="dashboard-tile-description overview-metric-description mt-3 text-xs leading-5 text-muted">
-        {target}
-      </p>
       {evaluation.trackingMetrics.length > 1 ? (
-        <div className="mt-3 grid gap-2 border-t border-white/10 pt-3 sm:grid-cols-2">
-          {evaluation.trackingMetrics.slice(1).map((item) => (
-            <div key={item.metric}>
-              <p className="text-[10px] uppercase tracking-wider text-muted">
-                {goalTrackingLabels[item.metric]}
-              </p>
-              <p className="mt-0.5 font-mono text-xs font-semibold text-sky-100">
-                {formatGoalTrackingValue(item.metric, item.value)}
-              </p>
-            </div>
-          ))}
-        </div>
+        <p className="mt-2 truncate text-[10px] text-muted">
+          {evaluation.trackingMetrics
+            .slice(1)
+            .map(
+              (item) =>
+                `${compactGoalTrackingLabels[item.metric]} ${formatGoalTrackingValue(item.metric, item.value)}`,
+            )
+            .join(" · ")}
+        </p>
       ) : null}
+    </Link>
+  );
+}
+
+function PinnedGoalTrackingCard({
+  currentDate,
+  goal,
+  metric,
+  pendingCardTransactions,
+  pendingTransactions,
+  projectedNextPaycheck,
+  snapshot,
+  transactions,
+}: {
+  currentDate: Date;
+  goal: FinancialGoal;
+  metric: FinancialGoalTrackingMetric;
+  pendingCardTransactions: PendingCardTransaction[];
+  pendingTransactions: PendingTransaction[];
+  projectedNextPaycheck: number | null;
+  snapshot: BankValueSnapshot | null;
+  transactions: CreditCardTransaction[];
+}) {
+  const evaluation = evaluateFinancialGoal({
+    goal: normalizeFinancialGoal(goal),
+    pendingCardTransactions,
+    pendingTransactions,
+    projectedNextPaycheck,
+    transactions,
+    snapshot,
+    currentDate,
+  });
+  const trackingMetric = evaluation.trackingMetrics.find(
+    (item) => item.metric === metric,
+  );
+
+  return (
+    <Link
+      className="dashboard-tile overview-metric-card group flex h-full w-full flex-col overflow-hidden rounded-2xl border border-sky-300/20 bg-sky-400/[0.07] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] transition-colors hover:border-sky-300/35"
+      href="/dashboard/budget/goals"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="dashboard-tile-label overview-metric-label text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-200/70">
+            Goal tracking
+          </p>
+          <h3 className="mt-1 truncate text-sm font-semibold text-white">
+            {goalTrackingLabels[metric]}
+          </h3>
+        </div>
+        <span
+          aria-label="Pinned tracking metric"
+          className="grid size-8 shrink-0 place-items-center rounded-full border border-gold/25 bg-gold/10 text-gold"
+          title="Pinned tracking metric"
+        >
+          <svg
+            aria-hidden="true"
+            className="size-4"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="m8 4 8 0-1 5 3 3v1H6v-1l3-3-1-5Zm4 9v7"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.7"
+            />
+          </svg>
+        </span>
+      </div>
+      <p className="dashboard-tile-value overview-metric-value mt-4 font-mono text-2xl font-semibold tracking-tight text-sky-200 sm:text-3xl">
+        {formatGoalTrackingValue(metric, trackingMetric?.value ?? null)}
+      </p>
+      <p className="dashboard-tile-description overview-metric-description mt-auto truncate pt-3 text-xs leading-5 text-muted">
+        {goal.name}
+      </p>
     </Link>
   );
 }
@@ -1684,6 +1746,7 @@ export function LiveBankValues({
   initialBudgetPlanSettings,
   initialCreditCardTransactions = [],
   initialFinancialGoals = [],
+  initialIncomeEntries = [],
   initialPendingCardTransactions = [],
   initialExpenseCategories = [],
   initialExpenseTags = [],
@@ -1693,6 +1756,7 @@ export function LiveBankValues({
   initialBudgetPlanSettings?: BudgetPlanSettings;
   initialCreditCardTransactions?: CreditCardTransaction[];
   initialFinancialGoals?: FinancialGoal[];
+  initialIncomeEntries?: IncomeEntry[];
   initialPendingCardTransactions?: PendingCardTransaction[];
   initialExpenseCategories?: ExpenseCategory[];
   initialExpenseTags?: ExpenseTag[];
@@ -1704,6 +1768,7 @@ export function LiveBankValues({
   const creditCardTransactions =
     budgetData?.creditCardTransactions ?? initialCreditCardTransactions;
   const expenseCategories = budgetData?.expenseCategories ?? initialExpenseCategories;
+  const incomeEntries = budgetData?.incomeEntries ?? initialIncomeEntries;
   const [localPendingTransactions, setLocalPendingTransactions] = useState(
     initialPendingTransactions ?? [],
   );
@@ -1770,6 +1835,17 @@ export function LiveBankValues({
     currentDate,
     budgetPlanSettings.next_payday_override,
   );
+  const nextPaydayTimestamp = payCycle.nextPayday.getTime();
+  const projectedNextPaycheck = useMemo(() => {
+    const projection = classifyPaychecks(
+      incomeEntries,
+      currentDate,
+      new Date(nextPaydayTimestamp),
+    );
+    return projection.normalPaychecks.length
+      ? projection.predictedNetPay
+      : null;
+  }, [currentDate, incomeEntries, nextPaydayTimestamp]);
 
   useEffect(() => {
     const refreshDate = window.setInterval(
@@ -1918,6 +1994,31 @@ export function LiveBankValues({
     } finally {
       setIsBudgetOffsetSaving(false);
     }
+  }
+
+  async function saveOverviewTileOrder(order: string[]) {
+    const response = await fetch(`${APP_BASE_PATH}/api/budget-plan-settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ overview_tile_order: order }),
+    });
+    const data = (await response.json().catch(() => null)) as
+      | BudgetPlanSettings
+      | { message?: string; detail?: string }
+      | null;
+    if (
+      !response.ok ||
+      !data ||
+      !("overview_tile_order" in data) ||
+      !Array.isArray(data.overview_tile_order)
+    ) {
+      throw new Error(
+        (data && "message" in data && data.message) ||
+          (data && "detail" in data && data.detail) ||
+          "Unable to save the Overview layout.",
+      );
+    }
+    budgetData?.setBudgetPlanSettings(data as BudgetPlanSettings);
   }
 
   async function addPendingTransaction(event: FormEvent<HTMLFormElement>) {
@@ -2257,6 +2358,122 @@ export function LiveBankValues({
     setConfirmingDeleteId(transaction.id);
   }
 
+  const overviewTiles = [
+    {
+      id: "gross-assets",
+      content: (
+        <MetricCard
+          label="Gross assets"
+          value={formatCurrency(calculations.grossAssets)}
+          description="Cash and investment balances combined."
+        />
+      ),
+    },
+    {
+      id: "snapshot",
+      content: (
+        <MetricCard
+          label="Snapshot"
+          value={formatCurrency(snapshot?.change)}
+          icon={
+            snapshot?.is_highpoint ? (
+              <span
+                aria-label="Highpoint"
+                className="grid size-8 shrink-0 place-items-center rounded-full border border-gold/25 bg-gold/10 text-gold"
+                title="Highpoint"
+              >
+                <svg
+                  aria-hidden="true"
+                  className="size-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M8 4h8v3.5a4 4 0 0 1-8 0V4Zm0 2H5.5v1.5A3.5 3.5 0 0 0 9 11m7-5h2.5v1.5A3.5 3.5 0 0 1 15 11m-3 .5V16m-3 4h6m-5-4h4v4h-4v-4Z"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1.7"
+                  />
+                </svg>
+              </span>
+            ) : undefined
+          }
+          description={
+            <>
+              <span>
+                Since last highpoint:{" "}
+                {formatCurrency(
+                  -Math.abs(Number(snapshot?.loss_since_highpoint || 0)),
+                )}{" "}
+                ({(-Math.abs(
+                  Number(snapshot?.loss_since_highpoint_percentage || 0),
+                )).toFixed(2)}
+                %)
+              </span>
+            </>
+          }
+          negative={Number(snapshot?.change || 0) < 0}
+        />
+      ),
+    },
+    {
+      id: "net-assets",
+      content: (
+        <MetricCard
+          label="Net assets"
+          value={formatCurrency(calculations.netAssets)}
+          description="Gross assets after subtracting liabilities."
+          featured
+          negative={calculations.netAssets < 0}
+        />
+      ),
+    },
+    ...initialFinancialGoals
+      .filter((goal) => goal.is_pinned)
+      .map((goal) => ({
+        id: `goal-${goal.id}`,
+        content: (
+          <PinnedGoalCard
+            currentDate={currentDate}
+            goal={goal}
+            pendingCardTransactions={
+              creditCardTransactions.length
+                ? creditCardTransactions
+                : initialPendingCardTransactions
+            }
+            pendingTransactions={pendingTransactions}
+            projectedNextPaycheck={projectedNextPaycheck}
+            snapshot={snapshot}
+            transactions={creditCardTransactions}
+          />
+        ),
+      })),
+    ...initialFinancialGoals.flatMap((goal) =>
+      (goal.pinned_tracking_metrics || [])
+        .filter((metric) => (goal.tracking_metrics || []).includes(metric))
+        .map((metric) => ({
+          id: `goal-${goal.id}-tracking-${metric}`,
+          content: (
+            <PinnedGoalTrackingCard
+              currentDate={currentDate}
+              goal={goal}
+              metric={metric}
+              pendingCardTransactions={
+                creditCardTransactions.length
+                  ? creditCardTransactions
+                  : initialPendingCardTransactions
+              }
+              pendingTransactions={pendingTransactions}
+              projectedNextPaycheck={projectedNextPaycheck}
+              snapshot={snapshot}
+              transactions={creditCardTransactions}
+            />
+          ),
+        })),
+    ),
+  ];
+
   return (
     <section>
       {view === "overview" ? (
@@ -2326,110 +2543,11 @@ export function LiveBankValues({
             </div>
           ) : null}
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard
-              label="Total budget"
-              value={formatCurrency(budgetSettings.totalBudget)}
-              description="Budget allocated for the current pay cycle."
-            />
-            <MetricCard
-              label="Remaining budget"
-              value={formatCurrency(calculations.remainingBudget)}
-              description="Total budget less current card obligations."
-              featured
-              negative={calculations.remainingBudget < 0}
-            />
-            <MetricCard
-              label="Days until pay cycle"
-              value={`${payCycle.daysRemaining}`}
-              description={`Next payday: ${formatPayday(payCycle.nextPayday)}.`}
-            />
-            <MetricCard
-              label="Daily budget"
-              value={formatCurrency(calculations.dailyBudget)}
-              description="Remaining budget available per day."
-              featured
-              negative={calculations.dailyBudget < 0}
-            />
-            <MetricCard
-              label="Gross assets"
-              value={formatCurrency(calculations.grossAssets)}
-              description="Cash and investment balances combined."
-            />
-            <MetricCard
-              label="Credit card balance"
-              value={formatCurrency(calculations.creditCardBalance)}
-              description="Total balance across current credit-card accounts."
-              negative={calculations.creditCardBalance > 0}
-            />
-            <MetricCard
-              label="Snapshot"
-              value={formatCurrency(snapshot?.change)}
-              icon={
-                snapshot?.is_highpoint ? (
-                  <span
-                    aria-label="Highpoint"
-                    className="grid size-8 shrink-0 place-items-center rounded-full border border-gold/25 bg-gold/10 text-gold"
-                    title="Highpoint"
-                  >
-                    <svg
-                      aria-hidden="true"
-                      className="size-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        d="M8 4h8v3.5a4 4 0 0 1-8 0V4Zm0 2H5.5v1.5A3.5 3.5 0 0 0 9 11m7-5h2.5v1.5A3.5 3.5 0 0 1 15 11m-3 .5V16m-3 4h6m-5-4h4v4h-4v-4Z"
-                        stroke="currentColor"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="1.7"
-                      />
-                    </svg>
-                  </span>
-                ) : undefined
-              }
-              description={
-                <>
-                  <span>
-                    Since last highpoint:{" "}
-                    {formatCurrency(
-                      -Math.abs(Number(snapshot?.loss_since_highpoint || 0)),
-                    )}{" "}
-                    ({(-Math.abs(
-                      Number(snapshot?.loss_since_highpoint_percentage || 0),
-                    )).toFixed(2)}
-                    %)
-                  </span>
-                </>
-              }
-              negative={Number(snapshot?.change || 0) < 0}
-            />
-            <MetricCard
-              label="Net assets"
-              value={formatCurrency(calculations.netAssets)}
-              description="Gross assets after subtracting liabilities."
-              featured
-              negative={calculations.netAssets < 0}
-            />
-            {initialFinancialGoals
-              .filter((goal) => goal.is_pinned)
-              .map((goal) => (
-                <PinnedGoalCard
-                  currentDate={currentDate}
-                  goal={goal}
-                  key={goal.id}
-                  pendingCardTransactions={
-                    creditCardTransactions.length
-                      ? creditCardTransactions
-                      : initialPendingCardTransactions
-                  }
-                  pendingTransactions={pendingTransactions}
-                  snapshot={snapshot}
-                  transactions={creditCardTransactions}
-                />
-              ))}
-          </div>
+          <OverviewTileGrid
+            initialOrder={budgetPlanSettings.overview_tile_order || []}
+            items={overviewTiles}
+            onOrderChange={saveOverviewTileOrder}
+          />
         </div>
       ) : null}
 

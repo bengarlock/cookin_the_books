@@ -59,6 +59,8 @@ const goal: FinancialGoalInput = {
     "days_left_in_pay_cycle",
     "daily_spending_limit",
     "remaining_budget",
+    "total_budget",
+    "projected_savings",
   ],
   is_active: true,
 };
@@ -70,6 +72,7 @@ describe("evaluateFinancialGoal", () => {
       transactions: [transaction],
       snapshot,
       currentDate: new Date("2026-07-25T12:00:00"),
+      projectedNextPaycheck: 300,
     });
 
     expect(result.selectedAccountBalance).toBe(425);
@@ -84,6 +87,45 @@ describe("evaluateFinancialGoal", () => {
       { metric: "days_left_in_pay_cycle", value: 6 },
       { metric: "daily_spending_limit", value: 12.5 },
       { metric: "remaining_budget", value: 75 },
+      { metric: "total_budget", value: 200 },
+      { metric: "projected_savings", value: 100 },
+    ]);
+  });
+
+  it("sums the selected staging accounts for Current Balances", () => {
+    const result = evaluateFinancialGoal({
+      goal: {
+        ...goal,
+        scope_conditions: [
+          {
+            ...goal.scope_conditions[0],
+            value: ["4596", "0277"],
+          },
+        ],
+        success_conditions: [
+          {
+            id: "current-balances",
+            field: "current_balances",
+            operator: "equals",
+            value: "525",
+          },
+        ],
+      },
+      transactions: [transaction],
+      snapshot: {
+        ...snapshot,
+        chase_checking: "100.00",
+      },
+      currentDate: new Date("2026-07-25T12:00:00"),
+    });
+
+    expect(result.selectedAccountBalance).toBe(525);
+    expect(result.conditions).toEqual([
+      expect.objectContaining({
+        field: "current_balances",
+        actual: 525,
+        met: true,
+      }),
     ]);
   });
 
