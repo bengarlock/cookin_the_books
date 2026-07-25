@@ -213,6 +213,7 @@ export function evaluateFinancialGoal({
   pendingTransactions = [],
   pendingCardTransactions = transactions,
   currentDate = new Date(),
+  projectedNextPaycheck = null,
 }: {
   goal: FinancialGoalInput;
   transactions: CreditCardTransaction[];
@@ -220,6 +221,7 @@ export function evaluateFinancialGoal({
   pendingTransactions?: PendingTransaction[];
   pendingCardTransactions?: PendingCardTransaction[];
   currentDate?: Date;
+  projectedNextPaycheck?: number | null;
 }) {
   const scopeMatches = selectTransactions(
     transactions,
@@ -297,6 +299,10 @@ export function evaluateFinancialGoal({
     daily_spending_limit: dailySpendingLimit,
     remaining_budget: remainingBudget,
     total_budget: Number.isFinite(spendingBudget) ? spendingBudget : null,
+    projected_savings:
+      Number.isFinite(spendingBudget) && projectedNextPaycheck !== null
+        ? projectedNextPaycheck - spendingBudget
+        : null,
   };
   const trackingMetrics: EvaluatedGoalTrackingMetric[] =
     goal.tracking_metrics.map((metric) => ({

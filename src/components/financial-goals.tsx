@@ -23,6 +23,8 @@ import type {
   FinancialGoalInput,
   FinancialGoalTrackingMetric,
 } from "@/lib/financial-goal-types";
+import { classifyPaychecks } from "@/lib/projections";
+import { getNextPayCycle } from "@/lib/pay-cycle";
 import { conditionIsEmpty, selectTransactions } from "@/lib/transaction-selector";
 
 const money = new Intl.NumberFormat("en-US", {
@@ -93,6 +95,12 @@ const trackingOptions: {
     metric: "total_budget",
     label: "Total Budget",
     description: "Monitor the full spending target set for this goal.",
+  },
+  {
+    metric: "projected_savings",
+    label: "Projected Savings",
+    description:
+      "Compare the spending target with the next projected paycheck.",
   },
 ];
 
@@ -564,7 +572,11 @@ function trackingMetricValue(
   metric: FinancialGoalTrackingMetric,
   value: number | null,
 ) {
-  if (value === null) return "Needs a spending target and pay period";
+  if (value === null) {
+    return metric === "projected_savings"
+      ? "Needs a spending target and paycheck history"
+      : "Needs a spending target and pay period";
+  }
   if (metric === "days_left_in_pay_cycle") {
     return `${value} ${value === 1 ? "day" : "days"}`;
   }
@@ -577,7 +589,27 @@ export function FinancialGoals({
   initialGoals: FinancialGoal[];
 }) {
   const { snapshot } = useLiveSnapshot();
-  const { creditCardTransactions, pendingTransactions } = useBudgetData();
+  const {
+    budgetPlanSettings,
+    creditCardTransactions,
+    incomeEntries,
+    pendingTransactions,
+  } = useBudgetData();
+  const projectedNextPaycheck = useMemo(() => {
+    const currentDate = new Date();
+    const payCycle = getNextPayCycle(
+      currentDate,
+      budgetPlanSettings.next_payday_override,
+    );
+    const projection = classifyPaychecks(
+      incomeEntries,
+      currentDate,
+      payCycle.nextPayday,
+    );
+    return projection.normalPaychecks.length
+      ? projection.predictedNetPay
+      : null;
+  }, [budgetPlanSettings.next_payday_override, incomeEntries]);
   const [goals, setGoals] = useState(initialGoals);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<FinancialGoalInput>(emptyGoal);
@@ -853,6 +885,7 @@ export function FinancialGoals({
           const evaluation = evaluateFinancialGoal({
             goal: normalized,
             pendingTransactions,
+            projectedNextPaycheck,
             transactions: creditCardTransactions,
             snapshot,
           });

@@ -33,7 +33,9 @@ import type {
   FinancialGoal,
   FinancialGoalTrackingMetric,
 } from "@/lib/financial-goal-types";
+import type { IncomeEntry } from "@/lib/income-entry-types";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
+import { classifyPaychecks } from "@/lib/projections";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import { AmazonOrderDetails } from "@/components/amazon-order-details";
@@ -407,6 +409,7 @@ const goalTrackingLabels: Record<FinancialGoalTrackingMetric, string> = {
   daily_spending_limit: "Daily spending limit",
   remaining_budget: "Remaining budget",
   total_budget: "Total Budget",
+  projected_savings: "Projected Savings",
 };
 
 const compactGoalTrackingLabels: Record<FinancialGoalTrackingMetric, string> = {
@@ -414,6 +417,7 @@ const compactGoalTrackingLabels: Record<FinancialGoalTrackingMetric, string> = {
   daily_spending_limit: "Daily limit",
   remaining_budget: "Remaining",
   total_budget: "Total budget",
+  projected_savings: "Projected savings",
 };
 
 function formatGoalTrackingValue(
@@ -432,6 +436,7 @@ function PinnedGoalCard({
   goal,
   pendingCardTransactions,
   pendingTransactions,
+  projectedNextPaycheck,
   snapshot,
   transactions,
 }: {
@@ -439,6 +444,7 @@ function PinnedGoalCard({
   goal: FinancialGoal;
   pendingCardTransactions: PendingCardTransaction[];
   pendingTransactions: PendingTransaction[];
+  projectedNextPaycheck: number | null;
   snapshot: BankValueSnapshot | null;
   transactions: CreditCardTransaction[];
 }) {
@@ -446,6 +452,7 @@ function PinnedGoalCard({
     goal: normalizeFinancialGoal(goal),
     pendingCardTransactions,
     pendingTransactions,
+    projectedNextPaycheck,
     transactions,
     snapshot,
     currentDate,
@@ -561,6 +568,7 @@ function PinnedGoalTrackingCard({
   metric,
   pendingCardTransactions,
   pendingTransactions,
+  projectedNextPaycheck,
   snapshot,
   transactions,
 }: {
@@ -569,6 +577,7 @@ function PinnedGoalTrackingCard({
   metric: FinancialGoalTrackingMetric;
   pendingCardTransactions: PendingCardTransaction[];
   pendingTransactions: PendingTransaction[];
+  projectedNextPaycheck: number | null;
   snapshot: BankValueSnapshot | null;
   transactions: CreditCardTransaction[];
 }) {
@@ -576,6 +585,7 @@ function PinnedGoalTrackingCard({
     goal: normalizeFinancialGoal(goal),
     pendingCardTransactions,
     pendingTransactions,
+    projectedNextPaycheck,
     transactions,
     snapshot,
     currentDate,
@@ -1736,6 +1746,7 @@ export function LiveBankValues({
   initialBudgetPlanSettings,
   initialCreditCardTransactions = [],
   initialFinancialGoals = [],
+  initialIncomeEntries = [],
   initialPendingCardTransactions = [],
   initialExpenseCategories = [],
   initialExpenseTags = [],
@@ -1745,6 +1756,7 @@ export function LiveBankValues({
   initialBudgetPlanSettings?: BudgetPlanSettings;
   initialCreditCardTransactions?: CreditCardTransaction[];
   initialFinancialGoals?: FinancialGoal[];
+  initialIncomeEntries?: IncomeEntry[];
   initialPendingCardTransactions?: PendingCardTransaction[];
   initialExpenseCategories?: ExpenseCategory[];
   initialExpenseTags?: ExpenseTag[];
@@ -1756,6 +1768,7 @@ export function LiveBankValues({
   const creditCardTransactions =
     budgetData?.creditCardTransactions ?? initialCreditCardTransactions;
   const expenseCategories = budgetData?.expenseCategories ?? initialExpenseCategories;
+  const incomeEntries = budgetData?.incomeEntries ?? initialIncomeEntries;
   const [localPendingTransactions, setLocalPendingTransactions] = useState(
     initialPendingTransactions ?? [],
   );
@@ -1822,6 +1835,17 @@ export function LiveBankValues({
     currentDate,
     budgetPlanSettings.next_payday_override,
   );
+  const nextPaydayTimestamp = payCycle.nextPayday.getTime();
+  const projectedNextPaycheck = useMemo(() => {
+    const projection = classifyPaychecks(
+      incomeEntries,
+      currentDate,
+      new Date(nextPaydayTimestamp),
+    );
+    return projection.normalPaychecks.length
+      ? projection.predictedNetPay
+      : null;
+  }, [currentDate, incomeEntries, nextPaydayTimestamp]);
 
   useEffect(() => {
     const refreshDate = window.setInterval(
@@ -2419,6 +2443,7 @@ export function LiveBankValues({
                 : initialPendingCardTransactions
             }
             pendingTransactions={pendingTransactions}
+            projectedNextPaycheck={projectedNextPaycheck}
             snapshot={snapshot}
             transactions={creditCardTransactions}
           />
@@ -2440,6 +2465,7 @@ export function LiveBankValues({
                   : initialPendingCardTransactions
               }
               pendingTransactions={pendingTransactions}
+              projectedNextPaycheck={projectedNextPaycheck}
               snapshot={snapshot}
               transactions={creditCardTransactions}
             />

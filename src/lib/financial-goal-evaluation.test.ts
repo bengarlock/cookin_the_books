@@ -60,6 +60,7 @@ const goal: FinancialGoalInput = {
     "daily_spending_limit",
     "remaining_budget",
     "total_budget",
+    "projected_savings",
   ],
   is_active: true,
 };
@@ -71,6 +72,7 @@ describe("evaluateFinancialGoal", () => {
       transactions: [transaction],
       snapshot,
       currentDate: new Date("2026-07-25T12:00:00"),
+      projectedNextPaycheck: 300,
     });
 
     expect(result.selectedAccountBalance).toBe(425);
@@ -86,6 +88,7 @@ describe("evaluateFinancialGoal", () => {
       { metric: "daily_spending_limit", value: 12.5 },
       { metric: "remaining_budget", value: 75 },
       { metric: "total_budget", value: 200 },
+      { metric: "projected_savings", value: 100 },
     ]);
   });
 
