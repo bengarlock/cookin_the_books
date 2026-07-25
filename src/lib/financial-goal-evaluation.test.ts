@@ -101,6 +101,7 @@ describe("normalizeFinancialGoal", () => {
       pay_cycle_start: null,
       pay_cycle_end: null,
       is_active: true,
+      is_pinned: false,
       created_at: "",
       updated_at: "",
     } satisfies FinancialGoal;

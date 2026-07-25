@@ -468,6 +468,7 @@ export function FinancialGoals({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<FinancialGoalInput>(emptyGoal);
   const [saving, setSaving] = useState(false);
+  const [pinningId, setPinningId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const accountLabels = useMemo(
     () =>
@@ -542,6 +543,35 @@ export function FinancialGoals({
     }
   }
 
+  async function togglePinned(goal: FinancialGoal) {
+    setPinningId(goal.id);
+    setError("");
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/financial-goals/${goal.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_pinned: !goal.is_pinned }),
+        },
+      );
+      if (!response.ok) {
+        setError(await responseMessage(response));
+        return;
+      }
+      const updatedGoal = (await response.json()) as FinancialGoal;
+      setGoals((current) =>
+        current.map((item) =>
+          item.id === updatedGoal.id ? updatedGoal : item,
+        ),
+      );
+    } catch {
+      setError("The financial goal service is currently unavailable.");
+    } finally {
+      setPinningId(null);
+    }
+  }
+
   return (
     <div className="space-y-6 pt-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -572,6 +602,15 @@ export function FinancialGoals({
           </button>
         ) : null}
       </div>
+
+      {error && !creating && editingId === null ? (
+        <p
+          className="rounded-xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200"
+          role="alert"
+        >
+          {error}
+        </p>
+      ) : null}
 
       {creating ? (
         <form className="surface rounded-2xl p-5 sm:p-6" onSubmit={createGoal}>
@@ -699,13 +738,51 @@ export function FinancialGoals({
                     ))}
                   </div>
                 </div>
-                <button
-                  className="rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold text-white/70 hover:border-accent/30 hover:text-accent"
-                  onClick={() => beginEdit(goal)}
-                  type="button"
-                >
-                  Edit
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    aria-pressed={goal.is_pinned}
+                    className={`inline-flex min-w-24 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-wait disabled:opacity-50 ${
+                      goal.is_pinned
+                        ? "border-gold/30 bg-gold/10 text-gold"
+                        : "border-white/10 text-white/70 hover:border-gold/25 hover:text-gold"
+                    }`}
+                    disabled={pinningId === goal.id}
+                    onClick={() => void togglePinned(goal)}
+                    title={
+                      goal.is_pinned
+                        ? "Remove from Overview"
+                        : "Pin to Overview"
+                    }
+                    type="button"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      className="size-4"
+                      fill={goal.is_pinned ? "currentColor" : "none"}
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="m8 4 8 0-1 5 3 3v1H6v-1l3-3-1-5Zm4 9v7"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.7"
+                      />
+                    </svg>
+                    {pinningId === goal.id
+                      ? "Saving…"
+                      : goal.is_pinned
+                        ? "Pinned"
+                        : "Pin"}
+                  </button>
+                  <button
+                    className="rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold text-white/70 hover:border-accent/30 hover:text-accent"
+                    onClick={() => beginEdit(goal)}
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                </div>
               </div>
               <div className="grid gap-px bg-white/10 sm:grid-cols-2 xl:grid-cols-3">
                 {evaluation.conditions.map((condition) => (
