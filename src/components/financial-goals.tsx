@@ -37,6 +37,7 @@ const date = new Intl.DateTimeFormat("en-US", {
 
 const goalFields = [
   { field: "account_balance", label: "Account balance" },
+  { field: "current_balances", label: "Current Balances" },
   { field: "spending", label: "Spending" },
   { field: "spending_period", label: "Spending period" },
 ] as const;
@@ -63,6 +64,7 @@ const operatorLabels: Record<FinancialGoalCondition["operator"], string> = {
 
 const fieldLabels: Record<FinancialGoalCondition["field"], string> = {
   account_balance: "Account balance",
+  current_balances: "Current Balances",
   spending: "Spending",
   spending_period: "Spending period",
 };

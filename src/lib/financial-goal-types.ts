@@ -3,7 +3,11 @@ import type { ExpenseAutomationCondition } from "./expense-automation-rule-types
 export type FinancialGoalCondition = {
   id: string;
   logic_operator?: "and" | "or";
-  field: "account_balance" | "spending" | "spending_period";
+  field:
+    | "account_balance"
+    | "current_balances"
+    | "spending"
+    | "spending_period";
   operator:
     | "equals"
     | "not_equals"

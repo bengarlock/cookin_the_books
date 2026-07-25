@@ -87,6 +87,43 @@ describe("evaluateFinancialGoal", () => {
     ]);
   });
 
+  it("sums the selected staging accounts for Current Balances", () => {
+    const result = evaluateFinancialGoal({
+      goal: {
+        ...goal,
+        scope_conditions: [
+          {
+            ...goal.scope_conditions[0],
+            value: ["4596", "0277"],
+          },
+        ],
+        success_conditions: [
+          {
+            id: "current-balances",
+            field: "current_balances",
+            operator: "equals",
+            value: "525",
+          },
+        ],
+      },
+      transactions: [transaction],
+      snapshot: {
+        ...snapshot,
+        chase_checking: "100.00",
+      },
+      currentDate: new Date("2026-07-25T12:00:00"),
+    });
+
+    expect(result.selectedAccountBalance).toBe(525);
+    expect(result.conditions).toEqual([
+      expect.objectContaining({
+        field: "current_balances",
+        actual: 525,
+        met: true,
+      }),
+    ]);
+  });
+
   it("keeps transactions outside a fixed success period out of spending", () => {
     const result = evaluateFinancialGoal({
       goal,

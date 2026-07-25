@@ -257,7 +257,11 @@ export function evaluateFinancialGoal({
           periodEnd: range?.end,
         };
       }
-      const actual = condition.field === "account_balance" ? balance : spending;
+      const actual =
+        condition.field === "account_balance" ||
+        condition.field === "current_balances"
+          ? balance
+          : spending;
       return {
         ...condition,
         actual,
