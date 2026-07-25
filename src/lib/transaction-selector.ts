@@ -33,6 +33,15 @@ export function transactionMatchesCondition(
     return condition.operator === "not_equals" ? !matches : matches;
   }
 
+  if (condition.field === "transaction_status") {
+    const target = Array.isArray(condition.value)
+      ? condition.value[0]
+      : condition.value;
+    const status = transaction.pending ? "pending" : "posted";
+    const matches = target === "both" || target === status;
+    return condition.operator === "not_equals" ? !matches : matches;
+  }
+
   const fieldValue = condition.field === "description" ? transaction.description
     : condition.field === "issuer" ? transaction.issuer
       : condition.field === "transaction_type" ? transaction.transaction_type

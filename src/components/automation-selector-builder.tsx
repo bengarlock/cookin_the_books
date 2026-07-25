@@ -73,6 +73,11 @@ const selectors = [
     label: "Transaction type",
     operators: ["equals", "not_equals"],
   },
+  {
+    field: "transaction_status",
+    label: "Transaction status",
+    operators: ["equals"],
+  },
 ] as const;
 
 const operatorLabels: Record<string, string> = {
@@ -358,6 +363,26 @@ export function PayPeriodSelector({
   );
 }
 
+function TransactionStatusSelector({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <select
+      className="rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-sm text-white"
+      onChange={(event) => onChange(event.target.value)}
+      value={value || "both"}
+    >
+      <option value="posted">Posted only</option>
+      <option value="pending">Pending only</option>
+      <option value="both">Posted + pending</option>
+    </select>
+  );
+}
+
 export function AutomationSelectorBuilder({
   conditions,
   logic,
@@ -366,6 +391,7 @@ export function AutomationSelectorBuilder({
   tags,
   matches,
   onChange,
+  includeTransactionStatus = false,
 }: {
   conditions: ExpenseAutomationCondition[];
   logic: "and" | "or";
@@ -374,6 +400,7 @@ export function AutomationSelectorBuilder({
   tags: string[];
   matches: CreditCardTransaction[];
   onChange: (conditions: ExpenseAutomationCondition[]) => void;
+  includeTransactionStatus?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"selectors" | "matches">("selectors");
@@ -384,9 +411,12 @@ export function AutomationSelectorBuilder({
     currentPage * pageSize,
     (currentPage + 1) * pageSize,
   );
+  const availableSelectors = includeTransactionStatus
+    ? selectors
+    : selectors.filter((selector) => selector.field !== "transaction_status");
 
   function addSelector(field: ExpenseAutomationCondition["field"]) {
-    const selector = selectors.find((item) => item.field === field)!;
+    const selector = availableSelectors.find((item) => item.field === field)!;
     onChange([
       ...conditions,
       {
@@ -398,6 +428,8 @@ export function AutomationSelectorBuilder({
             ? []
             : field === "pay_period"
               ? "current"
+              : field === "transaction_status"
+                ? "both"
               : "",
         logic_operator: conditions.length ? logic : undefined,
       },
@@ -422,7 +454,7 @@ export function AutomationSelectorBuilder({
           const field = event.dataTransfer.getData(
             "text/plain",
           ) as ExpenseAutomationCondition["field"];
-          if (selectors.some((item) => item.field === field))
+          if (availableSelectors.some((item) => item.field === field))
             addSelector(field);
         }}
       >
@@ -551,7 +583,18 @@ export function AutomationSelectorBuilder({
                           value={
                             Array.isArray(condition.value)
                               ? condition.value[0] || "current"
-                              : condition.value || "current"
+                            : condition.value || "current"
+                          }
+                        />
+                      ) : condition.field === "transaction_status" ? (
+                        <TransactionStatusSelector
+                          onChange={(value) =>
+                            update(condition.id, { value })
+                          }
+                          value={
+                            Array.isArray(condition.value)
+                              ? condition.value[0] || "both"
+                              : condition.value || "both"
                           }
                         />
                       ) : (
@@ -686,7 +729,7 @@ export function AutomationSelectorBuilder({
           value={search}
         />
         <div className="mt-3 space-y-1">
-          {selectors
+          {availableSelectors
             .filter((item) =>
               item.label.toLowerCase().includes(search.toLowerCase()),
             )

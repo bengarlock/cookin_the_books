@@ -13,6 +13,8 @@ export const liabilityAccountKeys = new Set<SnapshotAccountKey>([
   "barclays_card",
 ]);
 
+export type TransactionStatusMode = "posted" | "pending" | "both";
+
 function snapshotValue(
   snapshot: BankValueSnapshot | null,
   key: SnapshotAccountKey,
@@ -72,15 +74,22 @@ export function calculateAdjustedAccountBalances({
     );
   }
 
+  const postedValue = (key: SnapshotAccountKey) =>
+    snapshotValue(snapshot, key);
+
+  const pendingValue = (key: SnapshotAccountKey) =>
+    (liabilityAccountKeys.has(key)
+      ? liabilityPendingByAccount
+      : pendingByAccount
+    ).get(key) || 0;
+
   const adjustedValue = (key: SnapshotAccountKey) => {
     const isLiability = liabilityAccountKeys.has(key);
     const posted =
       isLiability && settledAccounts.has(key)
         ? 0
-        : snapshotValue(snapshot, key);
-    const pending =
-      (isLiability ? liabilityPendingByAccount : pendingByAccount).get(key) ||
-      0;
+        : postedValue(key);
+    const pending = pendingValue(key);
     return isLiability ? posted + pending : posted - pending;
   };
 
@@ -88,6 +97,8 @@ export function calculateAdjustedAccountBalances({
     adjustedValue,
     liabilityPendingByAccount,
     pendingByAccount,
+    pendingValue,
+    postedValue,
     settledAccounts,
   };
 }

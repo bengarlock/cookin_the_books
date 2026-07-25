@@ -1,4 +1,7 @@
-import { calculateAdjustedAccountBalances } from "./adjusted-account-balances";
+import {
+  calculateAdjustedAccountBalances,
+  type TransactionStatusMode,
+} from "./adjusted-account-balances";
 import { transactionAccountFilters } from "./account-transaction-filters";
 import type {
   CreditCardTransaction,
@@ -143,12 +146,33 @@ function accountBalance(
   pendingTransactions: PendingTransaction[],
   pendingCardTransactions: PendingCardTransaction[],
 ) {
-  const { adjustedValue } = calculateAdjustedAccountBalances({
+  const { adjustedValue, pendingValue, postedValue } =
+    calculateAdjustedAccountBalances({
     snapshot,
     pendingTransactions,
     pendingCardTransactions,
   });
+  const statusCondition = goal.scope_conditions.find(
+    (condition) => condition.field === "transaction_status",
+  );
+  const rawStatus = statusCondition
+    ? Array.isArray(statusCondition.value)
+      ? statusCondition.value[0]
+      : statusCondition.value
+    : "both";
+  const status: TransactionStatusMode =
+    rawStatus === "posted" || rawStatus === "pending" ? rawStatus : "both";
+
   return selectedAccountKeys(goal, snapshot).reduce((total, key) => {
+    if (status === "posted") {
+      return key === "citi_pending" ? total : total + postedValue(key);
+    }
+    if (status === "pending") {
+      return (
+        total +
+        (key === "citi_pending" ? postedValue(key) : pendingValue(key))
+      );
+    }
     return total + adjustedValue(key);
   }, 0);
 }

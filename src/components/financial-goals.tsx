@@ -385,6 +385,7 @@ function GoalFields({
           accounts={accounts}
           conditions={value.scope_conditions}
           descriptions={descriptions}
+          includeTransactionStatus
           logic="and"
           matches={preview}
           onChange={(scope_conditions) =>
@@ -442,6 +443,13 @@ function scopeSummary(
     }
     if (condition.field === "pay_period") {
       return values[0] === "current" ? "Current Pay Period" : "Fixed pay period";
+    }
+    if (condition.field === "transaction_status") {
+      return values[0] === "posted"
+        ? "Posted only"
+        : values[0] === "pending"
+          ? "Pending only"
+          : "Posted + pending";
     }
     const label = condition.field.replaceAll("_", " ");
     return `${label}: ${values.join(", ")}`;

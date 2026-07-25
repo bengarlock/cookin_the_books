@@ -26,6 +26,8 @@ describe("calculateAdjustedAccountBalances", () => {
       ],
     });
 
+    expect(result.postedValue("citi_current")).toBeCloseTo(664.56, 2);
+    expect(result.pendingValue("citi_current")).toBeCloseTo(101.25, 2);
     expect(result.adjustedValue("citi_current")).toBeCloseTo(765.81, 2);
   });
 });

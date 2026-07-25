@@ -91,25 +91,53 @@ describe("evaluateFinancialGoal", () => {
   });
 
   it("uses the adjusted balance when a selected card has pending charges", () => {
-    const result = evaluateFinancialGoal({
-      goal,
-      transactions: [transaction],
-      pendingCardTransactions: [
-        {
-          ...transaction,
-          amount: "101.25",
-          pending: true,
-        },
-      ],
-      snapshot: {
-        ...snapshot,
-        citi_current: "664.56",
-        citi_pending: "0.00",
+    const pendingCardTransactions = [
+      {
+        ...transaction,
+        amount: "101.25",
+        pending: true,
       },
-    });
+    ];
+    const balanceSnapshot = {
+      ...snapshot,
+      citi_current: "664.56",
+      citi_pending: "0.00",
+    };
+    const evaluateStatus = (status?: "posted" | "pending" | "both") =>
+      evaluateFinancialGoal({
+        goal: status
+          ? {
+              ...goal,
+              scope_conditions: [
+                ...goal.scope_conditions,
+                {
+                  id: "status",
+                  field: "transaction_status",
+                  operator: "equals",
+                  value: status,
+                  logic_operator: "and",
+                },
+              ],
+            }
+          : goal,
+        transactions: [transaction],
+        pendingCardTransactions,
+        snapshot: balanceSnapshot,
+      });
 
-    expect(result.selectedAccountBalance).toBeCloseTo(765.81, 2);
-    expect(result.conditions[0].actual).toBeCloseTo(765.81, 2);
+    expect(evaluateStatus("posted").selectedAccountBalance).toBeCloseTo(
+      664.56,
+      2,
+    );
+    expect(evaluateStatus("pending").selectedAccountBalance).toBeCloseTo(
+      101.25,
+      2,
+    );
+    expect(evaluateStatus("both").selectedAccountBalance).toBeCloseTo(
+      765.81,
+      2,
+    );
+    expect(evaluateStatus().selectedAccountBalance).toBeCloseTo(765.81, 2);
   });
 });
 
