@@ -584,7 +584,7 @@ function PinnedGoalTrackingCard({
 
   return (
     <Link
-      className="dashboard-tile overview-metric-card group block h-full w-full overflow-hidden rounded-2xl border border-sky-300/20 bg-sky-400/[0.07] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] transition-colors hover:border-sky-300/35"
+      className="dashboard-tile overview-metric-card group flex h-full w-full flex-col overflow-hidden rounded-2xl border border-sky-300/20 bg-sky-400/[0.07] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] transition-colors hover:border-sky-300/35"
       href="/dashboard/budget/goals"
     >
       <div className="flex items-start justify-between gap-3">
@@ -593,7 +593,7 @@ function PinnedGoalTrackingCard({
             Goal tracking
           </p>
           <h3 className="mt-1 truncate text-sm font-semibold text-white">
-            {goal.name}
+            {goalTrackingLabels[metric]}
           </h3>
         </div>
         <span
@@ -620,8 +620,8 @@ function PinnedGoalTrackingCard({
       <p className="dashboard-tile-value overview-metric-value mt-4 font-mono text-2xl font-semibold tracking-tight text-sky-200 sm:text-3xl">
         {formatGoalTrackingValue(metric, trackingMetric?.value ?? null)}
       </p>
-      <p className="dashboard-tile-description overview-metric-description mt-2 text-xs leading-5 text-muted">
-        {goalTrackingLabels[metric]}
+      <p className="dashboard-tile-description overview-metric-description mt-auto truncate pt-3 text-xs leading-5 text-muted">
+        {goal.name}
       </p>
     </Link>
   );
