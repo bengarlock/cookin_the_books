@@ -32,6 +32,7 @@ export type FinancialGoal = {
   scope_conditions?: ExpenseAutomationCondition[];
   success_conditions?: FinancialGoalCondition[];
   tracking_metrics?: FinancialGoalTrackingMetric[];
+  pinned_tracking_metrics?: FinancialGoalTrackingMetric[];
   is_active: boolean;
   is_pinned: boolean;
   created_at: string;
