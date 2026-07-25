@@ -335,7 +335,7 @@ function ExistingValueSelector({
   );
 }
 
-function PayPeriodSelector({
+export function PayPeriodSelector({
   value,
   onChange,
 }: {
