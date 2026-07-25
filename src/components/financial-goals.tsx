@@ -462,7 +462,7 @@ export function FinancialGoals({
   initialGoals: FinancialGoal[];
 }) {
   const { snapshot } = useLiveSnapshot();
-  const { creditCardTransactions } = useBudgetData();
+  const { creditCardTransactions, pendingTransactions } = useBudgetData();
   const [goals, setGoals] = useState(initialGoals);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<FinancialGoalInput>(emptyGoal);
@@ -694,6 +694,7 @@ export function FinancialGoals({
           const normalized = normalizeFinancialGoal(goal);
           const evaluation = evaluateFinancialGoal({
             goal: normalized,
+            pendingTransactions,
             transactions: creditCardTransactions,
             snapshot,
           });

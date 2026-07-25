@@ -17,10 +17,10 @@ import {
   manualPendingTransactionDisplayAmount,
 } from "@/lib/account-transaction-display";
 import {
-  importedPendingLiabilityTotals,
   transactionAccountFilters,
   transactionsForAccount,
 } from "@/lib/account-transaction-filters";
+import { calculateAdjustedAccountBalances } from "@/lib/adjusted-account-balances";
 import { APP_BASE_PATH } from "@/lib/config";
 import type { CreditCardTransaction, ExpenseTag, PendingCardTransaction, SuggestedRelatedTransaction } from "@/lib/credit-card-transaction-types";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
@@ -195,10 +195,6 @@ function valueFromSnapshot(
   if (!snapshot) return 0;
   const value = Number(snapshot[key]);
   return Number.isFinite(value) ? value : 0;
-}
-
-function isPendingPayment(transaction: PendingTransaction) {
-  return transaction.settled_accounts.length > 0;
 }
 
 function nextBusinessDayString() {
@@ -425,16 +421,22 @@ const goalOperatorLabels: Record<FinancialGoalCondition["operator"], string> = {
 function PinnedGoalCard({
   currentDate,
   goal,
+  pendingCardTransactions,
+  pendingTransactions,
   snapshot,
   transactions,
 }: {
   currentDate: Date;
   goal: FinancialGoal;
+  pendingCardTransactions: PendingCardTransaction[];
+  pendingTransactions: PendingTransaction[];
   snapshot: BankValueSnapshot | null;
   transactions: CreditCardTransaction[];
 }) {
   const evaluation = evaluateFinancialGoal({
     goal: normalizeFinancialGoal(goal),
+    pendingCardTransactions,
+    pendingTransactions,
     transactions,
     snapshot,
     currentDate,
@@ -1732,47 +1734,18 @@ export function LiveBankValues({
   }, []);
 
   const calculations = useMemo(() => {
-    const pendingByAccount = new Map<SnapshotAccountKey, number>();
-    const liabilityPendingByAccount = new Map<SnapshotAccountKey, number>();
-    const settledAccounts = new Set<SnapshotAccountKey>();
-    for (const transaction of pendingTransactions) {
-      if (transaction.is_cleared || transaction.match_status === "matched_pending") continue;
-      for (const account of transaction.settled_accounts || []) {
-        settledAccounts.add(account);
-      }
-      pendingByAccount.set(
-        transaction.account,
-        (pendingByAccount.get(transaction.account) || 0) +
-          Number(transaction.amount),
-      );
-      if (!isPendingPayment(transaction)) {
-        liabilityPendingByAccount.set(
-          transaction.account,
-          (liabilityPendingByAccount.get(transaction.account) || 0) +
-            Number(transaction.amount),
-        );
-      }
-    }
-    const importedPendingTotals = importedPendingLiabilityTotals({
-      summaryTransactions: initialPendingCardTransactions,
-      loadedTransactions: view === "overview" ? undefined : accountTransactions,
+    const {
+      adjustedValue,
+      liabilityPendingByAccount,
+      pendingByAccount,
+      settledAccounts,
+    } = calculateAdjustedAccountBalances({
+      snapshot,
+      pendingTransactions,
+      pendingCardTransactions: initialPendingCardTransactions,
+      loadedCardTransactions:
+        view === "overview" ? undefined : accountTransactions,
     });
-    for (const [accountKey, amount] of importedPendingTotals) {
-      if (!liabilityAccounts.has(accountKey)) continue;
-      liabilityPendingByAccount.set(
-        accountKey,
-        (liabilityPendingByAccount.get(accountKey) || 0) + amount,
-      );
-    }
-
-    const adjustedValue = (key: SnapshotAccountKey) => {
-      const isLiability = liabilityAccounts.has(key);
-      const posted =
-        isLiability && settledAccounts.has(key) ? 0 : valueFromSnapshot(snapshot, key);
-      const pending =
-        (isLiability ? liabilityPendingByAccount : pendingByAccount).get(key) || 0;
-      return isLiability ? posted + pending : posted - pending;
-    };
 
     const chaseChecking = adjustedValue("chase_checking");
     const chaseSavings = adjustedValue("chase_savings");
@@ -2399,6 +2372,12 @@ export function LiveBankValues({
                   currentDate={currentDate}
                   goal={goal}
                   key={goal.id}
+                  pendingCardTransactions={
+                    creditCardTransactions.length
+                      ? creditCardTransactions
+                      : initialPendingCardTransactions
+                  }
+                  pendingTransactions={pendingTransactions}
                   snapshot={snapshot}
                   transactions={creditCardTransactions}
                 />

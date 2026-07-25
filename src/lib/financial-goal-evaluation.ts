@@ -1,11 +1,16 @@
+import { calculateAdjustedAccountBalances } from "./adjusted-account-balances";
 import { transactionAccountFilters } from "./account-transaction-filters";
-import type { CreditCardTransaction } from "./credit-card-transaction-types";
+import type {
+  CreditCardTransaction,
+  PendingCardTransaction,
+} from "./credit-card-transaction-types";
 import type {
   FinancialGoal,
   FinancialGoalCondition,
   FinancialGoalInput,
 } from "./financial-goal-types";
 import { getCurrentPayPeriod, localPaydayString } from "./pay-cycle";
+import type { PendingTransaction } from "./pending-transaction-types";
 import type { BankValueSnapshot, SnapshotAccountKey } from "./snapshot-types";
 import { selectTransactions } from "./transaction-selector";
 
@@ -135,11 +140,16 @@ function selectedAccountKeys(
 function accountBalance(
   goal: FinancialGoalInput,
   snapshot: BankValueSnapshot | null,
+  pendingTransactions: PendingTransaction[],
+  pendingCardTransactions: PendingCardTransaction[],
 ) {
-  if (!snapshot) return 0;
+  const { adjustedValue } = calculateAdjustedAccountBalances({
+    snapshot,
+    pendingTransactions,
+    pendingCardTransactions,
+  });
   return selectedAccountKeys(goal, snapshot).reduce((total, key) => {
-    const value = Number(snapshot[key]);
-    return total + (Number.isFinite(value) ? value : 0);
+    return total + adjustedValue(key);
   }, 0);
 }
 
@@ -147,11 +157,15 @@ export function evaluateFinancialGoal({
   goal,
   transactions,
   snapshot,
+  pendingTransactions = [],
+  pendingCardTransactions = transactions,
   currentDate = new Date(),
 }: {
   goal: FinancialGoalInput;
   transactions: CreditCardTransaction[];
   snapshot: BankValueSnapshot | null;
+  pendingTransactions?: PendingTransaction[];
+  pendingCardTransactions?: PendingCardTransaction[];
   currentDate?: Date;
 }) {
   const scopeMatches = selectTransactions(
@@ -177,7 +191,12 @@ export function evaluateFinancialGoal({
     (total, transaction) => total + Math.abs(Number(transaction.amount) || 0),
     0,
   );
-  const balance = accountBalance(goal, snapshot);
+  const balance = accountBalance(
+    goal,
+    snapshot,
+    pendingTransactions,
+    pendingCardTransactions,
+  );
 
   const conditions: EvaluatedGoalCondition[] = goal.success_conditions.map(
     (condition) => {
@@ -214,4 +233,3 @@ export function evaluateFinancialGoal({
     spending,
   };
 }
-

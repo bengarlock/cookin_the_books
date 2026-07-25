@@ -13,6 +13,7 @@ const transaction = {
   amount: "125.00",
   transaction_date: "2026-07-20",
   transaction_type: "purchase",
+  pending: false,
   tags: [],
 } as CreditCardTransaction;
 
@@ -87,6 +88,28 @@ describe("evaluateFinancialGoal", () => {
     });
 
     expect(result.spending).toBe(125);
+  });
+
+  it("uses the adjusted balance when a selected card has pending charges", () => {
+    const result = evaluateFinancialGoal({
+      goal,
+      transactions: [transaction],
+      pendingCardTransactions: [
+        {
+          ...transaction,
+          amount: "101.25",
+          pending: true,
+        },
+      ],
+      snapshot: {
+        ...snapshot,
+        citi_current: "664.56",
+        citi_pending: "0.00",
+      },
+    });
+
+    expect(result.selectedAccountBalance).toBeCloseTo(765.81, 2);
+    expect(result.conditions[0].actual).toBeCloseTo(765.81, 2);
   });
 });
 
