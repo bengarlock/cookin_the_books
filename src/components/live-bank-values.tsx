@@ -31,7 +31,6 @@ import {
 } from "@/lib/financial-goal-evaluation";
 import type {
   FinancialGoal,
-  FinancialGoalCondition,
   FinancialGoalTrackingMetric,
 } from "@/lib/financial-goal-types";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
@@ -403,27 +402,16 @@ function MetricCard({
   );
 }
 
-const goalConditionLabels: Record<FinancialGoalCondition["field"], string> = {
-  account_balance: "Account balance",
-  spending: "Spending",
-  spending_period: "Spending period",
-};
-
-const goalOperatorLabels: Record<FinancialGoalCondition["operator"], string> = {
-  equals: "equals",
-  not_equals: "does not equal",
-  greater_than: "is greater than",
-  greater_than_or_equal: "is at least",
-  less_than: "is less than",
-  less_than_or_equal: "is at most",
-  within: "is within",
-  not_within: "is not within",
-};
-
 const goalTrackingLabels: Record<FinancialGoalTrackingMetric, string> = {
   days_left_in_pay_cycle: "Days left in pay cycle",
   daily_spending_limit: "Daily spending limit",
   remaining_budget: "Remaining budget",
+};
+
+const compactGoalTrackingLabels: Record<FinancialGoalTrackingMetric, string> = {
+  days_left_in_pay_cycle: "Days",
+  daily_spending_limit: "Daily limit",
+  remaining_budget: "Remaining",
 };
 
 function formatGoalTrackingValue(
@@ -472,17 +460,10 @@ function PinnedGoalCard({
     : evaluation.met
       ? "Conditions met"
       : "In progress";
-  const target = evaluation.trackingMetrics.length
-    ? `Monitoring ${evaluation.trackingMetrics
-        .map((item) => goalTrackingLabels[item.metric].toLowerCase())
-        .join(", ")}.`
-    : measurableCondition
-    ? `${goalConditionLabels[measurableCondition.field]} ${goalOperatorLabels[measurableCondition.operator]} ${formatCurrency(Number(measurableCondition.value))}.`
-    : "Tracking the selected spending period.";
 
   return (
     <Link
-      className={`dashboard-tile overview-metric-card group rounded-2xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] transition hover:-translate-y-0.5 hover:border-gold/30 ${
+      className={`dashboard-tile overview-metric-card group overflow-hidden rounded-2xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] transition-colors hover:border-gold/30 ${
         goal.is_active && evaluation.met
           ? "border-accent/25 bg-accent/[0.09]"
           : "border-gold/20 bg-gold/[0.055]"
@@ -520,7 +501,7 @@ function PinnedGoalCard({
         </span>
       </div>
       <p
-        className={`dashboard-tile-value overview-metric-value mt-4 font-mono text-2xl font-semibold tracking-tight sm:text-3xl ${
+        className={`dashboard-tile-value overview-metric-value mt-3 font-mono text-2xl font-semibold tracking-tight sm:text-3xl ${
           !goal.is_active
             ? "text-white/60"
             : evaluation.met
@@ -542,7 +523,7 @@ function PinnedGoalCard({
           {goalTrackingLabels[primaryTrackingMetric.metric]}
         </p>
       ) : null}
-      <div className="mt-3 flex items-center gap-2 text-xs">
+      <div className="mt-3 flex items-center gap-2 whitespace-nowrap text-xs">
         <span
           className={`size-2 rounded-full ${
             !goal.is_active
@@ -553,26 +534,20 @@ function PinnedGoalCard({
           }`}
         />
         <span className="font-semibold text-white/75">{status}</span>
-        <span className="text-muted">
+        <span className="truncate text-muted">
           · {metCount}/{evaluation.conditions.length} conditions
         </span>
       </div>
-      <p className="dashboard-tile-description overview-metric-description mt-3 text-xs leading-5 text-muted">
-        {target}
-      </p>
       {evaluation.trackingMetrics.length > 1 ? (
-        <div className="mt-3 grid gap-2 border-t border-white/10 pt-3 sm:grid-cols-2">
-          {evaluation.trackingMetrics.slice(1).map((item) => (
-            <div key={item.metric}>
-              <p className="text-[10px] uppercase tracking-wider text-muted">
-                {goalTrackingLabels[item.metric]}
-              </p>
-              <p className="mt-0.5 font-mono text-xs font-semibold text-sky-100">
-                {formatGoalTrackingValue(item.metric, item.value)}
-              </p>
-            </div>
-          ))}
-        </div>
+        <p className="mt-2 truncate text-[10px] text-muted">
+          {evaluation.trackingMetrics
+            .slice(1)
+            .map(
+              (item) =>
+                `${compactGoalTrackingLabels[item.metric]} ${formatGoalTrackingValue(item.metric, item.value)}`,
+            )
+            .join(" · ")}
+        </p>
       ) : null}
     </Link>
   );

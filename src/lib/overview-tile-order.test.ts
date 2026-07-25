@@ -40,4 +40,19 @@ describe("moveOverviewTile", () => {
     const order = ["total-budget", "remaining-budget"];
     expect(moveOverviewTile(order, "missing", "total-budget")).toBe(order);
   });
+
+  it("continues moving the same tile across consecutive hover targets", () => {
+    let order = ["total-budget", "remaining-budget", "daily-budget", "snapshot"];
+
+    order = moveOverviewTile(order, "snapshot", "remaining-budget");
+    order = moveOverviewTile(order, "snapshot", "total-budget");
+    order = moveOverviewTile(order, "snapshot", "daily-budget");
+
+    expect(order).toEqual([
+      "total-budget",
+      "remaining-budget",
+      "daily-budget",
+      "snapshot",
+    ]);
+  });
 });

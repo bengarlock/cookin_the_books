@@ -69,6 +69,7 @@ export function OverviewTileGrid({
   const translationRef = useRef(translation);
   const previousRects = useRef<Map<string, DOMRect> | null>(null);
   const dragChanged = useRef(false);
+  const lastOverId = useRef<string | null>(null);
   const suppressClick = useRef(false);
 
   useEffect(() => {
@@ -181,6 +182,7 @@ export function OverviewTileGrid({
       activeIdRef.current = tileId;
       suppressClick.current = true;
       dragChanged.current = false;
+      lastOverId.current = null;
       setArmingId(null);
       setActiveId(tileId);
     }, HOLD_DELAY_MS);
@@ -237,7 +239,12 @@ export function OverviewTileGrid({
       .elementFromPoint(event.clientX, event.clientY)
       ?.closest<HTMLElement>("[data-overview-tile-id]");
     const overId = overElement?.dataset.overviewTileId;
-    if (!overId || overId === session.tileId) return;
+    if (!overId || overId === session.tileId) {
+      lastOverId.current = null;
+      return;
+    }
+    if (lastOverId.current === overId) return;
+    lastOverId.current = overId;
 
     const nextOrder = moveOverviewTile(
       orderRef.current,
@@ -270,6 +277,7 @@ export function OverviewTileGrid({
     pointerSession.current = null;
     releasePointerCapture(session);
     activeIdRef.current = null;
+    lastOverId.current = null;
     setActiveId(null);
     translationRef.current = { x: 0, y: 0 };
     setTranslation({ x: 0, y: 0 });
@@ -303,11 +311,12 @@ export function OverviewTileGrid({
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {order.map((id) => {
+        {itemIds.map((id) => {
           const item = itemsById.get(id);
           if (!item) return null;
           const isActive = activeId === id;
           const isArming = armingId === id;
+          const orderIndex = order.indexOf(id);
           return (
             <div
               className={`relative min-w-0 select-none [&>*]:h-full ${
@@ -336,10 +345,11 @@ export function OverviewTileGrid({
               style={
                 isActive
                   ? {
+                      order: orderIndex,
                       pointerEvents: "none",
                       transform: `translate3d(${translation.x}px, ${translation.y}px, 0)`,
                     }
-                  : undefined
+                  : { order: orderIndex }
               }
             >
               <div
