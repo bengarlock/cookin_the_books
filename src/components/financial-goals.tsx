@@ -16,6 +16,7 @@ import {
   normalizeFinancialGoal,
   type EvaluatedGoalCondition,
 } from "@/lib/financial-goal-evaluation";
+import { financialGoalDeleteAction } from "@/lib/financial-goal-actions";
 import type {
   FinancialGoal,
   FinancialGoalCondition,
@@ -469,6 +470,10 @@ export function FinancialGoals({
   const [editDraft, setEditDraft] = useState<FinancialGoalInput>(emptyGoal);
   const [saving, setSaving] = useState(false);
   const [pinningId, setPinningId] = useState<number | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(
+    null,
+  );
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const accountLabels = useMemo(
     () =>
@@ -510,6 +515,7 @@ export function FinancialGoals({
     setEditingId(goal.id);
     setEditDraft(cloneGoalInput(normalizeFinancialGoal(goal)));
     setCreating(false);
+    setConfirmingDeleteId(null);
     setError("");
   }
 
@@ -570,6 +576,38 @@ export function FinancialGoals({
     } finally {
       setPinningId(null);
     }
+  }
+
+  async function deleteGoal(goal: FinancialGoal) {
+    setDeletingId(goal.id);
+    setError("");
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/financial-goals/${goal.id}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) {
+        setError(await responseMessage(response));
+        return;
+      }
+      setGoals((current) => current.filter((item) => item.id !== goal.id));
+      setConfirmingDeleteId(null);
+    } catch {
+      setError("The financial goal service is currently unavailable.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  function handleDeleteClick(goal: FinancialGoal) {
+    if (
+      financialGoalDeleteAction(confirmingDeleteId, goal.id) === "confirm"
+    ) {
+      setConfirmingDeleteId(goal.id);
+      return;
+    }
+
+    void deleteGoal(goal);
   }
 
   return (
@@ -781,6 +819,46 @@ export function FinancialGoals({
                     type="button"
                   >
                     Edit
+                  </button>
+                  <button
+                    aria-label={
+                      confirmingDeleteId === goal.id
+                        ? `Confirm deletion of ${goal.name}`
+                        : `Delete ${goal.name}`
+                    }
+                    className={`inline-flex min-w-24 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-wait disabled:opacity-50 ${
+                      confirmingDeleteId === goal.id
+                        ? "border-rose-300/40 bg-rose-500/20 text-rose-100"
+                        : "border-rose-300/15 text-rose-300/80 hover:border-rose-300/35 hover:bg-rose-500/10 hover:text-rose-100"
+                    }`}
+                    disabled={deletingId === goal.id}
+                    onClick={() => handleDeleteClick(goal)}
+                    title={
+                      confirmingDeleteId === goal.id
+                        ? "Confirm goal deletion"
+                        : "Delete goal"
+                    }
+                    type="button"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      className="size-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.7"
+                      />
+                    </svg>
+                    {deletingId === goal.id
+                      ? "Deleting…"
+                      : confirmingDeleteId === goal.id
+                        ? "Confirm"
+                        : "Delete"}
                   </button>
                 </div>
               </div>
