@@ -8,6 +8,7 @@ import {
 } from "@/components/automation-selector-builder";
 import { useBudgetData } from "@/components/budget-data-provider";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
+import { accountSelectorOptions } from "@/lib/account-transaction-filters";
 import { APP_BASE_PATH } from "@/lib/config";
 import type { ExpenseAutomationCondition } from "@/lib/expense-automation-rule-types";
 import {
@@ -326,18 +327,7 @@ function GoalFields({
   onChange: (value: FinancialGoalInput) => void;
 }) {
   const accounts = useMemo(
-    () =>
-      Array.from(
-        new Map(
-          transactions
-            .filter((item) => /^\d{4}$/.test(item.account_last_four))
-            .map((item) => [
-              item.account_last_four,
-              `${item.issuer} •••• ${item.account_last_four}`,
-            ]),
-        ),
-        ([accountValue, label]) => ({ value: accountValue, label }),
-      ),
+    () => accountSelectorOptions(transactions),
     [transactions],
   );
   const descriptions = useMemo(
@@ -482,9 +472,9 @@ export function FinancialGoals({
   const accountLabels = useMemo(
     () =>
       new Map(
-        creditCardTransactions.map((transaction) => [
-          transaction.account_last_four,
-          `${transaction.issuer} •••• ${transaction.account_last_four}`,
+        accountSelectorOptions(creditCardTransactions).map((account) => [
+          account.value,
+          account.label,
         ]),
       ),
     [creditCardTransactions],

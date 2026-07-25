@@ -8,35 +8,87 @@ import type { SnapshotAccountKey } from "./snapshot-types";
 export const transactionAccountFilters: Partial<
   Record<
     SnapshotAccountKey,
-    { issuer: string; accountLastFour: string; includeUnbudgeted?: boolean }
+    {
+      issuer: string;
+      accountLastFour: string;
+      selectorLabel: string;
+      includeUnbudgeted?: boolean;
+    }
   >
 > = {
   chase_checking: {
     issuer: "Chase",
     accountLastFour: "0277",
+    selectorLabel: "Chase Checking",
     includeUnbudgeted: true,
   },
   chase_savings: {
     issuer: "Chase",
     accountLastFour: "3060",
+    selectorLabel: "Chase Savings",
     includeUnbudgeted: true,
   },
   chase_credit: {
     issuer: "Chase",
     accountLastFour: "9125",
+    selectorLabel: "Chase Mastercard · Credit card",
     includeUnbudgeted: true,
   },
   citi_current: {
     issuer: "Citibank Online",
     accountLastFour: "4596",
+    selectorLabel: "Citi Card · Credit card",
     includeUnbudgeted: true,
   },
   barclays_card: {
     issuer: "Barclays - Cards",
     accountLastFour: "2028",
+    selectorLabel: "Barclaycard · Credit card",
     includeUnbudgeted: true,
   },
 };
+
+export function accountSelectorLabel(
+  transaction: Pick<
+    CreditCardTransaction,
+    "issuer" | "account_last_four"
+  >,
+) {
+  const knownAccount = Object.values(transactionAccountFilters).find(
+    (filters) =>
+      filters?.accountLastFour === transaction.account_last_four,
+  );
+  const fallbackIssuer = transaction.issuer
+    .replace(/\s*-\s*Cards$/i, "")
+    .replace(/\s+Online$/i, "")
+    .trim();
+  const accountName =
+    knownAccount?.selectorLabel ||
+    `${fallbackIssuer || "Unknown account"} · Credit card`;
+  return `${accountName} •••• ${transaction.account_last_four}`;
+}
+
+export function accountSelectorOptions(
+  transactions: CreditCardTransaction[],
+  { spendingOnly = false }: { spendingOnly?: boolean } = {},
+) {
+  const accounts = new Map<string, string>();
+  transactions.forEach((transaction) => {
+    if (
+      /^\d{4}$/.test(transaction.account_last_four) &&
+      (!spendingOnly ||
+        ["purchase", "fee", "interest"].includes(transaction.transaction_type))
+    ) {
+      accounts.set(
+        transaction.account_last_four,
+        accountSelectorLabel(transaction),
+      );
+    }
+  });
+  return Array.from(accounts, ([value, label]) => ({ value, label })).sort(
+    (left, right) => left.label.localeCompare(right.label),
+  );
+}
 
 export function transactionsForAccount(
   transactions: CreditCardTransaction[],
