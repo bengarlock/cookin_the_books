@@ -11,6 +11,7 @@ import type {
   FinancialGoal,
   FinancialGoalCondition,
   FinancialGoalInput,
+  FinancialGoalTrackingMetric,
 } from "./financial-goal-types";
 import { getCurrentPayPeriod, localPaydayString } from "./pay-cycle";
 import type { PendingTransaction } from "./pending-transaction-types";
@@ -41,6 +42,11 @@ export type EvaluatedGoalCondition = FinancialGoalCondition & {
   periodEnd?: string;
 };
 
+export type EvaluatedGoalTrackingMetric = {
+  metric: FinancialGoalTrackingMetric;
+  value: number | null;
+};
+
 export function normalizeFinancialGoal(goal: FinancialGoal): FinancialGoalInput {
   if (goal.scope_conditions?.length && goal.success_conditions?.length) {
     return {
@@ -55,6 +61,7 @@ export function normalizeFinancialGoal(goal: FinancialGoal): FinancialGoalInput 
       success_conditions: goal.success_conditions.map((condition) => ({
         ...condition,
       })),
+      tracking_metrics: [...(goal.tracking_metrics || [])],
       is_active: goal.is_active,
     };
   }
@@ -85,6 +92,7 @@ export function normalizeFinancialGoal(goal: FinancialGoal): FinancialGoalInput 
         value: goal.target_amount || "0",
       },
     ],
+    tracking_metrics: [...(goal.tracking_metrics || [])],
     is_active: goal.is_active,
   };
 }
@@ -99,6 +107,27 @@ function periodRange(value: string, currentDate: Date) {
   }
   const match = value.match(payPeriodRangePattern);
   return match ? { start: match[1], end: match[2] } : null;
+}
+
+function selectedPeriodRange(goal: FinancialGoalInput, currentDate: Date) {
+  const successPeriod = goal.success_conditions.find(
+    (condition) => condition.field === "spending_period",
+  );
+  const scopePeriod = goal.scope_conditions.find(
+    (condition) => condition.field === "pay_period",
+  );
+  const scopeValue = scopePeriod
+    ? Array.isArray(scopePeriod.value)
+      ? scopePeriod.value[0]
+      : scopePeriod.value
+    : null;
+  return periodRange(successPeriod?.value || scopeValue || "", currentDate);
+}
+
+function daysLeftInPeriod(periodEnd: string, currentDate: Date) {
+  const today = Date.parse(`${localPaydayString(currentDate)}T00:00:00Z`);
+  const end = Date.parse(`${periodEnd}T00:00:00Z`);
+  return Math.max(0, Math.round((end - today) / 86_400_000));
 }
 
 function compare(actual: number, operator: FinancialGoalCondition["operator"], target: number) {
@@ -148,10 +177,10 @@ function accountBalance(
 ) {
   const { adjustedValue, pendingValue, postedValue } =
     calculateAdjustedAccountBalances({
-    snapshot,
-    pendingTransactions,
-    pendingCardTransactions,
-  });
+      snapshot,
+      pendingTransactions,
+      pendingCardTransactions,
+    });
   const statusCondition = goal.scope_conditions.find(
     (condition) => condition.field === "transaction_status",
   );
@@ -198,12 +227,7 @@ export function evaluateFinancialGoal({
     "and",
     currentDate,
   );
-  const periodCondition = goal.success_conditions.find(
-    (condition) => condition.field === "spending_period",
-  );
-  const range = periodCondition
-    ? periodRange(periodCondition.value, currentDate)
-    : null;
+  const range = selectedPeriodRange(goal, currentDate);
   const spendingMatches = range
     ? scopeMatches.filter(
         (transaction) =>
@@ -248,6 +272,32 @@ export function evaluateFinancialGoal({
       ? result || condition.met
       : result && condition.met;
   }, false);
+  const spendingTarget = goal.success_conditions.find(
+    (condition) => condition.field === "spending",
+  );
+  const spendingBudget = spendingTarget
+    ? Number(spendingTarget.value)
+    : Number.NaN;
+  const remainingBudget = Number.isFinite(spendingBudget)
+    ? spendingBudget - spending
+    : null;
+  const daysLeft = range ? daysLeftInPeriod(range.end, currentDate) : null;
+  const dailySpendingLimit =
+    remainingBudget === null || daysLeft === null
+      ? null
+      : daysLeft > 0
+        ? Math.max(0, remainingBudget) / daysLeft
+        : 0;
+  const trackingValues: Record<FinancialGoalTrackingMetric, number | null> = {
+    days_left_in_pay_cycle: daysLeft,
+    daily_spending_limit: dailySpendingLimit,
+    remaining_budget: remainingBudget,
+  };
+  const trackingMetrics: EvaluatedGoalTrackingMetric[] =
+    goal.tracking_metrics.map((metric) => ({
+      metric,
+      value: trackingValues[metric],
+    }));
 
   return {
     conditions,
@@ -255,5 +305,6 @@ export function evaluateFinancialGoal({
     matchingTransactions: spendingMatches,
     selectedAccountBalance: balance,
     spending,
+    trackingMetrics,
   };
 }

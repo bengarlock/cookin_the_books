@@ -16,6 +16,11 @@ export type FinancialGoalCondition = {
   value: string;
 };
 
+export type FinancialGoalTrackingMetric =
+  | "days_left_in_pay_cycle"
+  | "daily_spending_limit"
+  | "remaining_budget";
+
 export type FinancialGoal = {
   id: number;
   goal_type: "spending" | "flexible";
@@ -26,6 +31,7 @@ export type FinancialGoal = {
   pay_cycle_end: string | null;
   scope_conditions?: ExpenseAutomationCondition[];
   success_conditions?: FinancialGoalCondition[];
+  tracking_metrics?: FinancialGoalTrackingMetric[];
   is_active: boolean;
   is_pinned: boolean;
   created_at: string;
@@ -37,5 +43,6 @@ export type FinancialGoalInput = {
   name: string;
   scope_conditions: ExpenseAutomationCondition[];
   success_conditions: FinancialGoalCondition[];
+  tracking_metrics: FinancialGoalTrackingMetric[];
   is_active: boolean;
 };

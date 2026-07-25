@@ -55,6 +55,11 @@ const goal: FinancialGoalInput = {
       value: "200",
     },
   ],
+  tracking_metrics: [
+    "days_left_in_pay_cycle",
+    "daily_spending_limit",
+    "remaining_budget",
+  ],
   is_active: true,
 };
 
@@ -74,6 +79,11 @@ describe("evaluateFinancialGoal", () => {
       true,
       true,
       true,
+    ]);
+    expect(result.trackingMetrics).toEqual([
+      { metric: "days_left_in_pay_cycle", value: 6 },
+      { metric: "daily_spending_limit", value: 12.5 },
+      { metric: "remaining_budget", value: 75 },
     ]);
   });
 
@@ -168,5 +178,6 @@ describe("normalizeFinancialGoal", () => {
       operator: "less_than_or_equal",
       value: "1300.00",
     });
+    expect(normalized.tracking_metrics).toEqual([]);
   });
 });

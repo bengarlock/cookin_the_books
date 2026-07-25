@@ -21,6 +21,7 @@ import type {
   FinancialGoal,
   FinancialGoalCondition,
   FinancialGoalInput,
+  FinancialGoalTrackingMetric,
 } from "@/lib/financial-goal-types";
 import { conditionIsEmpty, selectTransactions } from "@/lib/transaction-selector";
 
@@ -66,12 +67,35 @@ const fieldLabels: Record<FinancialGoalCondition["field"], string> = {
   spending_period: "Spending period",
 };
 
+const trackingOptions: {
+  metric: FinancialGoalTrackingMetric;
+  label: string;
+  description: string;
+}[] = [
+  {
+    metric: "days_left_in_pay_cycle",
+    label: "Days left in pay cycle",
+    description: "Count down to the end of the selected pay period.",
+  },
+  {
+    metric: "daily_spending_limit",
+    label: "Daily spending limit",
+    description: "Spread the remaining budget across the days left.",
+  },
+  {
+    metric: "remaining_budget",
+    label: "Remaining budget",
+    description: "Subtract current spending from the spending target.",
+  },
+];
+
 function emptyGoal(): FinancialGoalInput {
   return {
     goal_type: "flexible",
     name: "",
     scope_conditions: [],
     success_conditions: [],
+    tracking_metrics: [],
     is_active: true,
   };
 }
@@ -88,6 +112,7 @@ function cloneGoalInput(goal: FinancialGoalInput): FinancialGoalInput {
     success_conditions: goal.success_conditions.map((condition) => ({
       ...condition,
     })),
+    tracking_metrics: [...goal.tracking_metrics],
   };
 }
 
@@ -416,6 +441,64 @@ function GoalFields({
         />
       </section>
 
+      <section className="border-t border-white/10 pt-6">
+        <div className="mb-4 flex gap-3">
+          <span className="grid size-7 shrink-0 place-items-center rounded-full border border-sky-300/30 bg-sky-400/10 text-xs font-semibold text-sky-200">
+            3
+          </span>
+          <div>
+            <h4 className="font-semibold text-white">Tracking</h4>
+            <p className="mt-1 text-sm text-muted">
+              Choose the live values you want this goal to monitor. Select as
+              many as you need.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          {trackingOptions.map((option) => {
+            const selected = value.tracking_metrics.includes(option.metric);
+            return (
+              <button
+                aria-pressed={selected}
+                className={`rounded-xl border p-4 text-left transition ${
+                  selected
+                    ? "border-sky-300/35 bg-sky-400/10 text-white"
+                    : "border-white/10 bg-black/10 text-white/70 hover:border-sky-300/25"
+                }`}
+                key={option.metric}
+                onClick={() =>
+                  onChange({
+                    ...value,
+                    tracking_metrics: selected
+                      ? value.tracking_metrics.filter(
+                          (metric) => metric !== option.metric,
+                        )
+                      : [...value.tracking_metrics, option.metric],
+                  })
+                }
+                type="button"
+              >
+                <span className="flex items-start justify-between gap-3">
+                  <span className="text-sm font-semibold">{option.label}</span>
+                  <span
+                    className={`grid size-5 shrink-0 place-items-center rounded border text-xs ${
+                      selected
+                        ? "border-sky-300/50 bg-sky-300 text-[#07100f]"
+                        : "border-white/20"
+                    }`}
+                  >
+                    {selected ? "✓" : ""}
+                  </span>
+                </span>
+                <span className="mt-2 block text-xs leading-5 text-muted">
+                  {option.description}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       <label className="flex items-center gap-2 border-t border-white/10 pt-5 text-sm text-white/70">
         <input
           checked={value.is_active}
@@ -462,6 +545,23 @@ function conditionTarget(condition: EvaluatedGoalCondition) {
     return `${date.format(new Date(`${condition.periodStart}T12:00:00`))} – ${date.format(new Date(`${condition.periodEnd}T12:00:00`))}`;
   }
   return money.format(Number(condition.value));
+}
+
+function trackingMetricLabel(metric: FinancialGoalTrackingMetric) {
+  return (
+    trackingOptions.find((option) => option.metric === metric)?.label || metric
+  );
+}
+
+function trackingMetricValue(
+  metric: FinancialGoalTrackingMetric,
+  value: number | null,
+) {
+  if (value === null) return "Needs a spending target and pay period";
+  if (metric === "days_left_in_pay_cycle") {
+    return `${value} ${value === 1 ? "day" : "days"}`;
+  }
+  return money.format(value);
 }
 
 export function FinancialGoals({
@@ -912,6 +1012,28 @@ export function FinancialGoals({
                   </div>
                 ))}
               </div>
+              {evaluation.trackingMetrics.length ? (
+                <div className="border-t border-white/10 bg-panel/70 p-5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-200/70">
+                    Tracking
+                  </p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {evaluation.trackingMetrics.map((item) => (
+                      <div
+                        className="rounded-xl border border-sky-300/15 bg-sky-400/[0.05] p-4"
+                        key={item.metric}
+                      >
+                        <p className="text-xs text-muted">
+                          {trackingMetricLabel(item.metric)}
+                        </p>
+                        <p className="mt-2 font-mono text-lg font-semibold text-sky-100">
+                          {trackingMetricValue(item.metric, item.value)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </article>
           );
         })}
