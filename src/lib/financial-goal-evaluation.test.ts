@@ -13,6 +13,7 @@ const transaction = {
   amount: "125.00",
   transaction_date: "2026-07-20",
   transaction_type: "purchase",
+  pending: false,
   tags: [],
 } as CreditCardTransaction;
 
@@ -54,6 +55,11 @@ const goal: FinancialGoalInput = {
       value: "200",
     },
   ],
+  tracking_metrics: [
+    "days_left_in_pay_cycle",
+    "daily_spending_limit",
+    "remaining_budget",
+  ],
   is_active: true,
 };
 
@@ -74,6 +80,11 @@ describe("evaluateFinancialGoal", () => {
       true,
       true,
     ]);
+    expect(result.trackingMetrics).toEqual([
+      { metric: "days_left_in_pay_cycle", value: 6 },
+      { metric: "daily_spending_limit", value: 12.5 },
+      { metric: "remaining_budget", value: 75 },
+    ]);
   });
 
   it("keeps transactions outside a fixed success period out of spending", () => {
@@ -87,6 +98,56 @@ describe("evaluateFinancialGoal", () => {
     });
 
     expect(result.spending).toBe(125);
+  });
+
+  it("uses the adjusted balance when a selected card has pending charges", () => {
+    const pendingCardTransactions = [
+      {
+        ...transaction,
+        amount: "101.25",
+        pending: true,
+      },
+    ];
+    const balanceSnapshot = {
+      ...snapshot,
+      citi_current: "664.56",
+      citi_pending: "0.00",
+    };
+    const evaluateStatus = (status?: "posted" | "pending" | "both") =>
+      evaluateFinancialGoal({
+        goal: status
+          ? {
+              ...goal,
+              scope_conditions: [
+                ...goal.scope_conditions,
+                {
+                  id: "status",
+                  field: "transaction_status",
+                  operator: "equals",
+                  value: status,
+                  logic_operator: "and",
+                },
+              ],
+            }
+          : goal,
+        transactions: [transaction],
+        pendingCardTransactions,
+        snapshot: balanceSnapshot,
+      });
+
+    expect(evaluateStatus("posted").selectedAccountBalance).toBeCloseTo(
+      664.56,
+      2,
+    );
+    expect(evaluateStatus("pending").selectedAccountBalance).toBeCloseTo(
+      101.25,
+      2,
+    );
+    expect(evaluateStatus("both").selectedAccountBalance).toBeCloseTo(
+      765.81,
+      2,
+    );
+    expect(evaluateStatus().selectedAccountBalance).toBeCloseTo(765.81, 2);
   });
 });
 
@@ -117,5 +178,6 @@ describe("normalizeFinancialGoal", () => {
       operator: "less_than_or_equal",
       value: "1300.00",
     });
+    expect(normalized.tracking_metrics).toEqual([]);
   });
 });

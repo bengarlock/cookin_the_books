@@ -17,10 +17,10 @@ import {
   manualPendingTransactionDisplayAmount,
 } from "@/lib/account-transaction-display";
 import {
-  importedPendingLiabilityTotals,
   transactionAccountFilters,
   transactionsForAccount,
 } from "@/lib/account-transaction-filters";
+import { calculateAdjustedAccountBalances } from "@/lib/adjusted-account-balances";
 import { APP_BASE_PATH } from "@/lib/config";
 import type { CreditCardTransaction, ExpenseTag, PendingCardTransaction, SuggestedRelatedTransaction } from "@/lib/credit-card-transaction-types";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
@@ -31,6 +31,7 @@ import {
 import type {
   FinancialGoal,
   FinancialGoalCondition,
+  FinancialGoalTrackingMetric,
 } from "@/lib/financial-goal-types";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
@@ -195,10 +196,6 @@ function valueFromSnapshot(
   if (!snapshot) return 0;
   const value = Number(snapshot[key]);
   return Number.isFinite(value) ? value : 0;
-}
-
-function isPendingPayment(transaction: PendingTransaction) {
-  return transaction.settled_accounts.length > 0;
 }
 
 function nextBusinessDayString() {
@@ -422,19 +419,42 @@ const goalOperatorLabels: Record<FinancialGoalCondition["operator"], string> = {
   not_within: "is not within",
 };
 
+const goalTrackingLabels: Record<FinancialGoalTrackingMetric, string> = {
+  days_left_in_pay_cycle: "Days left in pay cycle",
+  daily_spending_limit: "Daily spending limit",
+  remaining_budget: "Remaining budget",
+};
+
+function formatGoalTrackingValue(
+  metric: FinancialGoalTrackingMetric,
+  value: number | null,
+) {
+  if (value === null) return "—";
+  if (metric === "days_left_in_pay_cycle") {
+    return `${value} ${value === 1 ? "day" : "days"}`;
+  }
+  return formatCurrency(value);
+}
+
 function PinnedGoalCard({
   currentDate,
   goal,
+  pendingCardTransactions,
+  pendingTransactions,
   snapshot,
   transactions,
 }: {
   currentDate: Date;
   goal: FinancialGoal;
+  pendingCardTransactions: PendingCardTransaction[];
+  pendingTransactions: PendingTransaction[];
   snapshot: BankValueSnapshot | null;
   transactions: CreditCardTransaction[];
 }) {
   const evaluation = evaluateFinancialGoal({
     goal: normalizeFinancialGoal(goal),
+    pendingCardTransactions,
+    pendingTransactions,
     transactions,
     snapshot,
     currentDate,
@@ -442,6 +462,7 @@ function PinnedGoalCard({
   const measurableCondition = evaluation.conditions.find(
     (condition) => condition.actual !== null,
   );
+  const primaryTrackingMetric = evaluation.trackingMetrics[0];
   const metCount = evaluation.conditions.filter(
     (condition) => condition.met,
   ).length;
@@ -450,7 +471,11 @@ function PinnedGoalCard({
     : evaluation.met
       ? "Conditions met"
       : "In progress";
-  const target = measurableCondition
+  const target = evaluation.trackingMetrics.length
+    ? `Monitoring ${evaluation.trackingMetrics
+        .map((item) => goalTrackingLabels[item.metric].toLowerCase())
+        .join(", ")}.`
+    : measurableCondition
     ? `${goalConditionLabels[measurableCondition.field]} ${goalOperatorLabels[measurableCondition.operator]} ${formatCurrency(Number(measurableCondition.value))}.`
     : "Tracking the selected spending period.";
 
@@ -502,10 +527,20 @@ function PinnedGoalCard({
               : "text-gold"
         }`}
       >
-        {measurableCondition?.actual == null
-          ? `${evaluation.matchingTransactions.length}`
-          : formatCurrency(measurableCondition.actual)}
+        {primaryTrackingMetric
+          ? formatGoalTrackingValue(
+              primaryTrackingMetric.metric,
+              primaryTrackingMetric.value,
+            )
+          : measurableCondition?.actual == null
+            ? `${evaluation.matchingTransactions.length}`
+            : formatCurrency(measurableCondition.actual)}
       </p>
+      {primaryTrackingMetric ? (
+        <p className="mt-1 text-xs font-semibold text-sky-100/70">
+          {goalTrackingLabels[primaryTrackingMetric.metric]}
+        </p>
+      ) : null}
       <div className="mt-3 flex items-center gap-2 text-xs">
         <span
           className={`size-2 rounded-full ${
@@ -524,6 +559,20 @@ function PinnedGoalCard({
       <p className="dashboard-tile-description overview-metric-description mt-3 text-xs leading-5 text-muted">
         {target}
       </p>
+      {evaluation.trackingMetrics.length > 1 ? (
+        <div className="mt-3 grid gap-2 border-t border-white/10 pt-3 sm:grid-cols-2">
+          {evaluation.trackingMetrics.slice(1).map((item) => (
+            <div key={item.metric}>
+              <p className="text-[10px] uppercase tracking-wider text-muted">
+                {goalTrackingLabels[item.metric]}
+              </p>
+              <p className="mt-0.5 font-mono text-xs font-semibold text-sky-100">
+                {formatGoalTrackingValue(item.metric, item.value)}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </Link>
   );
 }
@@ -1732,47 +1781,18 @@ export function LiveBankValues({
   }, []);
 
   const calculations = useMemo(() => {
-    const pendingByAccount = new Map<SnapshotAccountKey, number>();
-    const liabilityPendingByAccount = new Map<SnapshotAccountKey, number>();
-    const settledAccounts = new Set<SnapshotAccountKey>();
-    for (const transaction of pendingTransactions) {
-      if (transaction.is_cleared || transaction.match_status === "matched_pending") continue;
-      for (const account of transaction.settled_accounts || []) {
-        settledAccounts.add(account);
-      }
-      pendingByAccount.set(
-        transaction.account,
-        (pendingByAccount.get(transaction.account) || 0) +
-          Number(transaction.amount),
-      );
-      if (!isPendingPayment(transaction)) {
-        liabilityPendingByAccount.set(
-          transaction.account,
-          (liabilityPendingByAccount.get(transaction.account) || 0) +
-            Number(transaction.amount),
-        );
-      }
-    }
-    const importedPendingTotals = importedPendingLiabilityTotals({
-      summaryTransactions: initialPendingCardTransactions,
-      loadedTransactions: view === "overview" ? undefined : accountTransactions,
+    const {
+      adjustedValue,
+      liabilityPendingByAccount,
+      pendingByAccount,
+      settledAccounts,
+    } = calculateAdjustedAccountBalances({
+      snapshot,
+      pendingTransactions,
+      pendingCardTransactions: initialPendingCardTransactions,
+      loadedCardTransactions:
+        view === "overview" ? undefined : accountTransactions,
     });
-    for (const [accountKey, amount] of importedPendingTotals) {
-      if (!liabilityAccounts.has(accountKey)) continue;
-      liabilityPendingByAccount.set(
-        accountKey,
-        (liabilityPendingByAccount.get(accountKey) || 0) + amount,
-      );
-    }
-
-    const adjustedValue = (key: SnapshotAccountKey) => {
-      const isLiability = liabilityAccounts.has(key);
-      const posted =
-        isLiability && settledAccounts.has(key) ? 0 : valueFromSnapshot(snapshot, key);
-      const pending =
-        (isLiability ? liabilityPendingByAccount : pendingByAccount).get(key) || 0;
-      return isLiability ? posted + pending : posted - pending;
-    };
 
     const chaseChecking = adjustedValue("chase_checking");
     const chaseSavings = adjustedValue("chase_savings");
@@ -2399,6 +2419,12 @@ export function LiveBankValues({
                   currentDate={currentDate}
                   goal={goal}
                   key={goal.id}
+                  pendingCardTransactions={
+                    creditCardTransactions.length
+                      ? creditCardTransactions
+                      : initialPendingCardTransactions
+                  }
+                  pendingTransactions={pendingTransactions}
                   snapshot={snapshot}
                   transactions={creditCardTransactions}
                 />

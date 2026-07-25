@@ -53,6 +53,35 @@ describe("transactionMatchesCondition text comparisons", () => {
   });
 });
 
+describe("transactionMatchesCondition status comparisons", () => {
+  const posted = { ...transaction, pending: false } as CreditCardTransaction;
+  const pending = { ...transaction, pending: true } as CreditCardTransaction;
+
+  it("selects posted, pending, or both transaction states", () => {
+    const condition = {
+      id: "status",
+      field: "transaction_status" as const,
+      operator: "equals" as const,
+      value: "posted",
+    };
+
+    expect(transactionMatchesCondition(posted, condition)).toBe(true);
+    expect(transactionMatchesCondition(pending, condition)).toBe(false);
+    expect(
+      transactionMatchesCondition(pending, {
+        ...condition,
+        value: "pending",
+      }),
+    ).toBe(true);
+    expect(
+      transactionMatchesCondition(posted, { ...condition, value: "both" }),
+    ).toBe(true);
+    expect(
+      transactionMatchesCondition(pending, { ...condition, value: "both" }),
+    ).toBe(true);
+  });
+});
+
 describe("transactionMatchesCondition pay period comparisons", () => {
   const payPeriodTransaction = {
     ...transaction,
