@@ -463,7 +463,7 @@ function PinnedGoalCard({
 
   return (
     <Link
-      className={`dashboard-tile overview-metric-card group overflow-hidden rounded-2xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] transition-colors hover:border-gold/30 ${
+      className={`dashboard-tile overview-metric-card group block h-full w-full overflow-hidden rounded-2xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] transition-colors hover:border-gold/30 ${
         goal.is_active && evaluation.met
           ? "border-accent/25 bg-accent/[0.09]"
           : "border-gold/20 bg-gold/[0.055]"
