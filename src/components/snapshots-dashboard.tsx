@@ -2,7 +2,7 @@
 
 import {
   FormEvent,
-  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   useEffect,
   useMemo,
   useRef,
@@ -352,13 +352,26 @@ function YearlyNetChangeTile({
 }
 
 function SnapshotTrendChart({
+  onRangeSelect,
   snapshots,
   showTrendLine,
 }: {
+  onRangeSelect: (range: ExpenseDateRange) => void;
   snapshots: BankValueSnapshot[];
   showTrendLine: boolean;
 }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [dragSelection, setDragSelection] = useState<{
+    currentIndex: number;
+    startIndex: number;
+  } | null>(null);
+  const dragSession = useRef<{
+    currentIndex: number;
+    hasDragged: boolean;
+    pointerId: number;
+    startClientX: number;
+    startIndex: number;
+  } | null>(null);
   const chart = useMemo(() => {
     const data = [...snapshots].reverse();
     if (!data.length) return null;
@@ -467,34 +480,133 @@ function SnapshotTrendChart({
             activeChart.padding.bottom -
             tooltipHeight,
         );
+  const selectionStartIndex = dragSelection
+    ? Math.min(dragSelection.startIndex, dragSelection.currentIndex)
+    : null;
+  const selectionEndIndex = dragSelection
+    ? Math.max(dragSelection.startIndex, dragSelection.currentIndex)
+    : null;
+  const selectionStartX =
+    selectionStartIndex === null ? null : activeChart.x(selectionStartIndex);
+  const selectionEndX =
+    selectionEndIndex === null ? null : activeChart.x(selectionEndIndex);
 
-  function handleChartHover(event: ReactMouseEvent<SVGSVGElement>) {
+  function chartPointer(event: ReactPointerEvent<SVGSVGElement>) {
     const bounds = event.currentTarget.getBoundingClientRect();
     const pointerX =
       ((event.clientX - bounds.left) / bounds.width) * activeChart.width;
+    const pointerY =
+      ((event.clientY - bounds.top) / bounds.height) * activeChart.height;
     const plotStart = activeChart.padding.left;
     const plotEnd = activeChart.width - activeChart.padding.right;
+    const plotBottom = activeChart.height - activeChart.padding.bottom;
 
-    if (pointerX < plotStart || pointerX > plotEnd) {
+    const clampedPointerX = Math.min(Math.max(pointerX, plotStart), plotEnd);
+    const plotProgress =
+      (clampedPointerX - plotStart) / (plotEnd - plotStart);
+    return {
+      index: Math.round(
+        plotProgress * Math.max(activeChart.data.length - 1, 0),
+      ),
+      isInsidePlot:
+        pointerX >= plotStart &&
+        pointerX <= plotEnd &&
+        pointerY >= activeChart.padding.top &&
+        pointerY <= plotBottom,
+    };
+  }
+
+  function handlePointerDown(event: ReactPointerEvent<SVGSVGElement>) {
+    if (event.button !== 0 || activeChart.data.length < 2) return;
+
+    const pointer = chartPointer(event);
+    if (!pointer.isInsidePlot) return;
+
+    const startIndex = pointer.index;
+    dragSession.current = {
+      currentIndex: startIndex,
+      hasDragged: false,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startIndex,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setHoveredIndex(startIndex);
+  }
+
+  function handlePointerMove(event: ReactPointerEvent<SVGSVGElement>) {
+    const session = dragSession.current;
+    const pointer = chartPointer(event);
+    if (!session && !pointer.isInsidePlot) {
       setHoveredIndex(null);
       return;
     }
 
-    const plotProgress = (pointerX - plotStart) / (plotEnd - plotStart);
-    setHoveredIndex(
-      Math.round(
-        plotProgress * Math.max(activeChart.data.length - 1, 0),
-      ),
-    );
+    const index = pointer.index;
+    setHoveredIndex(index);
+    if (!session || session.pointerId !== event.pointerId) return;
+    if (
+      !session.hasDragged &&
+      Math.abs(event.clientX - session.startClientX) < 4
+    ) {
+      return;
+    }
+
+    session.hasDragged = true;
+    session.currentIndex = index;
+    setDragSelection({
+      currentIndex: index,
+      startIndex: session.startIndex,
+    });
+    event.preventDefault();
+  }
+
+  function finishRangeSelection(
+    event: ReactPointerEvent<SVGSVGElement>,
+    applySelection: boolean,
+  ) {
+    const session = dragSession.current;
+    if (!session || session.pointerId !== event.pointerId) return;
+
+    dragSession.current = null;
+    setDragSelection(null);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    if (
+      !applySelection ||
+      !session.hasDragged ||
+      session.startIndex === session.currentIndex
+    ) {
+      return;
+    }
+
+    const startIndex = Math.min(session.startIndex, session.currentIndex);
+    const endIndex = Math.max(session.startIndex, session.currentIndex);
+    onRangeSelect({
+      start: activeChart.data[startIndex].snapshot_date,
+      end: activeChart.data[endIndex].snapshot_date,
+    });
   }
 
   return (
     <div className="w-full overflow-hidden">
       <svg
         aria-label="Net assets over time"
-        className="block h-auto w-full max-w-full cursor-crosshair"
-        onMouseLeave={() => setHoveredIndex(null)}
-        onMouseMove={handleChartHover}
+        className={`block h-auto w-full max-w-full select-none touch-pan-y ${
+          dragSelection ? "cursor-col-resize" : "cursor-crosshair"
+        }`}
+        onLostPointerCapture={(event) =>
+          finishRangeSelection(event, false)
+        }
+        onPointerCancel={(event) => finishRangeSelection(event, false)}
+        onPointerDown={handlePointerDown}
+        onPointerLeave={() => {
+          if (!dragSession.current) setHoveredIndex(null);
+        }}
+        onPointerMove={handlePointerMove}
+        onPointerUp={(event) => finishRangeSelection(event, true)}
         role="img"
         viewBox={`0 0 ${chart.width} ${chart.height}`}
       >
@@ -545,6 +657,54 @@ function SnapshotTrendChart({
             chart.height - chart.padding.bottom
           }`}
         />
+        {selectionStartX !== null &&
+        selectionEndX !== null &&
+        selectionStartIndex !== null &&
+        selectionEndIndex !== null ? (
+          <g aria-hidden="true" pointerEvents="none">
+            <rect
+              fill="var(--snapshot-chart-accent-area)"
+              fillOpacity="0.16"
+              height={
+                chart.height - chart.padding.top - chart.padding.bottom
+              }
+              stroke="var(--snapshot-chart-accent)"
+              strokeDasharray="5 4"
+              strokeOpacity="0.8"
+              width={Math.max(selectionEndX - selectionStartX, 1)}
+              x={selectionStartX}
+              y={chart.padding.top}
+            />
+            <text
+              fill="var(--snapshot-chart-tooltip-text)"
+              fontSize="11"
+              fontWeight="600"
+              textAnchor="start"
+              x={selectionStartX + 6}
+              y={chart.padding.top + 17}
+            >
+              {shortDayFormatter.format(
+                new Date(
+                  `${chart.data[selectionStartIndex].snapshot_date}T12:00:00`,
+                ),
+              )}
+            </text>
+            <text
+              fill="var(--snapshot-chart-tooltip-text)"
+              fontSize="11"
+              fontWeight="600"
+              textAnchor="end"
+              x={selectionEndX - 6}
+              y={chart.padding.top + 17}
+            >
+              {shortDayFormatter.format(
+                new Date(
+                  `${chart.data[selectionEndIndex].snapshot_date}T12:00:00`,
+                ),
+              )}
+            </text>
+          </g>
+        ) : null}
         {showTrendLine ? (
           <polyline
             fill="none"
@@ -616,7 +776,10 @@ function SnapshotTrendChart({
             </text>
           );
         })}
-        {hoveredSnapshot && hoveredX !== null && hoveredY !== null ? (
+        {!dragSelection &&
+        hoveredSnapshot &&
+        hoveredX !== null &&
+        hoveredY !== null ? (
           <g aria-hidden="true" pointerEvents="none">
             <line
               stroke="var(--snapshot-chart-crosshair)"
@@ -1119,7 +1282,8 @@ export function SnapshotsDashboard({
               Net assets trend
             </h2>
             <p className="mt-1 text-xs text-muted">
-              The selected range controls both the chart and snapshot history.
+              Drag across the graph to select a period. The selected range
+              controls both the chart and snapshot history.
             </p>
           </div>
           <div className="flex min-w-0 justify-start xl:justify-center">
@@ -1178,6 +1342,7 @@ export function SnapshotsDashboard({
         </div>
         <div className="p-3 sm:p-5">
           <SnapshotTrendChart
+            onRangeSelect={setChartRange}
             showTrendLine={showTrendLine}
             snapshots={chartSnapshots}
           />
