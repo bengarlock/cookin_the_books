@@ -47,8 +47,9 @@ export function transactionMatchesCondition(
       : condition.field === "transaction_type" ? transaction.transaction_type
         : condition.field === "account_last_four" ? transaction.account_last_four
           : condition.field === "amount" ? transaction.amount
-            : condition.field === "transaction_date" ? transaction.transaction_date
-              : (transaction.tags || []).map((tag) => tag.name).join(" ");
+            : condition.field === "category" ? transaction.category
+              : condition.field === "transaction_date" ? transaction.transaction_date
+                : (transaction.tags || []).map((tag) => tag.name).join(" ");
 
   if (condition.field === "account_last_four") {
     const selectedAccounts = Array.isArray(condition.value) ? condition.value : [condition.value];
