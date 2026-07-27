@@ -6,7 +6,9 @@ import type { FormEvent } from "react";
 import { AutomationSelectorBuilder } from "@/components/automation-selector-builder";
 import { accountSelectorOptions } from "@/lib/account-transaction-filters";
 import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import type { ExpenseCategory } from "@/lib/expense-category-types";
 import type { ExpenseAutomationCondition } from "@/lib/expense-automation-rule-types";
+import { labelForCategory } from "@/lib/transaction-categories";
 import { conditionIsEmpty, selectTransactions } from "@/lib/transaction-selector";
 
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -59,7 +61,13 @@ function subscribeSavedReports(onStoreChange: () => void) {
   };
 }
 
-export function ReportsDashboard({ transactions }: { transactions: CreditCardTransaction[] }) {
+export function ReportsDashboard({
+  categories,
+  transactions,
+}: {
+  categories: ExpenseCategory[];
+  transactions: CreditCardTransaction[];
+}) {
   const [view, setView] = useState<"index" | "editor">("index");
   const [conditions, setConditions] = useState<ExpenseAutomationCondition[]>([]);
   const [results, setResults] = useState<CreditCardTransaction[] | null>(null);
@@ -74,6 +82,27 @@ export function ReportsDashboard({ transactions }: { transactions: CreditCardTra
     () => accountSelectorOptions(transactions),
     [transactions],
   );
+  const categoryOptions = useMemo(() => {
+    const options = new Map(
+      categories.map((category) => [
+        category.key,
+        { value: category.key, label: category.label },
+      ]),
+    );
+    transactions.forEach((transaction) => {
+      const category = transaction.category?.trim();
+      if (!category || options.has(category)) return;
+      options.set(category, {
+        value: category,
+        label: labelForCategory(
+          category,
+          categories,
+          category.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
+        ),
+      });
+    });
+    return Array.from(options.values()).sort((left, right) => left.label.localeCompare(right.label));
+  }, [categories, transactions]);
   const descriptions = useMemo(() => Array.from(new Set(transactions.map((item) => item.description).filter(Boolean))).sort(), [transactions]);
   const tags = useMemo(() => Array.from(new Set(transactions.flatMap((item) => item.tags?.map((tag) => tag.name) || []))).sort(), [transactions]);
   const preview = useMemo(() => selectTransactions(transactions, conditions, "and"), [transactions, conditions]);
@@ -291,7 +320,7 @@ export function ReportsDashboard({ transactions }: { transactions: CreditCardTra
           </div>
         </div>
       </div>
-      <AutomationSelectorBuilder accounts={accounts} conditions={conditions} descriptions={descriptions} tags={tags} logic="and" matches={preview} onChange={changeConditions} />
+      <AutomationSelectorBuilder accounts={accounts} categoryOptions={categoryOptions} conditions={conditions} descriptions={descriptions} tags={tags} logic="and" matches={preview} onChange={changeConditions} />
     </section>
 
     {results ? <>

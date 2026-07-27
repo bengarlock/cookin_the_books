@@ -53,6 +53,29 @@ describe("transactionMatchesCondition text comparisons", () => {
   });
 });
 
+describe("transactionMatchesCondition category comparisons", () => {
+  const diningTransaction = {
+    ...transaction,
+    category: "dining",
+  } as CreditCardTransaction;
+
+  it("matches category keys without case sensitivity", () => {
+    expect(transactionMatchesCondition(diningTransaction, {
+      id: "category",
+      field: "category",
+      operator: "equals",
+      value: "DINING",
+    })).toBe(true);
+
+    expect(transactionMatchesCondition(diningTransaction, {
+      id: "other-category",
+      field: "category",
+      operator: "not_equals",
+      value: "groceries",
+    })).toBe(true);
+  });
+});
+
 describe("transactionMatchesCondition status comparisons", () => {
   const posted = { ...transaction, pending: false } as CreditCardTransaction;
   const pending = { ...transaction, pending: true } as CreditCardTransaction;

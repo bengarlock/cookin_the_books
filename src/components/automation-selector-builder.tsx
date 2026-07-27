@@ -32,6 +32,11 @@ const selectors = [
     ],
   },
   {
+    field: "category",
+    label: "Category",
+    operators: ["equals", "not_equals"],
+  },
+  {
     field: "description",
     label: "Description",
     operators: [
@@ -383,10 +388,36 @@ function TransactionStatusSelector({
   );
 }
 
+function CategorySelector({
+  options,
+  value,
+  onChange,
+}: {
+  options: Array<{ value: string; label: string }>;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <select
+      className="rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-sm text-white"
+      onChange={(event) => onChange(event.target.value)}
+      value={value}
+    >
+      <option value="">Select category</option>
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export function AutomationSelectorBuilder({
   conditions,
   logic,
   accounts,
+  categoryOptions = [],
   descriptions,
   tags,
   matches,
@@ -396,6 +427,7 @@ export function AutomationSelectorBuilder({
   conditions: ExpenseAutomationCondition[];
   logic: "and" | "or";
   accounts: Array<{ value: string; label: string }>;
+  categoryOptions?: Array<{ value: string; label: string }>;
   descriptions: string[];
   tags: string[];
   matches: CreditCardTransaction[];
@@ -414,9 +446,12 @@ export function AutomationSelectorBuilder({
   const availableSelectors = includeTransactionStatus
     ? selectors
     : selectors.filter((selector) => selector.field !== "transaction_status");
+  const visibleSelectors = categoryOptions.length
+    ? availableSelectors
+    : availableSelectors.filter((selector) => selector.field !== "category");
 
   function addSelector(field: ExpenseAutomationCondition["field"]) {
-    const selector = availableSelectors.find((item) => item.field === field)!;
+    const selector = visibleSelectors.find((item) => item.field === field)!;
     onChange([
       ...conditions,
       {
@@ -454,7 +489,7 @@ export function AutomationSelectorBuilder({
           const field = event.dataTransfer.getData(
             "text/plain",
           ) as ExpenseAutomationCondition["field"];
-          if (availableSelectors.some((item) => item.field === field))
+          if (visibleSelectors.some((item) => item.field === field))
             addSelector(field);
         }}
       >
@@ -562,6 +597,16 @@ export function AutomationSelectorBuilder({
                             Array.isArray(condition.value)
                               ? condition.value
                               : []
+                          }
+                        />
+                      ) : condition.field === "category" ? (
+                        <CategorySelector
+                          onChange={(value) => update(condition.id, { value })}
+                          options={categoryOptions}
+                          value={
+                            Array.isArray(condition.value)
+                              ? condition.value[0] || ""
+                              : condition.value
                           }
                         />
                       ) : condition.field === "description" || condition.field === "tags" ? (
@@ -729,7 +774,7 @@ export function AutomationSelectorBuilder({
           value={search}
         />
         <div className="mt-3 space-y-1">
-          {availableSelectors
+              {visibleSelectors
             .filter((item) =>
               item.label.toLowerCase().includes(search.toLowerCase()),
             )
