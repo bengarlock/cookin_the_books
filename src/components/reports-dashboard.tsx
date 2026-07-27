@@ -60,6 +60,7 @@ function subscribeSavedReports(onStoreChange: () => void) {
 }
 
 export function ReportsDashboard({ transactions }: { transactions: CreditCardTransaction[] }) {
+  const [view, setView] = useState<"index" | "editor">("index");
   const [conditions, setConditions] = useState<ExpenseAutomationCondition[]>([]);
   const [results, setResults] = useState<CreditCardTransaction[] | null>(null);
   const [stale, setStale] = useState(false);
@@ -79,7 +80,24 @@ export function ReportsDashboard({ transactions }: { transactions: CreditCardTra
 
   function changeConditions(next: ExpenseAutomationCondition[]) { setConditions(next); if (results) setStale(true); setSaveMessage(""); setSaveError(""); }
   function runReport() { setResults(preview); setStale(false); }
-  function resetReportForm() { setActiveReportId(null); setReportName(""); setSaveMessage(""); setSaveError(""); }
+  function startNewReport() {
+    setView("editor");
+    setConditions([]);
+    setResults(null);
+    setStale(false);
+    setReportName("");
+    setActiveReportId(null);
+    setPendingDeleteId(null);
+    setSaveMessage("");
+    setSaveError("");
+  }
+
+  function showReportIndex() {
+    setView("index");
+    setPendingDeleteId(null);
+    setSaveMessage("");
+    setSaveError("");
+  }
 
   function saveReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -116,6 +134,7 @@ export function ReportsDashboard({ transactions }: { transactions: CreditCardTra
   }
 
   function loadReport(report: SavedReport, run = false) {
+    setView("editor");
     setConditions(report.conditions.map((condition) => ({
       ...condition,
       id: condition.id || crypto.randomUUID(),
@@ -134,7 +153,13 @@ export function ReportsDashboard({ transactions }: { transactions: CreditCardTra
     const next = savedReports.filter((report) => report.id !== reportId);
     writeSavedReports(next);
     setPendingDeleteId(null);
-    if (activeReportId === reportId) resetReportForm();
+    if (activeReportId === reportId) {
+      setActiveReportId(null);
+      setReportName("");
+      setConditions([]);
+      setResults(null);
+      setStale(false);
+    }
     setSaveMessage("Report deleted.");
     setSaveError("");
   }
@@ -163,12 +188,70 @@ export function ReportsDashboard({ transactions }: { transactions: CreditCardTra
 
   const maxMonth = metrics ? Math.max(1, ...metrics.years.slice(0, 2).flatMap((year) => metrics.annual.get(year)?.monthly || [])) : 1;
 
+  if (view === "index") {
+    return (
+      <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold">Reports</p>
+            <h2 className="mt-2 text-xl font-semibold text-white">Saved reports</h2>
+            <p className="mt-1 text-sm text-muted">Open an existing report to edit its criteria, or start a new report.</p>
+          </div>
+          <button className="rounded-xl border border-accent/30 bg-accent/15 px-5 py-2.5 text-sm font-semibold text-accent" onClick={startNewReport} type="button">
+            Create new report
+          </button>
+        </div>
+
+        {saveMessage ? <p className="mt-4 rounded-xl border border-accent/20 bg-accent/[0.06] px-4 py-3 text-sm text-accent">{saveMessage}</p> : null}
+
+        {savedReports.length ? (
+          <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {savedReports.map((report) => (
+              <article className="flex min-h-44 flex-col rounded-2xl border border-white/10 bg-black/10 p-4" key={report.id}>
+                <button className="min-w-0 text-left" onClick={() => loadReport(report)} type="button">
+                  <span className="block truncate text-base font-semibold text-white">{report.name}</span>
+                  <span className="mt-1 block text-xs text-muted">
+                    {report.conditions.length} {report.conditions.length === 1 ? "selector" : "selectors"} · Updated {formatSavedReportDate(report.updatedAt)}
+                  </span>
+                </button>
+                <div className="mt-auto flex flex-wrap gap-2 pt-5">
+                  <button className="rounded-lg border border-accent/25 bg-accent/[0.06] px-3 py-2 text-xs font-semibold text-accent" onClick={() => loadReport(report)} type="button">
+                    Edit report
+                  </button>
+                  <button className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-white/70" onClick={() => loadReport(report, true)} type="button">
+                    Run report
+                  </button>
+                  <button className="min-w-24 rounded-lg border border-white/10 px-3 py-2 text-xs text-white/55 hover:text-rose-200" onClick={() => pendingDeleteId === report.id ? deleteReport(report.id) : setPendingDeleteId(report.id)} type="button">
+                    {pendingDeleteId === report.id ? "Confirm delete" : "Delete"}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-6 rounded-2xl border border-dashed border-white/15 bg-black/10 px-6 py-12 text-center">
+            <p className="text-lg font-medium text-white/75">No saved reports yet</p>
+            <p className="mt-2 text-sm text-muted">Create a report to save a reusable view of your transaction history.</p>
+            <button className="mt-5 rounded-xl border border-accent/30 bg-accent/15 px-5 py-2.5 text-sm font-semibold text-accent" onClick={startNewReport} type="button">
+              Create your first report
+            </button>
+          </div>
+        )}
+      </section>
+    );
+  }
+
   return <div className="space-y-6">
     <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-        <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold">Report criteria</p><h2 className="mt-2 text-xl font-semibold text-white">What would you like to analyze?</h2><p className="mt-1 text-sm text-muted">Build a reusable slice of your transaction history with the same selectors used by automations.</p></div>
+        <div>
+          <button className="mb-3 text-xs font-semibold text-white/60 hover:text-white" onClick={showReportIndex} type="button">← Saved reports</button>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold">Report criteria</p>
+          <h2 className="mt-2 text-xl font-semibold text-white">{activeReportId ? `Edit ${reportName}` : "Create a report"}</h2>
+          <p className="mt-1 text-sm text-muted">Build a reusable slice of your transaction history with the same selectors used by automations.</p>
+        </div>
         <div className="flex flex-wrap gap-2">
-          {activeReportId ? <button className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-white/70" onClick={resetReportForm} type="button">New report</button> : null}
+          {activeReportId ? <button className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-white/70" onClick={startNewReport} type="button">New report</button> : null}
           <button className="rounded-xl border border-accent/30 bg-accent/15 px-5 py-2.5 text-sm font-semibold text-accent disabled:cursor-not-allowed disabled:opacity-40" disabled={!conditions.length || conditions.some(conditionIsEmpty)} onClick={runReport} type="button">Run report →</button>
         </div>
       </div>
@@ -241,6 +324,11 @@ export function ReportsDashboard({ transactions }: { transactions: CreditCardTra
       <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-5 sm:p-6"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Report detail</p><h2 className="mt-2 text-xl font-semibold text-white">Matching transactions</h2><div className="mt-5 overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="border-b border-white/10 text-xs uppercase tracking-wider text-muted"><tr><th className="pb-3">Date</th><th className="pb-3">Description</th><th className="pb-3">Account</th><th className="pb-3">Type</th><th className="pb-3 text-right">Amount</th></tr></thead><tbody>{results.slice().sort((a,b) => b.transaction_date.localeCompare(a.transaction_date)).map((item) => <tr className="border-b border-white/[0.06] text-white/75" key={item.id}><td className="py-3">{date.format(new Date(`${item.transaction_date}T12:00:00`))}</td><td className="max-w-sm truncate py-3 pr-4 text-white">{item.description}</td><td className="py-3">{item.issuer} •••• {item.account_last_four}</td><td className="py-3 capitalize">{item.transaction_type}</td><td className="py-3 text-right font-mono text-white">{money.format(Math.abs(Number(item.amount)))}</td></tr>)}</tbody></table>{!results.length ? <Empty /> : null}</div></section>
     </> : <section className="rounded-3xl border border-dashed border-white/15 bg-black/10 px-6 py-14 text-center"><p className="text-lg font-medium text-white/75">Your report will appear here</p><p className="mt-2 text-sm text-muted">Add at least one selector, then run the report.</p></section>}
   </div>;
+}
+
+function formatSavedReportDate(value: string) {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "recently" : date.format(parsed);
 }
 
 function Metric({ label, value, detail, tone = "accent" }: { label: string; value: string; detail: string; tone?: "accent" | "rose" }) { return <div className="dashboard-tile dashboard-tile-featured rounded-2xl border border-white/10 bg-white/[0.025] p-5"><p className="dashboard-tile-label text-xs uppercase tracking-[0.14em] text-muted">{label}</p><p className={`dashboard-tile-value mt-2 text-2xl font-semibold ${tone === "rose" ? "dashboard-tile-value-negative text-rose-200" : "dashboard-tile-value-featured text-accent"}`}>{value}</p><p className="dashboard-tile-description mt-1 text-xs text-muted">{detail}</p></div>; }
