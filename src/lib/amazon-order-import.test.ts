@@ -48,4 +48,17 @@ describe("Amazon order import validation", () => {
       ),
     ).toBe("The ZIP does not contain Order History.csv.");
   });
+
+  it("does not display an HTML proxy error", () => {
+    expect(
+      amazonImportErrorMessage(
+        {
+          message:
+            "Amazon order import failed. " +
+            "<html><head><title>413 Request Entity Too Large</title></head></html>",
+        },
+        "Amazon order import failed.",
+      ),
+    ).toBe("Amazon order import failed.");
+  });
 });

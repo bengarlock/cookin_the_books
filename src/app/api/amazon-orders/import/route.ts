@@ -27,6 +27,16 @@ export async function POST(request: Request) {
         cache: "no-store",
       },
     );
+    if (response.status === 413) {
+      return NextResponse.json(
+        {
+          message:
+            "The Amazon export exceeded the server upload limit. " +
+            "Select a ZIP smaller than 100 MB.",
+        },
+        { status: 413 },
+      );
+    }
     return portfolioApiJsonResponse(response, {
       message: "Amazon order import failed.",
     });

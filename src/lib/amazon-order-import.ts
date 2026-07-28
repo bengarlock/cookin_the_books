@@ -20,8 +20,20 @@ export function amazonImportErrorMessage(
   if (!data || typeof data !== "object") return fallbackMessage;
   for (const key of ["message", "detail", "file"] as const) {
     const value = (data as Record<string, unknown>)[key];
-    if (typeof value === "string" && value) return value;
-    if (Array.isArray(value) && typeof value[0] === "string") return value[0];
+    if (
+      typeof value === "string" &&
+      value &&
+      !/<\s*(?:!doctype|html|head|body|center|h1)\b/i.test(value)
+    ) {
+      return value;
+    }
+    if (
+      Array.isArray(value) &&
+      typeof value[0] === "string" &&
+      !/<\s*(?:!doctype|html|head|body|center|h1)\b/i.test(value[0])
+    ) {
+      return value[0];
+    }
   }
   return fallbackMessage;
 }
