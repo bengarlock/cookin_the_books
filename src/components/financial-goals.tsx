@@ -223,7 +223,7 @@ function GoalConditionBuilder({
                   key={condition.id}
                 >
                   {index ? (
-                    <div className="mb-3 flex items-center gap-2">
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
                       <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
                         Combine with previous row
                       </span>
@@ -252,9 +252,9 @@ function GoalConditionBuilder({
                       </div>
                     </div>
                   ) : null}
-                  <div className="grid items-center gap-2 sm:grid-cols-[minmax(9rem,1fr)_auto_minmax(10rem,1fr)_auto]">
+                  <div className="grid items-center gap-2 md:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1.1fr)_auto]">
                     <select
-                      className="rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-sm text-white"
+                      className="min-w-0 w-full rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-sm text-white"
                       onChange={(event) =>
                         changeField(
                           condition,
@@ -270,7 +270,7 @@ function GoalConditionBuilder({
                       ))}
                     </select>
                     <select
-                      className="rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white"
+                      className="min-w-0 w-full rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white"
                       onChange={(event) =>
                         update(condition.id, {
                           operator: event.target
@@ -286,12 +286,14 @@ function GoalConditionBuilder({
                       ))}
                     </select>
                     {condition.field === "spending_period" ? (
-                      <PayPeriodSelector
-                        onChange={(value) => update(condition.id, { value })}
-                        value={condition.value}
-                      />
+                      <div className="min-w-0 [&>select]:w-full">
+                        <PayPeriodSelector
+                          onChange={(value) => update(condition.id, { value })}
+                          value={condition.value}
+                        />
+                      </div>
                     ) : (
-                      <div className="relative">
+                      <div className="relative min-w-0">
                         <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted">
                           $
                         </span>
@@ -311,7 +313,7 @@ function GoalConditionBuilder({
                     )}
                     <button
                       aria-label={`Remove ${fieldLabels[condition.field]}`}
-                      className="px-2 text-lg text-white/35 hover:text-rose-200"
+                      className="justify-self-end px-2 text-lg text-white/35 hover:text-rose-200"
                       onClick={() =>
                         onChange(
                           conditions.filter((item) => item.id !== condition.id),
