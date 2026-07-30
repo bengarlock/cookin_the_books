@@ -5,8 +5,8 @@ import {
 } from "./adjusted-account-balances";
 import { transactionAccountFilters } from "./account-transaction-filters";
 import type {
-  CreditCardTransaction,
   PendingCardTransaction,
+  TransactionSelectorRecord,
 } from "./credit-card-transaction-types";
 import type {
   FinancialGoal,
@@ -221,7 +221,7 @@ export function evaluateFinancialGoal({
   projectedNextPaycheck = null,
 }: {
   goal: FinancialGoalInput;
-  transactions: CreditCardTransaction[];
+  transactions: TransactionSelectorRecord[];
   snapshot: BankValueSnapshot | null;
   pendingTransactions?: PendingTransaction[];
   pendingCardTransactions?: PendingCardTransaction[];

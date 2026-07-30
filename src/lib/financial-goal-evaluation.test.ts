@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import type { CreditCardTransaction } from "./credit-card-transaction-types";
+import type { TransactionSelectorRecord } from "./credit-card-transaction-types";
 import { evaluateFinancialGoal, normalizeFinancialGoal } from "./financial-goal-evaluation";
 import type { FinancialGoal, FinancialGoalInput } from "./financial-goal-types";
 import type { BankValueSnapshot } from "./snapshot-types";
 
-const transaction = {
+const transaction: TransactionSelectorRecord = {
   id: 1,
   issuer: "Citibank Online",
   account_last_four: "4596",
@@ -13,9 +13,11 @@ const transaction = {
   amount: "125.00",
   transaction_date: "2026-07-20",
   transaction_type: "purchase",
+  category: "groceries",
+  plaid_category_detailed: "FOOD_AND_DRINK_GROCERIES",
   pending: false,
   tags: [],
-} as CreditCardTransaction;
+};
 
 const snapshot = {
   citi_current: "400.00",

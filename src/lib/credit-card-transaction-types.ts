@@ -58,6 +58,9 @@ export type PendingCardTransaction = Pick<
   pending?: boolean;
 };
 
+export type TransactionSelectorRecord = PendingCardTransaction &
+  Pick<CreditCardTransaction, "id" | "transaction_date" | "tags">;
+
 export type AmazonProduct = {
   id: number;
   website: string;

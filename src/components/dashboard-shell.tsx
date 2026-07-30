@@ -431,6 +431,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 <div className="flex items-center gap-2">
                   <Link
                     href={item.href}
+                    prefetch={false}
                     onClick={() => {
                       setIsBudgetExpanded(true);
                       setIsMobileMenuOpen(false);
@@ -482,6 +483,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                     return (
                       <Link
                         href={child.href}
+                        prefetch={false}
                         onClick={() => setIsMobileMenuOpen(false)}
                         className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition lg:ml-8 lg:w-[calc(100%-2rem)] ${
                           isNavigationItemActive(pathname, child.href)
