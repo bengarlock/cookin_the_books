@@ -410,6 +410,7 @@ const goalTrackingLabels: Record<FinancialGoalTrackingMetric, string> = {
   remaining_budget: "Remaining budget",
   total_budget: "Total Budget",
   projected_savings: "Projected Savings",
+  total_credit_card_spend: "Total Credit Card Spend",
 };
 
 const compactGoalTrackingLabels: Record<FinancialGoalTrackingMetric, string> = {
@@ -418,6 +419,7 @@ const compactGoalTrackingLabels: Record<FinancialGoalTrackingMetric, string> = {
   remaining_budget: "Remaining",
   total_budget: "Total budget",
   projected_savings: "Projected savings",
+  total_credit_card_spend: "Card spend",
 };
 
 function formatGoalTrackingValue(
