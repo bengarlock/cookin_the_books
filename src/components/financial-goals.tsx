@@ -102,6 +102,12 @@ const trackingOptions: {
     description:
       "Compare the spending target with the next projected paycheck.",
   },
+  {
+    metric: "total_credit_card_spend",
+    label: "Total Credit Card Spend",
+    description:
+      "Track card spending matched by this goal's accounts and time period.",
+  },
 ];
 
 function emptyGoal(): FinancialGoalInput {

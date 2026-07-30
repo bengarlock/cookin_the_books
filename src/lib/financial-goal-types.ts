@@ -25,7 +25,8 @@ export type FinancialGoalTrackingMetric =
   | "daily_spending_limit"
   | "remaining_budget"
   | "total_budget"
-  | "projected_savings";
+  | "projected_savings"
+  | "total_credit_card_spend";
 
 export type FinancialGoal = {
   id: number;

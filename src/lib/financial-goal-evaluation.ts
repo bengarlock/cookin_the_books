@@ -303,6 +303,7 @@ export function evaluateFinancialGoal({
       Number.isFinite(spendingBudget) && projectedNextPaycheck !== null
         ? projectedNextPaycheck - spendingBudget
         : null,
+    total_credit_card_spend: spending,
   };
   const trackingMetrics: EvaluatedGoalTrackingMetric[] =
     goal.tracking_metrics.map((metric) => ({

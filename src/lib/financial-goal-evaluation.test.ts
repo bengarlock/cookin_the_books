@@ -61,6 +61,7 @@ const goal: FinancialGoalInput = {
     "remaining_budget",
     "total_budget",
     "projected_savings",
+    "total_credit_card_spend",
   ],
   is_active: true,
 };
@@ -89,6 +90,7 @@ describe("evaluateFinancialGoal", () => {
       { metric: "remaining_budget", value: 75 },
       { metric: "total_budget", value: 200 },
       { metric: "projected_savings", value: 100 },
+      { metric: "total_credit_card_spend", value: 125 },
     ]);
   });
 
