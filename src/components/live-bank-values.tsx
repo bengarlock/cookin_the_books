@@ -23,7 +23,13 @@ import {
 } from "@/lib/account-transaction-filters";
 import { calculateAdjustedAccountBalances } from "@/lib/adjusted-account-balances";
 import { APP_BASE_PATH } from "@/lib/config";
-import type { CreditCardTransaction, ExpenseTag, PendingCardTransaction, SuggestedRelatedTransaction } from "@/lib/credit-card-transaction-types";
+import type {
+  CreditCardTransaction,
+  ExpenseTag,
+  PendingCardTransaction,
+  SuggestedRelatedTransaction,
+  TransactionSelectorRecord,
+} from "@/lib/credit-card-transaction-types";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
 import {
   evaluateFinancialGoal,
@@ -448,7 +454,7 @@ function PinnedGoalCard({
   pendingTransactions: PendingTransaction[];
   projectedNextPaycheck: number | null;
   snapshot: BankValueSnapshot | null;
-  transactions: CreditCardTransaction[];
+  transactions: TransactionSelectorRecord[];
 }) {
   const evaluation = evaluateFinancialGoal({
     goal: normalizeFinancialGoal(goal),
@@ -480,6 +486,7 @@ function PinnedGoalCard({
           : "border-gold/20 bg-gold/[0.055]"
       }`}
       href="/dashboard/budget/goals"
+      prefetch={false}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -581,7 +588,7 @@ function PinnedGoalTrackingCard({
   pendingTransactions: PendingTransaction[];
   projectedNextPaycheck: number | null;
   snapshot: BankValueSnapshot | null;
-  transactions: CreditCardTransaction[];
+  transactions: TransactionSelectorRecord[];
 }) {
   const evaluation = evaluateFinancialGoal({
     goal: normalizeFinancialGoal(goal),
@@ -600,6 +607,7 @@ function PinnedGoalTrackingCard({
     <Link
       className="dashboard-tile overview-metric-card group flex h-full w-full flex-col overflow-hidden rounded-2xl border border-sky-300/20 bg-sky-400/[0.07] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] transition-colors hover:border-sky-300/35"
       href="/dashboard/budget/goals"
+      prefetch={false}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -1748,6 +1756,7 @@ export function LiveBankValues({
   initialBudgetPlanSettings,
   initialCreditCardTransactions = [],
   initialFinancialGoals = [],
+  initialGoalTransactions = [],
   initialIncomeEntries = [],
   initialPendingCardTransactions = [],
   initialExpenseCategories = [],
@@ -1758,6 +1767,7 @@ export function LiveBankValues({
   initialBudgetPlanSettings?: BudgetPlanSettings;
   initialCreditCardTransactions?: CreditCardTransaction[];
   initialFinancialGoals?: FinancialGoal[];
+  initialGoalTransactions?: TransactionSelectorRecord[];
   initialIncomeEntries?: IncomeEntry[];
   initialPendingCardTransactions?: PendingCardTransaction[];
   initialExpenseCategories?: ExpenseCategory[];
@@ -1769,6 +1779,8 @@ export function LiveBankValues({
   const { snapshot } = useLiveSnapshot();
   const creditCardTransactions =
     budgetData?.creditCardTransactions ?? initialCreditCardTransactions;
+  const goalTransactions =
+    budgetData?.creditCardTransactions ?? initialGoalTransactions;
   const expenseCategories = budgetData?.expenseCategories ?? initialExpenseCategories;
   const incomeEntries = budgetData?.incomeEntries ?? initialIncomeEntries;
   const [localPendingTransactions, setLocalPendingTransactions] = useState(
@@ -2440,14 +2452,14 @@ export function LiveBankValues({
             currentDate={currentDate}
             goal={goal}
             pendingCardTransactions={
-              creditCardTransactions.length
-                ? creditCardTransactions
+              goalTransactions.length
+                ? goalTransactions
                 : initialPendingCardTransactions
             }
             pendingTransactions={pendingTransactions}
             projectedNextPaycheck={projectedNextPaycheck}
             snapshot={snapshot}
-            transactions={creditCardTransactions}
+            transactions={goalTransactions}
           />
         ),
       })),
@@ -2462,14 +2474,14 @@ export function LiveBankValues({
               goal={goal}
               metric={metric}
               pendingCardTransactions={
-                creditCardTransactions.length
-                  ? creditCardTransactions
+                goalTransactions.length
+                  ? goalTransactions
                   : initialPendingCardTransactions
               }
               pendingTransactions={pendingTransactions}
               projectedNextPaycheck={projectedNextPaycheck}
               snapshot={snapshot}
-              transactions={creditCardTransactions}
+              transactions={goalTransactions}
             />
           ),
         })),

@@ -1,4 +1,4 @@
-import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import type { TransactionSelectorRecord } from "@/lib/credit-card-transaction-types";
 import type { ExpenseAutomationCondition } from "@/lib/expense-automation-rule-types";
 import { getCurrentPayPeriod, localPaydayString } from "./pay-cycle";
 
@@ -10,8 +10,10 @@ export function conditionIsEmpty(condition: ExpenseAutomationCondition) {
     : !condition.value.trim();
 }
 
-export function transactionMatchesCondition(
-  transaction: CreditCardTransaction,
+export function transactionMatchesCondition<
+  Transaction extends TransactionSelectorRecord,
+>(
+  transaction: Transaction,
   condition: ExpenseAutomationCondition,
   currentDate = new Date(),
 ) {
@@ -80,8 +82,10 @@ export function transactionMatchesCondition(
   return false;
 }
 
-export function selectTransactions(
-  transactions: CreditCardTransaction[],
+export function selectTransactions<
+  Transaction extends TransactionSelectorRecord,
+>(
+  transactions: Transaction[],
   conditions: ExpenseAutomationCondition[],
   logic: "and" | "or",
   currentDate = new Date(),
