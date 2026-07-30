@@ -1,5 +1,6 @@
 import {
   calculateAdjustedAccountBalances,
+  liabilityAccountKeys,
   type TransactionStatusMode,
 } from "./adjusted-account-balances";
 import { transactionAccountFilters } from "./account-transaction-filters";
@@ -169,7 +170,7 @@ function selectedAccountKeys(
   return Array.from(new Set(keys));
 }
 
-function accountBalance(
+function selectedBalances(
   goal: FinancialGoalInput,
   snapshot: BankValueSnapshot | null,
   pendingTransactions: PendingTransaction[],
@@ -192,18 +193,22 @@ function accountBalance(
   const status: TransactionStatusMode =
     rawStatus === "posted" || rawStatus === "pending" ? rawStatus : "both";
 
-  return selectedAccountKeys(goal, snapshot).reduce((total, key) => {
+  const valueForKey = (key: SnapshotAccountKey) => {
     if (status === "posted") {
-      return key === "citi_pending" ? total : total + postedValue(key);
+      return key === "citi_pending" ? 0 : postedValue(key);
     }
     if (status === "pending") {
-      return (
-        total +
-        (key === "citi_pending" ? postedValue(key) : pendingValue(key))
-      );
+      return key === "citi_pending" ? postedValue(key) : pendingValue(key);
     }
-    return total + adjustedValue(key);
-  }, 0);
+    return adjustedValue(key);
+  };
+  const keys = selectedAccountKeys(goal, snapshot);
+  return {
+    all: keys.reduce((total, key) => total + valueForKey(key), 0),
+    liabilities: keys
+      .filter((key) => liabilityAccountKeys.has(key))
+      .reduce((total, key) => total + valueForKey(key), 0),
+  };
 }
 
 export function evaluateFinancialGoal({
@@ -241,12 +246,13 @@ export function evaluateFinancialGoal({
     (total, transaction) => total + Math.abs(Number(transaction.amount) || 0),
     0,
   );
-  const balance = accountBalance(
+  const balances = selectedBalances(
     goal,
     snapshot,
     pendingTransactions,
     pendingCardTransactions,
   );
+  const balance = balances.all;
 
   const conditions: EvaluatedGoalCondition[] = goal.success_conditions.map(
     (condition) => {
@@ -303,7 +309,7 @@ export function evaluateFinancialGoal({
       Number.isFinite(spendingBudget) && projectedNextPaycheck !== null
         ? projectedNextPaycheck - spendingBudget
         : null,
-    total_credit_card_spend: spending,
+    total_credit_card_spend: balances.liabilities,
   };
   const trackingMetrics: EvaluatedGoalTrackingMetric[] =
     goal.tracking_metrics.map((metric) => ({

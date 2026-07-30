@@ -106,7 +106,7 @@ const trackingOptions: {
     metric: "total_credit_card_spend",
     label: "Total Credit Card Spend",
     description:
-      "Track card spending matched by this goal's accounts and time period.",
+      "Track posted and pending card balances for this goal's selected accounts.",
   },
 ];
 

@@ -90,7 +90,7 @@ describe("evaluateFinancialGoal", () => {
       { metric: "remaining_budget", value: 75 },
       { metric: "total_budget", value: 200 },
       { metric: "projected_savings", value: 100 },
-      { metric: "total_credit_card_spend", value: 125 },
+      { metric: "total_credit_card_spend", value: 425 },
     ]);
   });
 
@@ -122,6 +122,11 @@ describe("evaluateFinancialGoal", () => {
     });
 
     expect(result.selectedAccountBalance).toBe(525);
+    expect(
+      result.trackingMetrics.find(
+        (metric) => metric.metric === "total_credit_card_spend",
+      )?.value,
+    ).toBe(425);
     expect(result.conditions).toEqual([
       expect.objectContaining({
         field: "current_balances",
@@ -192,6 +197,11 @@ describe("evaluateFinancialGoal", () => {
       2,
     );
     expect(evaluateStatus().selectedAccountBalance).toBeCloseTo(765.81, 2);
+    expect(
+      evaluateStatus("both").trackingMetrics.find(
+        (metric) => metric.metric === "total_credit_card_spend",
+      )?.value,
+    ).toBeCloseTo(765.81, 2);
   });
 });
 
