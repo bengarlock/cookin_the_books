@@ -1,4 +1,4 @@
-import type { CreditCardTransaction } from "./credit-card-transaction-types";
+import type { IncomeTransaction } from "./credit-card-transaction-types";
 import type { IncomeEntry } from "./income-entry-types";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -16,12 +16,12 @@ function dayDifference(left: string, right: string) {
 
 export type SyncedIncomeMatch = {
   incomeEntry: IncomeEntry;
-  transaction: CreditCardTransaction;
+  transaction: IncomeTransaction;
 };
 
 export function reconcileSyncedIncome(
   incomeEntries: IncomeEntry[],
-  syncedTransactions: CreditCardTransaction[],
+  syncedTransactions: IncomeTransaction[],
 ) {
   const availableEntries = incomeEntries.filter(
     (entry) =>
@@ -29,7 +29,7 @@ export function reconcileSyncedIncome(
   );
   const matchedEntryIds = new Set<number>();
   const matches: SyncedIncomeMatch[] = [];
-  const unmatchedTransactions: CreditCardTransaction[] = [];
+  const unmatchedTransactions: IncomeTransaction[] = [];
 
   for (const transaction of syncedTransactions) {
     const candidate = availableEntries
@@ -61,7 +61,7 @@ export function reconcileSyncedIncome(
 
 export function incomeLedgerTotals(
   incomeEntries: IncomeEntry[],
-  syncedTransactions: CreditCardTransaction[],
+  syncedTransactions: IncomeTransaction[],
   dateRange?: { start: string; end: string },
 ) {
   const { unmatchedTransactions } = reconcileSyncedIncome(

@@ -1,7 +1,7 @@
-import type { CreditCardTransaction } from "./credit-card-transaction-types";
+import type { IncomeTransaction } from "./credit-card-transaction-types";
 
 export function cashAccountIncomeTransactions(
-  transactions: CreditCardTransaction[],
+  transactions: IncomeTransaction[],
   { includeExcluded = false }: { includeExcluded?: boolean } = {},
 ) {
   return transactions.filter(
