@@ -14,7 +14,10 @@ import {
   AVERAGE_DAYS_PER_MONTH,
   budgetItemExpenseAverages,
 } from "./expense-averages";
-import type { CreditCardTransaction } from "./credit-card-transaction-types";
+import type {
+  CreditCardTransaction,
+  IncomeTransaction,
+} from "./credit-card-transaction-types";
 import type { ExpenseEntry } from "./expense-entry-types";
 import { cashAccountIncomeTransactions } from "./cash-account-ledgers";
 import { incomeLedgerTotals } from "./income-reconciliation";
@@ -354,7 +357,7 @@ function currentYearBounds(currentDate = new Date()) {
 export function yearToDateIncome(
   entries: IncomeEntry[],
   currentDate = new Date(),
-  syncedTransactions: CreditCardTransaction[] = [],
+  syncedTransactions: IncomeTransaction[] = [],
 ) {
   const { start, today } = currentYearBounds(currentDate);
   return incomeLedgerTotals(entries, syncedTransactions, { start, end: today })

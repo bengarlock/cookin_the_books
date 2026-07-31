@@ -73,6 +73,21 @@ export type BudgetAverageTransaction = Pick<
   | "include"
 >;
 
+export type IncomeTransaction = Pick<
+  CreditCardTransaction,
+  | "id"
+  | "budget_item"
+  | "issuer"
+  | "account_last_four"
+  | "transaction_date"
+  | "description"
+  | "amount"
+  | "transaction_type"
+  | "category"
+  | "include"
+  | "plaid_category_primary"
+>;
+
 export type AmazonProduct = {
   id: number;
   website: string;

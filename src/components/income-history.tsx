@@ -2,11 +2,10 @@
 
 import { FormEvent, useMemo, useState } from "react";
 
-import { useBudgetData } from "@/components/budget-data-provider";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { APP_BASE_PATH } from "@/lib/config";
 import { cashAccountIncomeTransactions } from "@/lib/cash-account-ledgers";
-import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import type { IncomeTransaction } from "@/lib/credit-card-transaction-types";
 import {
   defaultExpenseDateRange,
   formatExpenseDateRange,
@@ -145,13 +144,17 @@ function statementEntries(
     .filter(([, value]) => Math.abs(value) > 0);
 }
 
-export function IncomeHistory() {
-  const {
-    incomeEntries: entries,
-    setIncomeEntries: setEntries,
-    creditCardTransactions,
-    setCreditCardTransactions,
-  } = useBudgetData();
+export function IncomeHistory({
+  initialIncomeEntries,
+  initialIncomeTransactions,
+}: {
+  initialIncomeEntries: IncomeEntry[];
+  initialIncomeTransactions: IncomeTransaction[];
+}) {
+  const [entries, setEntries] = useState(initialIncomeEntries);
+  const [incomeTransactions, setIncomeTransactions] = useState(
+    initialIncomeTransactions,
+  );
   const [dateRange, setDateRange] = useState<ExpenseDateRange>(
     defaultExpenseDateRange(),
   );
@@ -187,11 +190,11 @@ export function IncomeHistory() {
     () =>
       reconcileSyncedIncome(
         entries,
-        cashAccountIncomeTransactions(creditCardTransactions, {
+        cashAccountIncomeTransactions(incomeTransactions, {
           includeExcluded: true,
         }),
       ),
-    [creditCardTransactions, entries],
+    [entries, incomeTransactions],
   );
   const syncedIncomeByEntryId = useMemo(
     () =>
@@ -225,7 +228,7 @@ export function IncomeHistory() {
   );
   const ledgerTotals = incomeLedgerTotals(
     entries,
-    cashAccountIncomeTransactions(creditCardTransactions, {
+    cashAccountIncomeTransactions(incomeTransactions, {
       includeExcluded: true,
     }),
     dateRange,
@@ -319,7 +322,7 @@ export function IncomeHistory() {
     : 0;
 
   async function toggleSyncedIncomeInclude(
-    transaction: CreditCardTransaction,
+    transaction: IncomeTransaction,
   ) {
     setSavingIncludeId(transaction.id);
     setError("");
@@ -333,7 +336,7 @@ export function IncomeHistory() {
         },
       );
       const updated = (await response.json().catch(() => null)) as
-        | CreditCardTransaction
+        | IncomeTransaction
         | { message?: string }
         | null;
       if (!response.ok || !updated || !("id" in updated)) {
@@ -343,8 +346,12 @@ export function IncomeHistory() {
             : "Unable to update this income transaction.",
         );
       }
-      setCreditCardTransactions((current) =>
-        current.map((item) => (item.id === updated.id ? updated : item)),
+      setIncomeTransactions((current) =>
+        current.map((item) =>
+          item.id === updated.id
+            ? { ...item, include: updated.include }
+            : item,
+        ),
       );
     } catch (includeError) {
       setError(
