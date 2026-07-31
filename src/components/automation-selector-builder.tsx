@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { ExpenseAutomationCondition } from "@/lib/expense-automation-rule-types";
 import type { TransactionSelectorRecord } from "@/lib/credit-card-transaction-types";
@@ -423,6 +423,7 @@ export function AutomationSelectorBuilder({
   matches,
   onChange,
   includeTransactionStatus = false,
+  renderConditionFooter,
 }: {
   conditions: ExpenseAutomationCondition[];
   logic: "and" | "or";
@@ -433,6 +434,9 @@ export function AutomationSelectorBuilder({
   matches: TransactionSelectorRecord[];
   onChange: (conditions: ExpenseAutomationCondition[]) => void;
   includeTransactionStatus?: boolean;
+  renderConditionFooter?: (
+    condition: ExpenseAutomationCondition,
+  ) => ReactNode;
 }) {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"selectors" | "matches">("selectors");
@@ -678,6 +682,7 @@ export function AutomationSelectorBuilder({
                         ×
                       </button>
                     </div>
+                    {renderConditionFooter?.(condition)}
                   </div>
                 );
               })}

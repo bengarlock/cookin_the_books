@@ -17,6 +17,10 @@ import {
   normalizeFinancialGoal,
   type EvaluatedGoalCondition,
 } from "@/lib/financial-goal-evaluation";
+import {
+  hasSelectedGoalAccounts,
+  normalizeGoalScopeConditions,
+} from "@/lib/financial-goal-scope";
 import { financialGoalDeleteAction } from "@/lib/financial-goal-actions";
 import type {
   FinancialGoal,
@@ -404,16 +408,25 @@ function GoalFields({
     () => selectTransactions(transactions, value.scope_conditions, "and"),
     [transactions, value.scope_conditions],
   );
+  const hasSelectedAccounts = hasSelectedGoalAccounts(value.scope_conditions);
   const payPeriodCondition = value.scope_conditions.find(
     (condition) =>
       condition.field === "pay_period" && condition.operator === "equals",
   );
 
-  function setIncludeOutstandingPending(include: boolean) {
-    if (!payPeriodCondition) return;
+  function updateScopeConditions(
+    scopeConditions: ExpenseAutomationCondition[],
+  ) {
     onChange({
       ...value,
-      scope_conditions: value.scope_conditions.map((condition) =>
+      scope_conditions: normalizeGoalScopeConditions(scopeConditions),
+    });
+  }
+
+  function setIncludeOutstandingPending(include: boolean) {
+    if (!payPeriodCondition) return;
+    updateScopeConditions(
+      value.scope_conditions.map((condition) =>
         condition.id === payPeriodCondition.id
           ? {
               ...condition,
@@ -421,7 +434,7 @@ function GoalFields({
             }
           : condition,
       ),
-    });
+    );
   }
 
   return (
@@ -458,36 +471,35 @@ function GoalFields({
           includeTransactionStatus
           logic="and"
           matches={preview}
-          onChange={(scope_conditions) =>
-            onChange({ ...value, scope_conditions })
+          onChange={updateScopeConditions}
+          renderConditionFooter={(condition) =>
+            hasSelectedAccounts &&
+            condition.id === payPeriodCondition?.id ? (
+              <label className="mt-3 flex cursor-pointer items-start gap-2 border-t border-white/10 pt-3">
+                <input
+                  checked={
+                    condition.include_outstanding_pending === true
+                  }
+                  className="mt-0.5"
+                  onChange={(event) =>
+                    setIncludeOutstandingPending(event.target.checked)
+                  }
+                  type="checkbox"
+                />
+                <span>
+                  <span className="block text-xs font-semibold text-sky-100">
+                    Include outstanding pending charges
+                  </span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-sky-100/55">
+                    Also count pending purchases, fees, and interest on the
+                    selected accounts when dated outside this pay period.
+                  </span>
+                </span>
+              </label>
+            ) : null
           }
           tags={tags}
         />
-        {payPeriodCondition ? (
-          <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-sky-300/15 bg-sky-400/[0.05] p-4">
-            <input
-              checked={
-                payPeriodCondition.include_outstanding_pending === true
-              }
-              className="mt-0.5"
-              onChange={(event) =>
-                setIncludeOutstandingPending(event.target.checked)
-              }
-              type="checkbox"
-            />
-            <span>
-              <span className="block text-sm font-semibold text-sky-100">
-                Include outstanding pending charges
-              </span>
-              <span className="mt-1 block text-xs leading-5 text-sky-100/60">
-                Count purchases, fees, and interest that are still pending on
-                the selected accounts, even when their transaction date falls
-                just outside this pay period. Payments and credits remain
-                excluded from spending.
-              </span>
-            </span>
-          </label>
-        ) : null}
       </section>
 
       <section className="border-t border-white/10 pt-6">
