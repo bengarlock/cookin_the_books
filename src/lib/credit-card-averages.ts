@@ -1,4 +1,4 @@
-import type { CreditCardTransaction } from "./credit-card-transaction-types";
+import type { BudgetAverageTransaction } from "./credit-card-transaction-types";
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const AVERAGE_DAYS_PER_MONTH = 365.2425 / 12;
@@ -12,13 +12,15 @@ function dateValue(value: string) {
   return Date.parse(`${value}T00:00:00Z`);
 }
 
-export function effectiveCreditCardTransactionAmount(transaction: CreditCardTransaction) {
+export function effectiveCreditCardTransactionAmount(
+  transaction: BudgetAverageTransaction,
+) {
   if (transaction.include === false) return 0;
   return Number(transaction.amount) / (transaction.split === true ? 2 : 1);
 }
 
 function coveredCalendarDays(
-  transactions: CreditCardTransaction[],
+  transactions: BudgetAverageTransaction[],
   cutoff: string,
   today: string,
 ) {
@@ -50,7 +52,7 @@ function coveredCalendarDays(
 }
 
 export function creditCardExpenditureAverages(
-  transactions: CreditCardTransaction[],
+  transactions: BudgetAverageTransaction[],
   cutoff: string,
   today: string,
 ) {

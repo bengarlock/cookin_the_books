@@ -61,6 +61,18 @@ export type PendingCardTransaction = Pick<
 export type TransactionSelectorRecord = PendingCardTransaction &
   Pick<CreditCardTransaction, "id" | "transaction_date" | "tags">;
 
+export type BudgetAverageTransaction = Pick<
+  CreditCardTransaction,
+  | "budget_item"
+  | "statement_start"
+  | "statement_end"
+  | "transaction_date"
+  | "amount"
+  | "transaction_type"
+  | "split"
+  | "include"
+>;
+
 export type AmazonProduct = {
   id: number;
   website: string;

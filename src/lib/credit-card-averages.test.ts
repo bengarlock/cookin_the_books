@@ -1,27 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import type { CreditCardTransaction } from "./credit-card-transaction-types";
+import type { BudgetAverageTransaction } from "./credit-card-transaction-types";
 import { creditCardExpenditureAverages } from "./credit-card-averages";
 
 function transaction(
-  overrides: Partial<CreditCardTransaction>,
-): CreditCardTransaction {
+  overrides: Partial<BudgetAverageTransaction>,
+): BudgetAverageTransaction {
   return {
-    id: 1,
     budget_item: 1,
-    issuer: "Chase",
-    account_last_four: "9125",
     statement_start: "2026-06-01",
     statement_end: "2026-06-30",
     transaction_date: "2026-06-10",
-    posting_date: null,
-    description: "Purchase",
     amount: "300.00",
     transaction_type: "purchase",
-    source_identifier: "test",
     split: false,
     include: true,
-    created_at: "2026-06-30T00:00:00Z",
     ...overrides,
   };
 }
@@ -32,7 +25,6 @@ describe("credit-card expenditure averages", () => {
       [
         transaction({ amount: "300.00" }),
         transaction({
-          id: 2,
           amount: "-300.00",
           transaction_type: "payment",
         }),
@@ -52,8 +44,6 @@ describe("credit-card expenditure averages", () => {
       [
         transaction({ amount: "150.00" }),
         transaction({
-          id: 2,
-          issuer: "Citi",
           amount: "150.00",
         }),
       ],
@@ -74,7 +64,7 @@ describe("credit-card expenditure averages", () => {
     const result = creditCardExpenditureAverages(
       [
         transaction({ amount: "300.00", split: true }),
-        transaction({ id: 2, amount: "500.00", include: false }),
+        transaction({ amount: "500.00", include: false }),
       ],
       "2025-07-01",
       "2026-06-30",
