@@ -88,6 +88,36 @@ export type IncomeTransaction = Pick<
   | "plaid_category_primary"
 >;
 
+export type ExpenseTransaction = Pick<
+  CreditCardTransaction,
+  | "id"
+  | "budget_item"
+  | "issuer"
+  | "account_last_four"
+  | "statement_start"
+  | "statement_end"
+  | "transaction_date"
+  | "posting_date"
+  | "description"
+  | "amount"
+  | "transaction_type"
+  | "category"
+  | "tags"
+  | "split"
+  | "include"
+  | "note"
+> & {
+  has_amazon_orders: boolean;
+  has_receipt_orders: boolean;
+  amazon_orders?: AmazonOrder[];
+  receipt_orders?: ReceiptOrder[];
+};
+
+export type TransactionOrderDetails = {
+  amazon_orders: AmazonOrder[];
+  receipt_orders: ReceiptOrder[];
+};
+
 export type AmazonProduct = {
   id: number;
   website: string;

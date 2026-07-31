@@ -12,9 +12,16 @@ export async function GET(request: Request) {
   }
 
   try {
-    const search = new URL(request.url).search;
+    const requestUrl = new URL(request.url);
+    const summary = requestUrl.searchParams.get("summary");
+    requestUrl.searchParams.delete("summary");
+    const search = requestUrl.search;
+    const endpoint =
+      summary === "expenses"
+        ? "credit-card-transactions/expense-summary/"
+        : "credit-card-transactions/";
     const response = await fetch(
-      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/credit-card-transactions/${search}`,
+      `${getPortfolioApiBaseUrl()}/api/v1/cookin_the_books/${endpoint}${search}`,
       {
         headers: {
           Accept: "application/json",
