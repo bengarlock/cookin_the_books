@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { ExpenseAutomationCondition } from "@/lib/expense-automation-rule-types";
-import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import type { TransactionSelectorRecord } from "@/lib/credit-card-transaction-types";
 import { getCurrentPayPeriod, localPaydayString } from "@/lib/pay-cycle";
 
 const pageSize = 10;
@@ -430,7 +430,7 @@ export function AutomationSelectorBuilder({
   categoryOptions?: Array<{ value: string; label: string }>;
   descriptions: string[];
   tags: string[];
-  matches: CreditCardTransaction[];
+  matches: TransactionSelectorRecord[];
   onChange: (conditions: ExpenseAutomationCondition[]) => void;
   includeTransactionStatus?: boolean;
 }) {

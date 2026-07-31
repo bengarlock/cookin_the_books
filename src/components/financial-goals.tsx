@@ -6,10 +6,11 @@ import {
   AutomationSelectorBuilder,
   PayPeriodSelector,
 } from "@/components/automation-selector-builder";
-import { useBudgetData } from "@/components/budget-data-provider";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import { accountSelectorOptions } from "@/lib/account-transaction-filters";
+import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import { APP_BASE_PATH } from "@/lib/config";
+import type { TransactionSelectorRecord } from "@/lib/credit-card-transaction-types";
 import type { ExpenseAutomationCondition } from "@/lib/expense-automation-rule-types";
 import {
   evaluateFinancialGoal,
@@ -23,6 +24,8 @@ import type {
   FinancialGoalInput,
   FinancialGoalTrackingMetric,
 } from "@/lib/financial-goal-types";
+import type { IncomeEntry } from "@/lib/income-entry-types";
+import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import { classifyPaychecks } from "@/lib/projections";
 import { getNextPayCycle } from "@/lib/pay-cycle";
 import { conditionIsEmpty, selectTransactions } from "@/lib/transaction-selector";
@@ -372,7 +375,7 @@ function GoalFields({
   onChange,
 }: {
   value: FinancialGoalInput;
-  transactions: ReturnType<typeof useBudgetData>["creditCardTransactions"];
+  transactions: TransactionSelectorRecord[];
   onChange: (value: FinancialGoalInput) => void;
 }) {
   const accounts = useMemo(
@@ -592,32 +595,34 @@ function trackingMetricValue(
 }
 
 export function FinancialGoals({
+  initialBudgetPlanSettings,
   initialGoals,
+  initialIncomeEntries,
+  initialPendingTransactions,
+  initialTransactions,
 }: {
+  initialBudgetPlanSettings: BudgetPlanSettings;
   initialGoals: FinancialGoal[];
+  initialIncomeEntries: IncomeEntry[];
+  initialPendingTransactions: PendingTransaction[];
+  initialTransactions: TransactionSelectorRecord[];
 }) {
   const { snapshot } = useLiveSnapshot();
-  const {
-    budgetPlanSettings,
-    creditCardTransactions,
-    incomeEntries,
-    pendingTransactions,
-  } = useBudgetData();
   const projectedNextPaycheck = useMemo(() => {
     const currentDate = new Date();
     const payCycle = getNextPayCycle(
       currentDate,
-      budgetPlanSettings.next_payday_override,
+      initialBudgetPlanSettings.next_payday_override,
     );
     const projection = classifyPaychecks(
-      incomeEntries,
+      initialIncomeEntries,
       currentDate,
       payCycle.nextPayday,
     );
     return projection.normalPaychecks.length
       ? projection.predictedNetPay
       : null;
-  }, [budgetPlanSettings.next_payday_override, incomeEntries]);
+  }, [initialBudgetPlanSettings.next_payday_override, initialIncomeEntries]);
   const [goals, setGoals] = useState(initialGoals);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<FinancialGoalInput>(emptyGoal);
@@ -636,12 +641,12 @@ export function FinancialGoals({
   const accountLabels = useMemo(
     () =>
       new Map(
-        accountSelectorOptions(creditCardTransactions).map((account) => [
+        accountSelectorOptions(initialTransactions).map((account) => [
           account.value,
           account.label,
         ]),
       ),
-    [creditCardTransactions],
+    [initialTransactions],
   );
 
   async function createGoal(event: FormEvent) {
@@ -860,7 +865,7 @@ export function FinancialGoals({
           </div>
           <GoalFields
             onChange={setDraft}
-            transactions={creditCardTransactions}
+            transactions={initialTransactions}
             value={draft}
           />
           {error ? (
@@ -892,9 +897,9 @@ export function FinancialGoals({
           const normalized = normalizeFinancialGoal(goal);
           const evaluation = evaluateFinancialGoal({
             goal: normalized,
-            pendingTransactions,
+            pendingTransactions: initialPendingTransactions,
             projectedNextPaycheck,
-            transactions: creditCardTransactions,
+            transactions: initialTransactions,
             snapshot,
           });
           const summaries = scopeSummary(
@@ -918,7 +923,7 @@ export function FinancialGoals({
               </div>
               <GoalFields
                 onChange={setEditDraft}
-                transactions={creditCardTransactions}
+                transactions={initialTransactions}
                 value={editDraft}
               />
               {error ? (

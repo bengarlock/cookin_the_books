@@ -69,7 +69,10 @@ export function accountSelectorLabel(
 }
 
 export function accountSelectorOptions(
-  transactions: CreditCardTransaction[],
+  transactions: Pick<
+    CreditCardTransaction,
+    "issuer" | "account_last_four" | "transaction_type"
+  >[],
   { spendingOnly = false }: { spendingOnly?: boolean } = {},
 ) {
   const accounts = new Map<string, string>();
