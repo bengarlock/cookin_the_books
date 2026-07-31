@@ -5,9 +5,12 @@ import { FormEvent, useMemo, useState } from "react";
 import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
 import { creditCardExpenditureAverages, effectiveCreditCardTransactionAmount } from "@/lib/credit-card-averages";
-import type { CreditCardTransaction, ExpenseTag } from "@/lib/credit-card-transaction-types";
-import { AmazonOrderDetails } from "@/components/amazon-order-details";
-import { ReceiptOrderDetails } from "@/components/receipt-order-details";
+import type {
+  CreditCardTransaction,
+  ExpenseTag,
+  ExpenseTransaction,
+} from "@/lib/credit-card-transaction-types";
+import { MatchedOrderDetails } from "@/components/matched-order-details";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
 import {
   budgetItemExpenseAverages,
@@ -22,10 +25,14 @@ import {
 } from "@/lib/expense-date-range";
 import type { ExpenseEntry } from "@/lib/expense-entry-types";
 import {
+  compactExpenseTransaction,
+  mergeExpenseTransactions,
+} from "@/lib/expense-transaction-record";
+import type { ExpenseTransactionMetadata } from "@/lib/expense-transactions";
+import {
   validateCreditCardImportFiles,
   validatePdfImportFiles,
 } from "@/lib/pdf-import";
-import { useBudgetData } from "@/components/budget-data-provider";
 import { DateRangePicker } from "@/components/date-range-picker";
 import {
   normalizeCurrencyInput,
@@ -58,22 +65,30 @@ function todayString() {
 }
 
 export function ExpenseHistory({
-  initialCategories = [],
+  initialBudgetItems,
+  initialCategories,
+  initialEntries,
+  initialRange,
   initialTags,
+  initialTransactionMetadata,
+  initialTransactions,
 }: {
-  initialCategories?: ExpenseCategory[];
+  initialBudgetItems: BudgetItem[];
+  initialCategories: ExpenseCategory[];
+  initialEntries: ExpenseEntry[];
+  initialRange: ExpenseDateRange;
   initialTags: ExpenseTag[];
+  initialTransactionMetadata: ExpenseTransactionMetadata;
+  initialTransactions: ExpenseTransaction[];
 }) {
-  const {
-    budgetItems: items,
-    setBudgetItems: setItems,
-    expenseEntries: entries,
-    setExpenseEntries: setEntries,
-    creditCardTransactions,
-    setCreditCardTransactions,
-    expenseCategories,
-  } = useBudgetData();
+  const [items, setItems] = useState(initialBudgetItems);
+  const [entries, setEntries] = useState(initialEntries);
+  const [creditCardTransactions, setCreditCardTransactions] = useState(
+    initialTransactions,
+  );
   const [tagLibrary, setTagLibrary] = useState(initialTags);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [allTransactionsLoaded, setAllTransactionsLoaded] = useState(false);
   const [openItemId, setOpenItemId] = useState<number | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(
     null,
@@ -94,7 +109,7 @@ export function ExpenseHistory({
   const [importMessage, setImportMessage] = useState("");
   const [categorizing, setCategorizing] = useState(false);
   const [spendingDateRange, setSpendingDateRange] = useState<ExpenseDateRange>(
-    () => defaultExpenseDateRange(),
+    initialRange,
   );
   const [expandedSpendingCategory, setExpandedSpendingCategory] = useState<
     string | null
@@ -129,11 +144,11 @@ export function ExpenseHistory({
   const [dateRanges, setDateRanges] = useState<Record<number, ExpenseDateRange>>(
     () =>
       Object.fromEntries(
-        items.map((item) => [item.id, defaultExpenseDateRange()]),
+        initialBudgetItems.map((item) => [item.id, initialRange]),
       ),
   );
   const today = todayString();
-  const categoryList = expenseCategories.length ? expenseCategories : initialCategories;
+  const categoryList = initialCategories;
   const categoryLabels = categoryLabelMap(categoryList);
   const categoryOptions = sortedCategoryOptions(categoryList);
   const normalizedTransactionSearch = transactionSearch.trim().toLocaleLowerCase();
@@ -182,16 +197,91 @@ export function ExpenseHistory({
     () =>
       Array.from(
         new Set(
-          creditCardTransactions.map((transaction) =>
-            Number(transaction.transaction_date.slice(0, 4)),
-          ),
+          [
+            ...initialTransactionMetadata.available_years,
+            ...creditCardTransactions.map((transaction) =>
+              Number(transaction.transaction_date.slice(0, 4)),
+            ),
+          ],
         ),
       ).sort((left, right) => right - left),
-    [creditCardTransactions],
+    [creditCardTransactions, initialTransactionMetadata.available_years],
   );
+  const allTimeTransactionStart =
+    [
+      initialTransactionMetadata.earliest_transaction_date,
+      earliestTransactionDate,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .sort()[0] || undefined;
   const availableTagNames = tagLibrary
     .map((tag) => tag.name)
     .sort((left, right) => left.localeCompare(right));
+
+  async function loadTransactions(
+    range?: ExpenseDateRange,
+    { replace = false }: { replace?: boolean } = {},
+  ) {
+    setLoadingTransactions(true);
+    setError("");
+    const query = new URLSearchParams({ summary: "expenses" });
+    if (range) {
+      query.set("start", range.start);
+      query.set("end", range.end);
+    }
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions?${query}`,
+        { cache: "no-store" },
+      );
+      const result = (await response.json().catch(() => null)) as
+        | ExpenseTransaction[]
+        | { message?: string }
+        | null;
+      if (!response.ok || !Array.isArray(result)) {
+        throw new Error(
+          result && "message" in result
+            ? result.message
+            : "Unable to load the selected transaction history.",
+        );
+      }
+      const resultIds = replace
+        ? new Set(result.map((transaction) => transaction.id))
+        : null;
+      setCreditCardTransactions((current) =>
+        mergeExpenseTransactions(
+          resultIds
+            ? current.filter((transaction) => resultIds.has(transaction.id))
+            : current,
+          result,
+        ),
+      );
+      if (!range) setAllTransactionsLoaded(true);
+      return true;
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Unable to load the selected transaction history.",
+      );
+      return false;
+    } finally {
+      setLoadingTransactions(false);
+    }
+  }
+
+  async function applySpendingRange(range: ExpenseDateRange) {
+    if (await loadTransactions(range)) {
+      setSpendingDateRange(range);
+      setExpandedSpendingCategory(null);
+    }
+  }
+
+  async function applyItemRange(itemId: number, range: ExpenseDateRange) {
+    if (await loadTransactions(range)) {
+      setDateRanges((current) => ({ ...current, [itemId]: range }));
+    }
+  }
 
   function updateTransactionTag(transactionId: number, name: string, enabled: boolean) {
     const cleaned = name.trim();
@@ -205,7 +295,7 @@ export function ExpenseHistory({
     void saveTransactionTags(transactionId, next);
   }
 
-  function openTransactionEditor(transaction: CreditCardTransaction) {
+  function openTransactionEditor(transaction: ExpenseTransaction) {
     setTaggingTransactionId(transaction.id);
     setTagDraft((transaction.tags || []).map((tag) => tag.name));
     setNewTagName("");
@@ -238,7 +328,10 @@ export function ExpenseHistory({
       );
       const updated = await response.json().catch(() => null) as CreditCardTransaction | { message?: string } | null;
       if (!response.ok || !updated || !("id" in updated)) throw new Error(updated && "message" in updated ? updated.message : "Unable to save tags.");
-      setCreditCardTransactions((current) => current.map((item) => item.id === updated.id ? updated : item));
+      const compact = compactExpenseTransaction(updated);
+      setCreditCardTransactions((current) =>
+        mergeExpenseTransactions(current, [compact]),
+      );
       setTagLibrary((current) => {
         const byName = new Map(current.map((tag) => [tag.name.toLowerCase(), tag]));
         updated.tags.forEach((tag) => byName.set(tag.name.toLowerCase(), tag));
@@ -252,7 +345,7 @@ export function ExpenseHistory({
     }
   }
 
-  async function updateTransactionBudgetFlags(transaction: CreditCardTransaction, patch: Partial<Pick<CreditCardTransaction, "split" | "include">>) {
+  async function updateTransactionBudgetFlags(transaction: ExpenseTransaction, patch: Partial<Pick<ExpenseTransaction, "split" | "include">>) {
     setSavingBudgetFlagsId(transaction.id);
     setError("");
     try {
@@ -261,7 +354,10 @@ export function ExpenseHistory({
       });
       const updated = await response.json().catch(() => null) as CreditCardTransaction | { message?: string } | null;
       if (!response.ok || !updated || !("id" in updated)) throw new Error(updated && "message" in updated ? updated.message : "Unable to update this transaction.");
-      setCreditCardTransactions((current) => current.map((item) => item.id === updated.id ? updated : item));
+      const compact = compactExpenseTransaction(updated);
+      setCreditCardTransactions((current) =>
+        mergeExpenseTransactions(current, [compact]),
+      );
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Unable to update this transaction.");
     } finally {
@@ -278,7 +374,10 @@ export function ExpenseHistory({
       });
       const updated = await response.json().catch(() => null) as CreditCardTransaction | { message?: string } | null;
       if (!response.ok || !updated || !("id" in updated)) throw new Error(updated && "message" in updated ? updated.message : "Unable to save the transaction note.");
-      setCreditCardTransactions((current) => current.map((item) => item.id === updated.id ? updated : item));
+      const compact = compactExpenseTransaction(updated);
+      setCreditCardTransactions((current) =>
+        mergeExpenseTransactions(current, [compact]),
+      );
       setNoteDraft(updated.note);
       return true;
     } catch (noteError) {
@@ -297,7 +396,7 @@ export function ExpenseHistory({
     }
   }
 
-  function transactionBudgetControls(transaction: CreditCardTransaction) {
+  function transactionBudgetControls(transaction: ExpenseTransaction) {
     const saving = savingBudgetFlagsId === transaction.id;
     return <div className="flex items-center gap-1.5">
       <button aria-pressed={transaction.split} className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold transition disabled:opacity-50 ${transaction.split ? "border-violet-300/30 bg-violet-400/15 text-violet-100" : "border-white/10 text-white/45 hover:text-white/70"}`} disabled={saving} onClick={() => void updateTransactionBudgetFlags(transaction, { split: !transaction.split })} type="button">Split</button>
@@ -329,15 +428,17 @@ export function ExpenseHistory({
         throw new Error(result?.message || "Unable to correct the category.");
       }
       if (applyToMatching) {
-        const refreshed = await fetch(
-          `${APP_BASE_PATH}/api/credit-card-transactions?include_unbudgeted=true`,
-          { cache: "no-store" },
-        );
-        if (!refreshed.ok) throw new Error("The rule was saved, but the updated transactions could not be refreshed.");
-        setCreditCardTransactions((await refreshed.json()) as CreditCardTransaction[]);
+        if (!(await loadTransactions(undefined, { replace: true }))) {
+          throw new Error(
+            "The rule was saved, but the updated transactions could not be refreshed.",
+          );
+        }
       } else {
         const updated = result.transactions[0];
-        setCreditCardTransactions((current) => current.map((item) => item.id === updated.id ? updated : item));
+        const compact = compactExpenseTransaction(updated);
+        setCreditCardTransactions((current) =>
+          mergeExpenseTransactions(current, [compact]),
+        );
       }
       setImportMessage(applyToMatching
         ? `Category corrected and learned for ${result.updated_count} matching ${result.updated_count === 1 ? "transaction" : "transactions"}.`
@@ -364,9 +465,11 @@ export function ExpenseHistory({
       });
       const result = await response.json().catch(() => null) as { categorized_count?: number; message?: string } | null;
       if (!response.ok) throw new Error(result?.message || "Unable to categorize expenses.");
-      const refreshed = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions?include_unbudgeted=true`, { cache: "no-store" });
-      if (!refreshed.ok) throw new Error("Expenses were categorized, but the chart could not refresh.");
-      setCreditCardTransactions(await refreshed.json() as CreditCardTransaction[]);
+      if (!(await loadTransactions(undefined, { replace: true }))) {
+        throw new Error(
+          "Expenses were categorized, but the chart could not refresh.",
+        );
+      }
       setImportMessage(`Categorized ${result?.categorized_count || 0} new expenses.`);
     } catch (categoryError) {
       setError(categoryError instanceof Error ? categoryError.message : "Unable to categorize expenses.");
@@ -593,7 +696,12 @@ export function ExpenseHistory({
       if (result.created.length) {
         if (item.key === "credit-card") {
           const imported = result.created as CreditCardTransaction[];
-          setCreditCardTransactions((current) => [...imported, ...current]);
+          setCreditCardTransactions((current) =>
+            mergeExpenseTransactions(
+              current,
+              imported.map(compactExpenseTransaction),
+            ),
+          );
 
           const importedDates = imported.flatMap((entry) => [
             entry.transaction_date,
@@ -679,6 +787,14 @@ export function ExpenseHistory({
           {importMessage}
         </p>
       ) : null}
+      {loadingTransactions ? (
+        <p
+          className="mb-5 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-muted"
+          role="status"
+        >
+          Loading transaction history…
+        </p>
+      ) : null}
 
       <section className="surface mb-5 rounded-2xl p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -692,8 +808,12 @@ export function ExpenseHistory({
               <input
                 className="h-9 w-full rounded-lg border border-white/10 bg-black/20 pl-8 pr-8 text-xs text-white outline-none placeholder:text-white/35 focus:border-accent/40 sm:w-64"
                 onChange={(event) => {
-                  setTransactionSearch(event.target.value);
+                  const value = event.target.value;
+                  setTransactionSearch(value);
                   setExpandedSpendingCategory(null);
+                  if (value.trim() && !allTransactionsLoaded && !loadingTransactions) {
+                    void loadTransactions(undefined, { replace: true });
+                  }
                 }}
                 placeholder="Search transactions"
                 type="search"
@@ -707,13 +827,10 @@ export function ExpenseHistory({
               >×</button> : null}
             </label>
             <DateRangePicker
-              allTimeStart={earliestTransactionDate || undefined}
+              allTimeStart={allTimeTransactionStart}
               availableYears={creditCardTransactionYears}
               dialogLabel="Select spending graph date range"
-              onApply={(range) => {
-                setSpendingDateRange(range);
-                setExpandedSpendingCategory(null);
-              }}
+              onApply={(range) => void applySpendingRange(range)}
               range={spendingDateRange}
             />
             <button className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
@@ -755,8 +872,7 @@ export function ExpenseHistory({
                     <p className="mt-1 text-xs text-muted">{formatDate(transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}</p>
                     {transaction.note ? <p className="mt-2 text-xs italic text-white/60">{transaction.note}</p> : null}
                     {transaction.tags?.length ? <div className="mt-2 flex flex-wrap gap-1.5">{transaction.tags.map((tag) => <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2 py-0.5 text-[10px] font-medium text-sky-100" key={tag.id}>{tag.name}</span>)}</div> : null}
-                    <AmazonOrderDetails orders={transaction.amazon_orders || []} />
-                    <ReceiptOrderDetails orders={transaction.receipt_orders || []} />
+                    <MatchedOrderDetails transaction={transaction} />
                     {taggingTransactionId === transaction.id ? <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/10 p-3">
                       <div className="mt-3 flex flex-wrap gap-2">{tagDraft.map((tag) => <button className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[11px] text-sky-100 disabled:opacity-50" disabled={savingTagsId === transaction.id} key={tag} onClick={() => updateTransactionTag(transaction.id, tag, false)} title="Remove tag" type="button">{tag} ×</button>)}</div>
                       <div className="mt-3 flex items-center gap-2"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Available tags</p><button aria-label="Create a new tag" className="grid size-6 place-items-center rounded-full border border-white/10 text-sm text-white/60 transition hover:border-sky-300/30 hover:text-sky-100" onClick={() => setNewTagFormOpen((current) => !current)} title="Create a new tag" type="button">+</button></div>
@@ -953,10 +1069,7 @@ export function ExpenseHistory({
                 <DateRangePicker
                   range={dateRange}
                   onApply={(nextRange) =>
-                    setDateRanges((current) => ({
-                      ...current,
-                      [item.id]: nextRange,
-                    }))
+                    void applyItemRange(item.id, nextRange)
                   }
                 />
               </div>
@@ -1176,8 +1289,7 @@ export function ExpenseHistory({
                               </span>
                             </p>
                             {entry.note ? <p className="mt-1 text-xs italic text-white/55">{entry.note}</p> : null}
-                            <AmazonOrderDetails orders={entry.amazon_orders || []} />
-                            <ReceiptOrderDetails orders={entry.receipt_orders || []} />
+                            <MatchedOrderDetails transaction={entry} />
                           </div>
                           <div className="flex flex-wrap items-center justify-end gap-2">
                           <span
