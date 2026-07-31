@@ -56,6 +56,7 @@ export function OverviewTileGrid({
   );
   const [activeId, setActiveId] = useState<string | null>(null);
   const [armingId, setArmingId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [translation, setTranslation] = useState({ x: 0, y: 0 });
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "saving" | "saved" | "error"
@@ -70,10 +71,9 @@ export function OverviewTileGrid({
   const activeIdRef = useRef<string | null>(null);
   const orderRef = useRef(order);
   const savedOrderRef = useRef(order);
+  const dropTargetIdRef = useRef<string | null>(null);
   const translationRef = useRef(translation);
   const previousRects = useRef<Map<string, DOMRect> | null>(null);
-  const dragChanged = useRef(false);
-  const lastOverId = useRef<string | null>(null);
   const suppressClick = useRef(false);
 
   useEffect(() => {
@@ -137,11 +137,16 @@ export function OverviewTileGrid({
     setArmingId(null);
   }
 
+  function updateDropTarget(id: string | null) {
+    if (dropTargetIdRef.current === id) return;
+    dropTargetIdRef.current = id;
+    setDropTargetId(id);
+  }
+
   function activateDrag(session: PointerSession) {
     activeIdRef.current = session.tileId;
     suppressClick.current = true;
-    dragChanged.current = false;
-    lastOverId.current = null;
+    updateDropTarget(null);
     clearArmingState();
     setActiveId(session.tileId);
   }
@@ -187,6 +192,14 @@ export function OverviewTileGrid({
     );
   }
 
+  function gridSlotAtPoint(x: number, y: number, activeTileId: string) {
+    const slot = document
+      .elementFromPoint(x, y)
+      ?.closest<HTMLElement>("[data-overview-grid-slot]")
+      ?.dataset.overviewGridSlot;
+    return slot && slot !== activeTileId ? slot : null;
+  }
+
   function movePointer(event: ReactPointerEvent<HTMLDivElement>) {
     const session = pointerSession.current;
     if (!session || session.id !== event.pointerId) return;
@@ -221,27 +234,9 @@ export function OverviewTileGrid({
     translationRef.current = nextTranslation;
     setTranslation(nextTranslation);
 
-    const overElement = document
-      .elementFromPoint(event.clientX, event.clientY)
-      ?.closest<HTMLElement>("[data-overview-grid-slot]");
-    const overId = overElement?.dataset.overviewGridSlot;
-    if (!overId || overId === session.tileId) {
-      lastOverId.current = null;
-      return;
-    }
-    if (lastOverId.current === overId) return;
-    lastOverId.current = overId;
-
-    const nextOrder = moveOverviewTile(
-      orderRef.current,
-      session.tileId,
-      overId,
+    updateDropTarget(
+      gridSlotAtPoint(event.clientX, event.clientY, session.tileId),
     );
-    if (nextOrder === orderRef.current) return;
-    captureCurrentRects();
-    dragChanged.current = true;
-    orderRef.current = nextOrder;
-    setOrder(nextOrder);
   }
 
   async function saveOrder(nextOrder: string[]) {
@@ -255,26 +250,44 @@ export function OverviewTileGrid({
     }
   }
 
-  function finishPointerSession(event: ReactPointerEvent<HTMLDivElement>) {
+  function finishPointerSession(
+    event: ReactPointerEvent<HTMLDivElement>,
+    commitDrop: boolean,
+  ) {
     const session = pointerSession.current;
     if (!session || session.id !== event.pointerId) return;
     const wasDragging = Boolean(activeIdRef.current);
+    const pendingDropTargetId = commitDrop
+      ? gridSlotAtPoint(event.clientX, event.clientY, session.tileId) ||
+        dropTargetIdRef.current
+      : null;
     clearArmingState();
     pointerSession.current = null;
     releasePointerCapture(session);
     activeIdRef.current = null;
-    lastOverId.current = null;
+    updateDropTarget(null);
     setActiveId(null);
     translationRef.current = { x: 0, y: 0 };
     setTranslation({ x: 0, y: 0 });
 
     if (wasDragging) {
       event.preventDefault();
-      if (
-        dragChanged.current &&
-        orderRef.current.join("\0") !== savedOrderRef.current.join("\0")
-      ) {
-        void saveOrder(orderRef.current);
+      if (pendingDropTargetId) {
+        const nextOrder = moveOverviewTile(
+          orderRef.current,
+          session.tileId,
+          pendingDropTargetId,
+        );
+        if (nextOrder !== orderRef.current) {
+          captureCurrentRects();
+          orderRef.current = nextOrder;
+          setOrder(nextOrder);
+          if (
+            nextOrder.join("\0") !== savedOrderRef.current.join("\0")
+          ) {
+            void saveOrder(nextOrder);
+          }
+        }
       }
       window.setTimeout(() => {
         suppressClick.current = false;
@@ -308,8 +321,10 @@ export function OverviewTileGrid({
                 className={`rounded-2xl border border-dashed transition ${
                   !activeId && index > lastOccupiedIndex
                     ? "hidden"
-                    : activeId
-                      ? "min-h-44 border-accent/25 bg-accent/[0.025]"
+                    : dropTargetId === id
+                      ? "min-h-44 border-accent/60 bg-accent/10"
+                      : activeId
+                        ? "min-h-44 border-accent/25 bg-accent/[0.025]"
                       : "min-h-44 border-transparent"
                 }`}
                 data-overview-grid-slot={id}
@@ -327,6 +342,10 @@ export function OverviewTileGrid({
                 isActive
                   ? "z-20 cursor-grabbing touch-none"
                   : "cursor-grab touch-pan-y"
+              } ${
+                dropTargetId === id
+                  ? "rounded-2xl ring-2 ring-accent/50 ring-offset-2 ring-offset-[#06130f]"
+                  : ""
               }`}
               data-overview-grid-slot={id}
               data-overview-tile-id={id}
@@ -339,11 +358,13 @@ export function OverviewTileGrid({
               }}
               onContextMenu={(event) => event.preventDefault()}
               onDragStart={(event) => event.preventDefault()}
-              onLostPointerCapture={finishPointerSession}
-              onPointerCancel={finishPointerSession}
+              onLostPointerCapture={(event) =>
+                finishPointerSession(event, false)
+              }
+              onPointerCancel={(event) => finishPointerSession(event, false)}
               onPointerDown={(event) => beginPointerSession(event, id)}
               onPointerMove={movePointer}
-              onPointerUp={finishPointerSession}
+              onPointerUp={(event) => finishPointerSession(event, true)}
               ref={(element) => {
                 if (element) tileElements.current.set(id, element);
                 else tileElements.current.delete(id);
