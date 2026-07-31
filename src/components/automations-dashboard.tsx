@@ -5,8 +5,8 @@ import { useMemo, useState } from "react";
 
 import type { BudgetItem } from "@/lib/budget-item-types";
 import type {
-  CreditCardTransaction,
   ExpenseTag,
+  TransactionSelectorRecord,
 } from "@/lib/credit-card-transaction-types";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
 import type {
@@ -30,7 +30,7 @@ export function AutomationsDashboard({
 }: {
   initialBudgetItems: BudgetItem[];
   initialCategories: ExpenseCategory[];
-  initialCreditCardTransactions: CreditCardTransaction[];
+  initialCreditCardTransactions: TransactionSelectorRecord[];
   initialRules: ExpenseAutomationRule[];
   initialTags: ExpenseTag[];
 }) {

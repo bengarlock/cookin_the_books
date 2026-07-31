@@ -11,8 +11,8 @@ import { APP_BASE_PATH } from "@/lib/config";
 import type { BudgetItem } from "@/lib/budget-item-types";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
 import type {
-  CreditCardTransaction,
   ExpenseTag,
+  TransactionSelectorRecord,
 } from "@/lib/credit-card-transaction-types";
 import type {
   ExpenseAutomationAction,
@@ -127,7 +127,7 @@ export function AutomationRuleEditor({
   displayName?: string;
   initialBudgetItems: BudgetItem[];
   initialCategories: ExpenseCategory[];
-  initialCreditCardTransactions: CreditCardTransaction[];
+  initialCreditCardTransactions: TransactionSelectorRecord[];
   initialRule?: ExpenseAutomationRule;
   initialTags: ExpenseTag[];
   onCancel?: () => void;

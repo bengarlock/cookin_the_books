@@ -9,8 +9,8 @@ import { extractApiErrorMessage } from "@/lib/api-error-message";
 import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
 import type {
-  CreditCardTransaction,
   ExpenseTag,
+  TransactionSelectorRecord,
 } from "@/lib/credit-card-transaction-types";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
 import type { ExpenseAutomationRule } from "@/lib/expense-automation-rule-types";
@@ -43,7 +43,7 @@ export function AutomationEditPageClient({
 }: {
   initialBudgetItems: BudgetItem[];
   initialCategories: ExpenseCategory[];
-  initialCreditCardTransactions: CreditCardTransaction[];
+  initialCreditCardTransactions: TransactionSelectorRecord[];
   initialRule: ExpenseAutomationRule;
   initialTags: ExpenseTag[];
 }) {
