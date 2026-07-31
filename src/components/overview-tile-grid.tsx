@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import {
+  isOverviewEmptySlot,
   moveOverviewTile,
   reconcileOverviewTileOrder,
 } from "@/lib/overview-tile-order";
@@ -55,19 +56,24 @@ export function OverviewTileGrid({
   );
   const [activeId, setActiveId] = useState<string | null>(null);
   const [armingId, setArmingId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [translation, setTranslation] = useState({ x: 0, y: 0 });
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "saving" | "saved" | "error"
   >("idle");
+  const lastOccupiedIndex = order.reduce(
+    (lastIndex, id, index) =>
+      isOverviewEmptySlot(id) ? lastIndex : index,
+    -1,
+  );
   const tileElements = useRef(new Map<string, HTMLDivElement>());
   const pointerSession = useRef<PointerSession | null>(null);
   const activeIdRef = useRef<string | null>(null);
   const orderRef = useRef(order);
   const savedOrderRef = useRef(order);
+  const dropTargetIdRef = useRef<string | null>(null);
   const translationRef = useRef(translation);
   const previousRects = useRef<Map<string, DOMRect> | null>(null);
-  const dragChanged = useRef(false);
-  const lastOverId = useRef<string | null>(null);
   const suppressClick = useRef(false);
 
   useEffect(() => {
@@ -131,11 +137,16 @@ export function OverviewTileGrid({
     setArmingId(null);
   }
 
+  function updateDropTarget(id: string | null) {
+    if (dropTargetIdRef.current === id) return;
+    dropTargetIdRef.current = id;
+    setDropTargetId(id);
+  }
+
   function activateDrag(session: PointerSession) {
     activeIdRef.current = session.tileId;
     suppressClick.current = true;
-    dragChanged.current = false;
-    lastOverId.current = null;
+    updateDropTarget(null);
     clearArmingState();
     setActiveId(session.tileId);
   }
@@ -181,6 +192,14 @@ export function OverviewTileGrid({
     );
   }
 
+  function gridSlotAtPoint(x: number, y: number, activeTileId: string) {
+    const slot = document
+      .elementFromPoint(x, y)
+      ?.closest<HTMLElement>("[data-overview-grid-slot]")
+      ?.dataset.overviewGridSlot;
+    return slot && slot !== activeTileId ? slot : null;
+  }
+
   function movePointer(event: ReactPointerEvent<HTMLDivElement>) {
     const session = pointerSession.current;
     if (!session || session.id !== event.pointerId) return;
@@ -215,27 +234,9 @@ export function OverviewTileGrid({
     translationRef.current = nextTranslation;
     setTranslation(nextTranslation);
 
-    const overElement = document
-      .elementFromPoint(event.clientX, event.clientY)
-      ?.closest<HTMLElement>("[data-overview-tile-id]");
-    const overId = overElement?.dataset.overviewTileId;
-    if (!overId || overId === session.tileId) {
-      lastOverId.current = null;
-      return;
-    }
-    if (lastOverId.current === overId) return;
-    lastOverId.current = overId;
-
-    const nextOrder = moveOverviewTile(
-      orderRef.current,
-      session.tileId,
-      overId,
+    updateDropTarget(
+      gridSlotAtPoint(event.clientX, event.clientY, session.tileId),
     );
-    if (nextOrder === orderRef.current) return;
-    captureCurrentRects();
-    dragChanged.current = true;
-    orderRef.current = nextOrder;
-    setOrder(nextOrder);
   }
 
   async function saveOrder(nextOrder: string[]) {
@@ -249,26 +250,44 @@ export function OverviewTileGrid({
     }
   }
 
-  function finishPointerSession(event: ReactPointerEvent<HTMLDivElement>) {
+  function finishPointerSession(
+    event: ReactPointerEvent<HTMLDivElement>,
+    commitDrop: boolean,
+  ) {
     const session = pointerSession.current;
     if (!session || session.id !== event.pointerId) return;
     const wasDragging = Boolean(activeIdRef.current);
+    const pendingDropTargetId = commitDrop
+      ? gridSlotAtPoint(event.clientX, event.clientY, session.tileId) ||
+        dropTargetIdRef.current
+      : null;
     clearArmingState();
     pointerSession.current = null;
     releasePointerCapture(session);
     activeIdRef.current = null;
-    lastOverId.current = null;
+    updateDropTarget(null);
     setActiveId(null);
     translationRef.current = { x: 0, y: 0 };
     setTranslation({ x: 0, y: 0 });
 
     if (wasDragging) {
       event.preventDefault();
-      if (
-        dragChanged.current &&
-        orderRef.current.join("\0") !== savedOrderRef.current.join("\0")
-      ) {
-        void saveOrder(orderRef.current);
+      if (pendingDropTargetId) {
+        const nextOrder = moveOverviewTile(
+          orderRef.current,
+          session.tileId,
+          pendingDropTargetId,
+        );
+        if (nextOrder !== orderRef.current) {
+          captureCurrentRects();
+          orderRef.current = nextOrder;
+          setOrder(nextOrder);
+          if (
+            nextOrder.join("\0") !== savedOrderRef.current.join("\0")
+          ) {
+            void saveOrder(nextOrder);
+          }
+        }
       }
       window.setTimeout(() => {
         suppressClick.current = false;
@@ -279,7 +298,10 @@ export function OverviewTileGrid({
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-muted">
-        <p>Click and drag a tile to reposition it.</p>
+        <p>
+          Drag a tile to any grid position. Empty spaces stay where you leave
+          them.
+        </p>
         <p aria-live="polite">
           {saveStatus === "saving"
             ? "Saving layout…"
@@ -290,20 +312,42 @@ export function OverviewTileGrid({
                 : ""}
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {itemIds.map((id) => {
+      <div className="grid auto-rows-[minmax(11rem,auto)] gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {order.map((id, index) => {
+          if (isOverviewEmptySlot(id)) {
+            return (
+              <div
+                aria-hidden="true"
+                className={`rounded-2xl border border-dashed transition ${
+                  !activeId && index > lastOccupiedIndex
+                    ? "hidden"
+                    : dropTargetId === id
+                      ? "min-h-44 border-accent/60 bg-accent/10"
+                      : activeId
+                        ? "min-h-44 border-accent/25 bg-accent/[0.025]"
+                      : "min-h-44 border-transparent"
+                }`}
+                data-overview-grid-slot={id}
+                key={id}
+              />
+            );
+          }
           const item = itemsById.get(id);
           if (!item) return null;
           const isActive = activeId === id;
           const isArming = armingId === id;
-          const orderIndex = order.indexOf(id);
           return (
             <div
               className={`relative min-w-0 select-none [&>*]:h-full ${
                 isActive
                   ? "z-20 cursor-grabbing touch-none"
                   : "cursor-grab touch-pan-y"
+              } ${
+                dropTargetId === id
+                  ? "rounded-2xl ring-2 ring-accent/50 ring-offset-2 ring-offset-[#06130f]"
+                  : ""
               }`}
+              data-overview-grid-slot={id}
               data-overview-tile-id={id}
               key={id}
               onClickCapture={(event) => {
@@ -314,11 +358,13 @@ export function OverviewTileGrid({
               }}
               onContextMenu={(event) => event.preventDefault()}
               onDragStart={(event) => event.preventDefault()}
-              onLostPointerCapture={finishPointerSession}
-              onPointerCancel={finishPointerSession}
+              onLostPointerCapture={(event) =>
+                finishPointerSession(event, false)
+              }
+              onPointerCancel={(event) => finishPointerSession(event, false)}
               onPointerDown={(event) => beginPointerSession(event, id)}
               onPointerMove={movePointer}
-              onPointerUp={finishPointerSession}
+              onPointerUp={(event) => finishPointerSession(event, true)}
               ref={(element) => {
                 if (element) tileElements.current.set(id, element);
                 else tileElements.current.delete(id);
@@ -326,11 +372,10 @@ export function OverviewTileGrid({
               style={
                 isActive
                   ? {
-                      order: orderIndex,
                       pointerEvents: "none",
                       transform: `translate3d(${translation.x}px, ${translation.y}px, 0)`,
                     }
-                  : { order: orderIndex }
+                  : undefined
               }
             >
               <div
