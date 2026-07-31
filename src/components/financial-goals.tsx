@@ -404,6 +404,25 @@ function GoalFields({
     () => selectTransactions(transactions, value.scope_conditions, "and"),
     [transactions, value.scope_conditions],
   );
+  const payPeriodCondition = value.scope_conditions.find(
+    (condition) =>
+      condition.field === "pay_period" && condition.operator === "equals",
+  );
+
+  function setIncludeOutstandingPending(include: boolean) {
+    if (!payPeriodCondition) return;
+    onChange({
+      ...value,
+      scope_conditions: value.scope_conditions.map((condition) =>
+        condition.id === payPeriodCondition.id
+          ? {
+              ...condition,
+              include_outstanding_pending: include || undefined,
+            }
+          : condition,
+      ),
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -444,6 +463,31 @@ function GoalFields({
           }
           tags={tags}
         />
+        {payPeriodCondition ? (
+          <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-sky-300/15 bg-sky-400/[0.05] p-4">
+            <input
+              checked={
+                payPeriodCondition.include_outstanding_pending === true
+              }
+              className="mt-0.5"
+              onChange={(event) =>
+                setIncludeOutstandingPending(event.target.checked)
+              }
+              type="checkbox"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-sky-100">
+                Include outstanding pending charges
+              </span>
+              <span className="mt-1 block text-xs leading-5 text-sky-100/60">
+                Count purchases, fees, and interest that are still pending on
+                the selected accounts, even when their transaction date falls
+                just outside this pay period. Payments and credits remain
+                excluded from spending.
+              </span>
+            </span>
+          </label>
+        ) : null}
       </section>
 
       <section className="border-t border-white/10 pt-6">
@@ -551,7 +595,12 @@ function scopeSummary(
       return values.map((value) => accountLabels.get(value) || `•••• ${value}`).join(", ");
     }
     if (condition.field === "pay_period") {
-      return values[0] === "current" ? "Current Pay Period" : "Fixed pay period";
+      const period =
+        values[0] === "current" ? "Current Pay Period" : "Fixed pay period";
+      return condition.operator === "equals" &&
+        condition.include_outstanding_pending
+        ? `${period} + outstanding pending charges`
+        : period;
     }
     if (condition.field === "transaction_status") {
       return values[0] === "posted"
@@ -979,6 +1028,16 @@ export function FinancialGoals({
                         {summary}
                       </span>
                     ))}
+                    {evaluation.carriedPendingTransactions.length ? (
+                      <span className="rounded-full border border-gold/20 bg-gold/[0.07] px-2.5 py-1 text-[11px] text-gold">
+                        Includes{" "}
+                        {evaluation.carriedPendingTransactions.length} pending{" "}
+                        {evaluation.carriedPendingTransactions.length === 1
+                          ? "charge"
+                          : "charges"}{" "}
+                        from outside this pay period
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

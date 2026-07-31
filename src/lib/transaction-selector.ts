@@ -32,7 +32,14 @@ export function transactionMatchesCondition<
     const matches =
       transaction.transaction_date >= range[0] &&
       transaction.transaction_date <= range[1];
-    return condition.operator === "not_equals" ? !matches : matches;
+    const matchesWithOutstandingPending =
+      matches ||
+      (condition.operator === "equals" &&
+        condition.include_outstanding_pending === true &&
+        transaction.pending === true);
+    return condition.operator === "not_equals"
+      ? !matchesWithOutstandingPending
+      : matchesWithOutstandingPending;
   }
 
   if (condition.field === "transaction_status") {
