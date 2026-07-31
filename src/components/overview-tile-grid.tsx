@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import {
+  isOverviewEmptySlot,
   moveOverviewTile,
   reconcileOverviewTileOrder,
 } from "@/lib/overview-tile-order";
@@ -59,6 +60,11 @@ export function OverviewTileGrid({
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "saving" | "saved" | "error"
   >("idle");
+  const lastOccupiedIndex = order.reduce(
+    (lastIndex, id, index) =>
+      isOverviewEmptySlot(id) ? lastIndex : index,
+    -1,
+  );
   const tileElements = useRef(new Map<string, HTMLDivElement>());
   const pointerSession = useRef<PointerSession | null>(null);
   const activeIdRef = useRef<string | null>(null);
@@ -217,8 +223,8 @@ export function OverviewTileGrid({
 
     const overElement = document
       .elementFromPoint(event.clientX, event.clientY)
-      ?.closest<HTMLElement>("[data-overview-tile-id]");
-    const overId = overElement?.dataset.overviewTileId;
+      ?.closest<HTMLElement>("[data-overview-grid-slot]");
+    const overId = overElement?.dataset.overviewGridSlot;
     if (!overId || overId === session.tileId) {
       lastOverId.current = null;
       return;
@@ -279,7 +285,10 @@ export function OverviewTileGrid({
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-muted">
-        <p>Click and drag a tile to reposition it.</p>
+        <p>
+          Drag a tile to any grid position. Empty spaces stay where you leave
+          them.
+        </p>
         <p aria-live="polite">
           {saveStatus === "saving"
             ? "Saving layout…"
@@ -290,13 +299,28 @@ export function OverviewTileGrid({
                 : ""}
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {itemIds.map((id) => {
+      <div className="grid auto-rows-[minmax(11rem,auto)] gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {order.map((id, index) => {
+          if (isOverviewEmptySlot(id)) {
+            return (
+              <div
+                aria-hidden="true"
+                className={`rounded-2xl border border-dashed transition ${
+                  !activeId && index > lastOccupiedIndex
+                    ? "hidden"
+                    : activeId
+                      ? "min-h-44 border-accent/25 bg-accent/[0.025]"
+                      : "min-h-44 border-transparent"
+                }`}
+                data-overview-grid-slot={id}
+                key={id}
+              />
+            );
+          }
           const item = itemsById.get(id);
           if (!item) return null;
           const isActive = activeId === id;
           const isArming = armingId === id;
-          const orderIndex = order.indexOf(id);
           return (
             <div
               className={`relative min-w-0 select-none [&>*]:h-full ${
@@ -304,6 +328,7 @@ export function OverviewTileGrid({
                   ? "z-20 cursor-grabbing touch-none"
                   : "cursor-grab touch-pan-y"
               }`}
+              data-overview-grid-slot={id}
               data-overview-tile-id={id}
               key={id}
               onClickCapture={(event) => {
@@ -326,11 +351,10 @@ export function OverviewTileGrid({
               style={
                 isActive
                   ? {
-                      order: orderIndex,
                       pointerEvents: "none",
                       transform: `translate3d(${translation.x}px, ${translation.y}px, 0)`,
                     }
-                  : { order: orderIndex }
+                  : undefined
               }
             >
               <div

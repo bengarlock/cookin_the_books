@@ -1,58 +1,131 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isOverviewEmptySlot,
   moveOverviewTile,
   reconcileOverviewTileOrder,
 } from "./overview-tile-order";
 
 describe("reconcileOverviewTileOrder", () => {
-  it("keeps saved tiles in order and appends newly available tiles", () => {
-    expect(
-      reconcileOverviewTileOrder(
-        ["remaining-budget", "total-budget"],
-        ["total-budget", "daily-budget", "remaining-budget"],
-      ),
-    ).toEqual(["remaining-budget", "total-budget", "daily-budget"]);
+  it("keeps saved tiles in order, appends new tiles, and adds grid positions", () => {
+    const layout = reconcileOverviewTileOrder(
+      ["remaining-budget", "total-budget"],
+      ["total-budget", "daily-budget", "remaining-budget"],
+    );
+
+    expect(layout.slice(0, 3)).toEqual([
+      "remaining-budget",
+      "total-budget",
+      "daily-budget",
+    ]);
+    expect(layout).toHaveLength(4);
+    expect(isOverviewEmptySlot(layout[3])).toBe(true);
+  });
+
+  it("preserves saved empty positions", () => {
+    const layout = reconcileOverviewTileOrder(
+      [
+        "snapshot",
+        "__overview-empty-0",
+        "net-assets",
+        "__overview-empty-1",
+      ],
+      ["snapshot", "net-assets"],
+    );
+
+    expect(layout).toEqual([
+      "snapshot",
+      "__overview-empty-0",
+      "net-assets",
+      "__overview-empty-1",
+    ]);
   });
 
   it("removes missing and duplicate tile identifiers", () => {
-    expect(
-      reconcileOverviewTileOrder(
-        ["missing", "snapshot", "snapshot"],
-        ["snapshot", "net-assets"],
-      ),
-    ).toEqual(["snapshot", "net-assets"]);
+    const layout = reconcileOverviewTileOrder(
+      ["missing", "snapshot", "snapshot"],
+      ["snapshot", "net-assets"],
+    );
+
+    expect(layout.slice(0, 2)).toEqual(["snapshot", "net-assets"]);
+    expect(layout).toHaveLength(4);
+  });
+
+  it("removes duplicate empty positions", () => {
+    const layout = reconcileOverviewTileOrder(
+      [
+        "snapshot",
+        "__overview-empty-0",
+        "__overview-empty-0",
+        "net-assets",
+      ],
+      ["snapshot", "net-assets"],
+    );
+
+    expect(layout.filter((id) => id === "__overview-empty-0")).toHaveLength(1);
+    expect(layout).toHaveLength(4);
   });
 
   it("removes retired built-in tiles from saved overview layouts", () => {
-    expect(
-      reconcileOverviewTileOrder(
-        [
-          "daily-budget",
-          "gross-assets",
-          "credit-card-balance",
-          "days-until-pay-cycle",
-          "snapshot",
-          "total-budget",
-          "remaining-budget",
-          "net-assets",
-          "goal-12",
-        ],
-        ["gross-assets", "snapshot", "net-assets", "goal-12"],
-      ),
-    ).toEqual(["gross-assets", "snapshot", "net-assets", "goal-12"]);
+    const layout = reconcileOverviewTileOrder(
+      [
+        "daily-budget",
+        "gross-assets",
+        "credit-card-balance",
+        "days-until-pay-cycle",
+        "snapshot",
+        "total-budget",
+        "remaining-budget",
+        "net-assets",
+        "goal-12",
+      ],
+      ["gross-assets", "snapshot", "net-assets", "goal-12"],
+    );
+
+    expect(layout.slice(0, 4)).toEqual([
+      "gross-assets",
+      "snapshot",
+      "net-assets",
+      "goal-12",
+    ]);
+    expect(layout).toHaveLength(8);
+    expect(layout.slice(4).every(isOverviewEmptySlot)).toBe(true);
+  });
+
+  it("gives a full row of tiles at least one open grid position", () => {
+    const layout = reconcileOverviewTileOrder(
+      ["one", "two", "three", "four"],
+      ["one", "two", "three", "four"],
+    );
+
+    expect(layout).toHaveLength(8);
+    expect(layout.slice(4).every(isOverviewEmptySlot)).toBe(true);
   });
 });
 
 describe("moveOverviewTile", () => {
-  it("moves the active tile into the hovered tile position", () => {
+  it("swaps the active tile with the occupied grid position", () => {
     expect(
       moveOverviewTile(
         ["total-budget", "remaining-budget", "daily-budget"],
         "daily-budget",
         "total-budget",
       ),
-    ).toEqual(["daily-budget", "total-budget", "remaining-budget"]);
+    ).toEqual(["daily-budget", "remaining-budget", "total-budget"]);
+  });
+
+  it("moves a tile into an empty position and leaves its old position empty", () => {
+    expect(
+      moveOverviewTile(
+        ["total-budget", "__overview-empty-0", "daily-budget"],
+        "daily-budget",
+        "__overview-empty-0",
+      ),
+    ).toEqual([
+      "total-budget",
+      "daily-budget",
+      "__overview-empty-0",
+    ]);
   });
 
   it("leaves the order unchanged when either tile is unavailable", () => {
@@ -60,7 +133,7 @@ describe("moveOverviewTile", () => {
     expect(moveOverviewTile(order, "missing", "total-budget")).toBe(order);
   });
 
-  it("continues moving the same tile across consecutive hover targets", () => {
+  it("continues swapping the same tile across consecutive hover targets", () => {
     let order = ["total-budget", "remaining-budget", "daily-budget", "snapshot"];
 
     order = moveOverviewTile(order, "snapshot", "remaining-budget");
@@ -68,10 +141,10 @@ describe("moveOverviewTile", () => {
     order = moveOverviewTile(order, "snapshot", "daily-budget");
 
     expect(order).toEqual([
-      "total-budget",
-      "remaining-budget",
       "daily-budget",
+      "total-budget",
       "snapshot",
+      "remaining-budget",
     ]);
   });
 });
