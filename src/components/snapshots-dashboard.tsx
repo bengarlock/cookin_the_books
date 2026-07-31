@@ -13,7 +13,7 @@ import { DateRangePicker } from "@/components/date-range-picker";
 import { APP_BASE_PATH } from "@/lib/config";
 import { type ExpenseDateRange } from "@/lib/expense-date-range";
 import { pendingCreditCardTransactionAmount } from "@/lib/pending-liability-transactions";
-import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import type { PendingCardTransaction } from "@/lib/credit-card-transaction-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import type {
   BankValueSnapshot,
@@ -65,7 +65,7 @@ const accountDefinitions: Array<{
 
 type BalanceForm = Record<SnapshotAccountKey, string>;
 
-type YearlyNetChange = {
+export type YearlyNetChange = {
   change: number;
   endDate: string;
   endValue: number;
@@ -102,7 +102,7 @@ function balancesFromSnapshot(
 function adjustedBalancesFromSnapshot(
   snapshot: BankValueSnapshot | undefined,
   pendingTransactions: PendingTransaction[],
-  creditCardTransactions: CreditCardTransaction[],
+  pendingCardTransactions: PendingCardTransaction[],
 ): BalanceForm {
   const balances = balancesFromSnapshot(snapshot);
   const settledAccounts = new Set<keyof BankValueSnapshot>();
@@ -136,7 +136,7 @@ function adjustedBalancesFromSnapshot(
     }
   }
 
-  const importedCitiPending = creditCardTransactions
+  const importedCitiPending = pendingCardTransactions
     .filter(
       (transaction) =>
         transaction.issuer === "Citibank Online" &&
@@ -852,14 +852,18 @@ export function SnapshotsDashboard({
   allTimeStart,
   initialRange,
   initialSnapshots,
-  initialCreditCardTransactions,
+  initialPendingCardTransactions,
   initialPendingTransactions,
+  initialYearlyNetChanges,
+  snapshotYears: initialSnapshotYears,
 }: {
   allTimeStart?: string;
   initialRange: ExpenseDateRange;
   initialSnapshots: BankValueSnapshot[];
-  initialCreditCardTransactions: CreditCardTransaction[];
+  initialPendingCardTransactions: PendingCardTransaction[];
   initialPendingTransactions: PendingTransaction[];
+  initialYearlyNetChanges: YearlyNetChange[];
+  snapshotYears: number[];
 }) {
   const [snapshots, setSnapshots] = useState(initialSnapshots);
   const [loadedRanges, setLoadedRanges] = useState<ExpenseDateRange[]>([
@@ -869,10 +873,6 @@ export function SnapshotsDashboard({
     useState<ExpenseDateRange>(initialRange);
   const [showTrendLine, setShowTrendLine] = useState(true);
   const [isLoadingRange, setIsLoadingRange] = useState(false);
-  const [allTimeSnapshots, setAllTimeSnapshots] = useState(initialSnapshots);
-  const [isLoadingAllTimeSnapshots, setIsLoadingAllTimeSnapshots] =
-    useState(false);
-  const [allTimeSnapshotsError, setAllTimeSnapshotsError] = useState("");
   const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
   const [historyScrollEnabled, setHistoryScrollEnabled] = useState(false);
   const historyTileRef = useRef<HTMLElement | null>(null);
@@ -893,7 +893,7 @@ export function SnapshotsDashboard({
       ? adjustedBalancesFromSnapshot(
           editorBase,
           initialPendingTransactions,
-          initialCreditCardTransactions,
+          initialPendingCardTransactions,
         )
       : balancesFromSnapshot(editorBase),
   );
@@ -912,7 +912,7 @@ export function SnapshotsDashboard({
         : adjustedBalancesFromSnapshot(
             target,
             initialPendingTransactions,
-            initialCreditCardTransactions,
+            initialPendingCardTransactions,
           ),
     );
     setError("");
@@ -971,12 +971,6 @@ export function SnapshotsDashboard({
         );
       }
       setSnapshots((current) => {
-        const withoutSaved = current.filter((item) => item.id !== result.id);
-        return [result, ...withoutSaved].sort((left, right) =>
-          right.snapshot_date.localeCompare(left.snapshot_date),
-        );
-      });
-      setAllTimeSnapshots((current) => {
         const withoutSaved = current.filter((item) => item.id !== result.id);
         return [result, ...withoutSaved].sort((left, right) =>
           right.snapshot_date.localeCompare(left.snapshot_date),
@@ -1063,82 +1057,6 @@ export function SnapshotsDashboard({
       disposed = true;
     };
   }, [chartRange, loadedRanges]);
-
-  useEffect(() => {
-    if (!allTimeStart) return;
-
-    let disposed = false;
-    const allTimeStartDate = allTimeStart;
-    async function loadAllTimeSnapshots() {
-      setIsLoadingAllTimeSnapshots(true);
-      setAllTimeSnapshotsError("");
-      const allTimeRange = {
-        end: localToday(),
-        start: allTimeStartDate,
-      };
-      const params = new URLSearchParams({
-        end_date: allTimeRange.end,
-        include_account_balances: "0",
-        start_date: allTimeRange.start,
-      });
-
-      try {
-        const response = await fetch(`${APP_BASE_PATH}/api/snapshots?${params}`);
-        const result = (await response.json().catch(() => null)) as
-          | BankValueSnapshot[]
-          | { detail?: string; message?: string }
-          | null;
-        if (!response.ok || !Array.isArray(result)) {
-          throw new Error(
-            result && "detail" in result && result.detail
-              ? result.detail
-              : result && "message" in result && result.message
-                ? result.message
-                : "Unable to load all-time snapshots.",
-          );
-        }
-        if (disposed) return;
-        setAllTimeSnapshots(result);
-        setSnapshots((current) => {
-          const merged = new Map<number, BankValueSnapshot>();
-          for (const snapshot of current) merged.set(snapshot.id, snapshot);
-          for (const snapshot of result) {
-            merged.set(snapshot.id, {
-              ...snapshot,
-              account_balances:
-                merged.get(snapshot.id)?.account_balances ||
-                snapshot.account_balances,
-            });
-          }
-          return [...merged.values()].sort((left, right) =>
-            right.snapshot_date.localeCompare(left.snapshot_date),
-          );
-        });
-        setLoadedRanges((current) => {
-          const alreadyLoaded = current.some(
-            (range) =>
-              range.start <= allTimeRange.start &&
-              range.end >= allTimeRange.end,
-          );
-          return alreadyLoaded ? current : [...current, allTimeRange];
-        });
-      } catch (allTimeError) {
-        if (disposed) return;
-        setAllTimeSnapshotsError(
-          allTimeError instanceof Error
-            ? allTimeError.message
-            : "Unable to load all-time snapshots.",
-        );
-      } finally {
-        if (!disposed) setIsLoadingAllTimeSnapshots(false);
-      }
-    }
-
-    loadAllTimeSnapshots();
-    return () => {
-      disposed = true;
-    };
-  }, [allTimeStart]);
 
   useEffect(() => {
     if (!selectedSnapshot || selectedSnapshot.account_balances?.length) return;
@@ -1241,19 +1159,24 @@ export function SnapshotsDashboard({
         ? "Range gain"
         : "Range change";
   const yearlyNetChanges = useMemo(
-    () => calculateYearlyNetChanges(allTimeSnapshots),
-    [allTimeSnapshots],
+    () =>
+      initialYearlyNetChanges.length
+        ? initialYearlyNetChanges
+        : calculateYearlyNetChanges(snapshots),
+    [initialYearlyNetChanges, snapshots],
   );
   const snapshotYears = useMemo(
     () =>
-      Array.from(
-        new Set(
-          (allTimeSnapshots.length ? allTimeSnapshots : snapshots).map(
-            (snapshot) => Number(snapshot.snapshot_date.slice(0, 4)),
-          ),
-        ),
-      ).sort((left, right) => right - left),
-    [allTimeSnapshots, snapshots],
+      initialSnapshotYears.length
+        ? initialSnapshotYears
+        : Array.from(
+            new Set(
+              snapshots.map((snapshot) =>
+                Number(snapshot.snapshot_date.slice(0, 4)),
+              ),
+            ),
+          ).sort((left, right) => right - left),
+    [initialSnapshotYears, snapshots],
   );
 
   return (
@@ -1697,9 +1620,9 @@ export function SnapshotsDashboard({
       </section>
 
       <YearlyNetChangeTile
-        isLoading={isLoadingAllTimeSnapshots}
+        isLoading={false}
         yearlyChanges={yearlyNetChanges}
-        yearlyError={allTimeSnapshotsError}
+        yearlyError=""
       />
     </div>
   );
