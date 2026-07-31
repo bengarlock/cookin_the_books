@@ -1,6 +1,6 @@
 import type { BudgetItem } from "./budget-item-types";
 import { creditCardExpenditureAverages } from "./credit-card-averages";
-import type { CreditCardTransaction } from "./credit-card-transaction-types";
+import type { BudgetAverageTransaction } from "./credit-card-transaction-types";
 import type { ExpenseDateRange } from "./expense-date-range";
 import type { ExpenseEntry } from "./expense-entry-types";
 
@@ -93,7 +93,7 @@ export function creditCardExclusionTotal(
 export function budgetItemExpenseAverages(
   item: BudgetItem,
   entries: ExpenseEntry[],
-  creditCardTransactions: CreditCardTransaction[],
+  creditCardTransactions: BudgetAverageTransaction[],
   dateRange: ExpenseDateRange,
   today: string,
   budgetItems: BudgetItem[] = [],
