@@ -15,7 +15,7 @@ import {
   budgetItemExpenseAverages,
 } from "./expense-averages";
 import type {
-  CreditCardTransaction,
+  BudgetAverageTransaction,
   IncomeTransaction,
 } from "./credit-card-transaction-types";
 import type { ExpenseEntry } from "./expense-entry-types";
@@ -369,13 +369,15 @@ export function projectCurrentYear({
   budgetItems,
   expenseEntries,
   creditCardTransactions,
+  incomeTransactions = [],
   currentDate = new Date(),
   nextPaydayOverride,
 }: {
   incomeEntries: IncomeEntry[];
   budgetItems: BudgetItem[];
   expenseEntries: ExpenseEntry[];
-  creditCardTransactions: CreditCardTransaction[];
+  creditCardTransactions: BudgetAverageTransaction[];
+  incomeTransactions?: IncomeTransaction[];
   currentDate?: Date;
   nextPaydayOverride?: string | null;
 }): CurrentYearProjection {
@@ -389,7 +391,7 @@ export function projectCurrentYear({
   const ytdIncome = yearToDateIncome(
     incomeEntries,
     currentDate,
-    cashAccountIncomeTransactions(creditCardTransactions, {
+    cashAccountIncomeTransactions(incomeTransactions, {
       includeExcluded: true,
     }),
   );
@@ -446,7 +448,7 @@ export function projectRevenueAfterPayCycle({
   incomeEntries: IncomeEntry[];
   budgetItems: BudgetItem[];
   expenseEntries: ExpenseEntry[];
-  creditCardTransactions: CreditCardTransaction[];
+  creditCardTransactions: BudgetAverageTransaction[];
   snapshot: BankValueSnapshot | null;
   pendingTransactions: PendingTransaction[];
   currentDate?: Date;
@@ -521,7 +523,7 @@ export function dailyExpenseAverage({
 }: {
   budgetItems: BudgetItem[];
   expenseEntries: ExpenseEntry[];
-  creditCardTransactions: CreditCardTransaction[];
+  creditCardTransactions: BudgetAverageTransaction[];
   currentDate?: Date;
   excludeCreditCard?: boolean;
 }) {
@@ -581,7 +583,7 @@ export function projectUnemploymentRunway({
 }: {
   budgetItems: BudgetItem[];
   expenseEntries: ExpenseEntry[];
-  creditCardTransactions: CreditCardTransaction[];
+  creditCardTransactions: BudgetAverageTransaction[];
   snapshot: BankValueSnapshot | null;
   pendingTransactions: PendingTransaction[];
   currentDate?: Date;

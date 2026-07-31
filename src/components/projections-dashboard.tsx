@@ -2,10 +2,17 @@
 
 import { type ReactNode, useMemo, useState } from "react";
 
-import { useBudgetData } from "@/components/budget-data-provider";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
+import type { BudgetItem } from "@/lib/budget-item-types";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import { APP_BASE_PATH } from "@/lib/config";
+import type {
+  BudgetAverageTransaction,
+  IncomeTransaction,
+} from "@/lib/credit-card-transaction-types";
+import type { ExpenseEntry } from "@/lib/expense-entry-types";
+import type { IncomeEntry } from "@/lib/income-entry-types";
+import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import {
   followingPayday,
   formatPayday,
@@ -128,17 +135,27 @@ function SummaryRow({
   );
 }
 
-export function ProjectionsDashboard() {
+export function ProjectionsDashboard({
+  initialBudgetItems,
+  initialBudgetPlanSettings,
+  initialCreditCardTransactions,
+  initialExpenseEntries,
+  initialIncomeEntries,
+  initialIncomeTransactions,
+  initialPendingTransactions,
+}: {
+  initialBudgetItems: BudgetItem[];
+  initialBudgetPlanSettings: BudgetPlanSettings;
+  initialCreditCardTransactions: BudgetAverageTransaction[];
+  initialExpenseEntries: ExpenseEntry[];
+  initialIncomeEntries: IncomeEntry[];
+  initialIncomeTransactions: IncomeTransaction[];
+  initialPendingTransactions: PendingTransaction[];
+}) {
   const { snapshot } = useLiveSnapshot();
-  const {
-    budgetItems,
-    creditCardTransactions,
-    expenseEntries,
-    incomeEntries: initialIncomeEntries,
-    pendingTransactions: initialPendingTransactions,
-    budgetPlanSettings,
-    setBudgetPlanSettings,
-  } = useBudgetData();
+  const [budgetPlanSettings, setBudgetPlanSettings] = useState(
+    initialBudgetPlanSettings,
+  );
   const nextPaydayOverride = budgetPlanSettings.next_payday_override;
   const [confirmingFastForward, setConfirmingFastForward] = useState(false);
   const [isFastForwarding, setIsFastForwarding] = useState(false);
@@ -148,17 +165,17 @@ export function ProjectionsDashboard() {
     () =>
       projectRevenueAfterPayCycle({
         incomeEntries: initialIncomeEntries,
-        budgetItems,
-        expenseEntries,
-        creditCardTransactions,
+        budgetItems: initialBudgetItems,
+        expenseEntries: initialExpenseEntries,
+        creditCardTransactions: initialCreditCardTransactions,
         snapshot,
         pendingTransactions: initialPendingTransactions,
         nextPaydayOverride,
       }),
     [
-      budgetItems,
-      creditCardTransactions,
-      expenseEntries,
+      initialBudgetItems,
+      initialCreditCardTransactions,
+      initialExpenseEntries,
       initialIncomeEntries,
       initialPendingTransactions,
       nextPaydayOverride,
@@ -170,16 +187,18 @@ export function ProjectionsDashboard() {
     () =>
       projectCurrentYear({
         incomeEntries: initialIncomeEntries,
-        budgetItems,
-        expenseEntries,
-        creditCardTransactions,
+        budgetItems: initialBudgetItems,
+        expenseEntries: initialExpenseEntries,
+        creditCardTransactions: initialCreditCardTransactions,
+        incomeTransactions: initialIncomeTransactions,
         nextPaydayOverride,
       }),
     [
-      budgetItems,
-      creditCardTransactions,
-      expenseEntries,
+      initialBudgetItems,
+      initialCreditCardTransactions,
+      initialExpenseEntries,
       initialIncomeEntries,
+      initialIncomeTransactions,
       nextPaydayOverride,
     ],
   );
@@ -187,16 +206,16 @@ export function ProjectionsDashboard() {
   const unemploymentRunway = useMemo(
     () =>
       projectUnemploymentRunway({
-        budgetItems,
-        expenseEntries,
-        creditCardTransactions,
+        budgetItems: initialBudgetItems,
+        expenseEntries: initialExpenseEntries,
+        creditCardTransactions: initialCreditCardTransactions,
         snapshot,
         pendingTransactions: initialPendingTransactions,
       }),
     [
-      budgetItems,
-      creditCardTransactions,
-      expenseEntries,
+      initialBudgetItems,
+      initialCreditCardTransactions,
+      initialExpenseEntries,
       initialPendingTransactions,
       snapshot,
     ],

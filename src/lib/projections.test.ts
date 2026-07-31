@@ -300,15 +300,30 @@ describe("projectCurrentYear", () => {
       budgetItems: [item],
       expenseEntries: [expenseEntry("600.00", "2026-06-01")],
       creditCardTransactions: [],
+      incomeTransactions: [
+        {
+          id: 10,
+          budget_item: null,
+          issuer: "Chase",
+          account_last_four: "0277",
+          transaction_date: "2026-06-20",
+          description: "Interest payment",
+          amount: "25.00",
+          transaction_type: "credit",
+          category: "income",
+          include: true,
+          plaid_category_primary: "INCOME",
+        },
+      ],
       currentDate: new Date(2026, 5, 27),
     });
 
     expect(result.year).toBe(2026);
-    expect(result.ytdIncome).toBe(9000);
+    expect(result.ytdIncome).toBe(9025);
     expect(result.remainingPaydays).toBe(12);
     expect(result.predictedPaycheck).toBe(3000);
     expect(result.forecastIncome).toBe(36000);
-    expect(result.projectedIncome).toBe(45000);
+    expect(result.projectedIncome).toBe(45025);
     expect(result.ytdExpenses).toBe(600);
     expect(result.projectedExpenses).toBeGreaterThan(result.ytdExpenses);
     expect(result.projectedNet).toBe(
