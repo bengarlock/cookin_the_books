@@ -142,6 +142,47 @@ describe("transactionMatchesCondition pay period comparisons", () => {
       value: "2026-08-01..2026-08-14",
     })).toBe(true);
   });
+
+  it("can carry outstanding pending charges into the selected pay period", () => {
+    const condition = {
+      id: "current-with-pending",
+      field: "pay_period" as const,
+      operator: "equals" as const,
+      value: "current",
+      include_outstanding_pending: true,
+    };
+    const currentDate = new Date(2026, 6, 31);
+    const outsidePeriod = {
+      ...transaction,
+      transaction_date: "2026-07-30",
+    } as CreditCardTransaction;
+
+    expect(
+      transactionMatchesCondition(
+        { ...outsidePeriod, pending: true },
+        condition,
+        currentDate,
+      ),
+    ).toBe(true);
+    expect(
+      transactionMatchesCondition(
+        { ...outsidePeriod, pending: false },
+        condition,
+        currentDate,
+      ),
+    ).toBe(false);
+    expect(
+      transactionMatchesCondition(
+        {
+          ...outsidePeriod,
+          pending: true,
+          transaction_type: "payment",
+        },
+        condition,
+        currentDate,
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("selectTransactions row logic", () => {

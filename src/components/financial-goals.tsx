@@ -17,6 +17,10 @@ import {
   normalizeFinancialGoal,
   type EvaluatedGoalCondition,
 } from "@/lib/financial-goal-evaluation";
+import {
+  hasSelectedGoalAccounts,
+  normalizeGoalScopeConditions,
+} from "@/lib/financial-goal-scope";
 import { financialGoalDeleteAction } from "@/lib/financial-goal-actions";
 import type {
   FinancialGoal,
@@ -404,6 +408,34 @@ function GoalFields({
     () => selectTransactions(transactions, value.scope_conditions, "and"),
     [transactions, value.scope_conditions],
   );
+  const hasSelectedAccounts = hasSelectedGoalAccounts(value.scope_conditions);
+  const payPeriodCondition = value.scope_conditions.find(
+    (condition) =>
+      condition.field === "pay_period" && condition.operator === "equals",
+  );
+
+  function updateScopeConditions(
+    scopeConditions: ExpenseAutomationCondition[],
+  ) {
+    onChange({
+      ...value,
+      scope_conditions: normalizeGoalScopeConditions(scopeConditions),
+    });
+  }
+
+  function setIncludeOutstandingPending(include: boolean) {
+    if (!payPeriodCondition) return;
+    updateScopeConditions(
+      value.scope_conditions.map((condition) =>
+        condition.id === payPeriodCondition.id
+          ? {
+              ...condition,
+              include_outstanding_pending: include || undefined,
+            }
+          : condition,
+      ),
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -439,8 +471,32 @@ function GoalFields({
           includeTransactionStatus
           logic="and"
           matches={preview}
-          onChange={(scope_conditions) =>
-            onChange({ ...value, scope_conditions })
+          onChange={updateScopeConditions}
+          renderConditionFooter={(condition) =>
+            hasSelectedAccounts &&
+            condition.id === payPeriodCondition?.id ? (
+              <label className="mt-3 flex cursor-pointer items-start gap-2 border-t border-white/10 pt-3">
+                <input
+                  checked={
+                    condition.include_outstanding_pending === true
+                  }
+                  className="mt-0.5"
+                  onChange={(event) =>
+                    setIncludeOutstandingPending(event.target.checked)
+                  }
+                  type="checkbox"
+                />
+                <span>
+                  <span className="block text-xs font-semibold text-sky-100">
+                    Include outstanding pending charges
+                  </span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-sky-100/55">
+                    Also count pending purchases, fees, and interest on the
+                    selected accounts when dated outside this pay period.
+                  </span>
+                </span>
+              </label>
+            ) : null
           }
           tags={tags}
         />
@@ -551,7 +607,12 @@ function scopeSummary(
       return values.map((value) => accountLabels.get(value) || `•••• ${value}`).join(", ");
     }
     if (condition.field === "pay_period") {
-      return values[0] === "current" ? "Current Pay Period" : "Fixed pay period";
+      const period =
+        values[0] === "current" ? "Current Pay Period" : "Fixed pay period";
+      return condition.operator === "equals" &&
+        condition.include_outstanding_pending
+        ? `${period} + outstanding pending charges`
+        : period;
     }
     if (condition.field === "transaction_status") {
       return values[0] === "posted"
@@ -979,6 +1040,16 @@ export function FinancialGoals({
                         {summary}
                       </span>
                     ))}
+                    {evaluation.carriedPendingTransactions.length ? (
+                      <span className="rounded-full border border-gold/20 bg-gold/[0.07] px-2.5 py-1 text-[11px] text-gold">
+                        Includes{" "}
+                        {evaluation.carriedPendingTransactions.length} pending{" "}
+                        {evaluation.carriedPendingTransactions.length === 1
+                          ? "charge"
+                          : "charges"}{" "}
+                        from outside this pay period
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

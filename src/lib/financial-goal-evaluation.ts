@@ -234,14 +234,30 @@ export function evaluateFinancialGoal({
     "and",
     currentDate,
   );
+  const includeOutstandingPending = goal.scope_conditions.some(
+    (condition) =>
+      condition.field === "pay_period" &&
+      condition.operator === "equals" &&
+      condition.include_outstanding_pending === true,
+  );
   const range = selectedPeriodRange(goal, currentDate);
   const spendingMatches = range
     ? scopeMatches.filter(
         (transaction) =>
-          transaction.transaction_date >= range.start &&
-          transaction.transaction_date <= range.end,
+          (transaction.transaction_date >= range.start &&
+            transaction.transaction_date <= range.end) ||
+          (includeOutstandingPending && transaction.pending === true),
       )
     : scopeMatches;
+  const carriedPendingTransactions =
+    includeOutstandingPending && range
+      ? spendingMatches.filter(
+          (transaction) =>
+            transaction.pending === true &&
+            (transaction.transaction_date < range.start ||
+              transaction.transaction_date > range.end),
+        )
+      : [];
   const spending = spendingMatches.reduce(
     (total, transaction) => total + Math.abs(Number(transaction.amount) || 0),
     0,
@@ -319,6 +335,7 @@ export function evaluateFinancialGoal({
 
   return {
     conditions,
+    carriedPendingTransactions,
     met,
     matchingTransactions: spendingMatches,
     selectedAccountBalance: balance,

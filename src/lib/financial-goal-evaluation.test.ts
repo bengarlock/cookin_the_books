@@ -151,6 +151,71 @@ describe("evaluateFinancialGoal", () => {
     expect(result.spending).toBe(125);
   });
 
+  it("includes outstanding pending charges from before the pay period", () => {
+    const currentDate = new Date(2026, 6, 31);
+    const result = evaluateFinancialGoal({
+      goal: {
+        ...goal,
+        scope_conditions: [
+          ...goal.scope_conditions,
+          {
+            id: "current-period",
+            logic_operator: "and",
+            field: "pay_period",
+            operator: "equals",
+            value: "current",
+            include_outstanding_pending: true,
+          },
+        ],
+        success_conditions: goal.success_conditions.map((condition) =>
+          condition.field === "spending_period"
+            ? { ...condition, value: "current" }
+            : condition,
+        ),
+      },
+      transactions: [
+        { ...transaction, transaction_date: "2026-07-31" },
+        {
+          ...transaction,
+          id: 2,
+          transaction_date: "2026-07-30",
+          amount: "37.28",
+          pending: true,
+        },
+        {
+          ...transaction,
+          id: 3,
+          transaction_date: "2026-07-30",
+          amount: "23.89",
+          pending: true,
+        },
+        {
+          ...transaction,
+          id: 4,
+          transaction_date: "2026-07-31",
+          amount: "-1057.75",
+          pending: true,
+          transaction_type: "payment",
+        },
+        {
+          ...transaction,
+          id: 5,
+          account_last_four: "9999",
+          transaction_date: "2026-07-30",
+          amount: "500",
+          pending: true,
+        },
+      ],
+      snapshot,
+      currentDate,
+    });
+
+    expect(result.spending).toBeCloseTo(186.17, 2);
+    expect(result.carriedPendingTransactions.map(({ id }) => id)).toEqual([
+      2, 3,
+    ]);
+  });
+
   it("uses the adjusted balance when a selected card has pending charges", () => {
     const pendingCardTransactions = [
       {
