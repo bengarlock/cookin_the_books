@@ -5,7 +5,7 @@ import type { FormEvent } from "react";
 
 import { AutomationSelectorBuilder } from "@/components/automation-selector-builder";
 import { accountSelectorOptions } from "@/lib/account-transaction-filters";
-import type { CreditCardTransaction } from "@/lib/credit-card-transaction-types";
+import type { TransactionSelectorRecord } from "@/lib/credit-card-transaction-types";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
 import type { ExpenseAutomationCondition } from "@/lib/expense-automation-rule-types";
 import { labelForCategory } from "@/lib/transaction-categories";
@@ -66,12 +66,14 @@ export function ReportsDashboard({
   transactions,
 }: {
   categories: ExpenseCategory[];
-  transactions: CreditCardTransaction[];
+  transactions: TransactionSelectorRecord[];
 }) {
   const [view, setView] = useState<"index" | "editor">("index");
   const [editorTab, setEditorTab] = useState<"report" | "setup">("report");
   const [conditions, setConditions] = useState<ExpenseAutomationCondition[]>([]);
-  const [results, setResults] = useState<CreditCardTransaction[] | null>(null);
+  const [results, setResults] = useState<TransactionSelectorRecord[] | null>(
+    null,
+  );
   const [stale, setStale] = useState(false);
   const savedReports = useSyncExternalStore(subscribeSavedReports, readSavedReports, () => emptySavedReports);
   const [reportName, setReportName] = useState("");
