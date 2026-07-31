@@ -7,8 +7,18 @@ import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 import type { BankValueSnapshot } from "@/lib/snapshot-types";
 
 export type SnapshotBounds = {
+  available_years: number[];
   earliest_snapshot_date: string | null;
   latest_snapshot_date: string | null;
+  yearly_net_changes: Array<{
+    change: string;
+    end_date: string;
+    end_value: string;
+    percentage: string;
+    start_date: string;
+    start_value: string;
+    year: string;
+  }>;
 };
 
 type SnapshotListOptions = {
@@ -92,8 +102,10 @@ export async function getSnapshotBounds(): Promise<SnapshotBounds> {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
   if (!token) {
     return {
+      available_years: [],
       earliest_snapshot_date: null,
       latest_snapshot_date: null,
+      yearly_net_changes: [],
     };
   }
 
@@ -113,11 +125,19 @@ export async function getSnapshotBounds(): Promise<SnapshotBounds> {
       throw new Error("Unable to load snapshot bounds.");
     }
 
-    return (await response.json()) as SnapshotBounds;
+    const bounds = (await response.json()) as Partial<SnapshotBounds>;
+    return {
+      available_years: bounds.available_years ?? [],
+      earliest_snapshot_date: bounds.earliest_snapshot_date ?? null,
+      latest_snapshot_date: bounds.latest_snapshot_date ?? null,
+      yearly_net_changes: bounds.yearly_net_changes ?? [],
+    };
   } catch {
     return {
+      available_years: [],
       earliest_snapshot_date: null,
       latest_snapshot_date: null,
+      yearly_net_changes: [],
     };
   }
 }
