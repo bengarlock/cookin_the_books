@@ -933,6 +933,8 @@ function AccountTransactionList({
   });
   const [newTagName, setNewTagName] = useState("");
   const [newTagFormOpen, setNewTagFormOpen] = useState(false);
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const [noteExpanded, setNoteExpanded] = useState(false);
 
   useEffect(() => {
     if (confirmingMatchId === null) return;
@@ -971,6 +973,8 @@ function AccountTransactionList({
     });
     setNewTagName("");
     setNewTagFormOpen(false);
+    setTagsExpanded(false);
+    setNoteExpanded(false);
     setRelationshipQuery("");
     setRelationshipResults([]);
     setRelationshipError("");
@@ -1279,85 +1283,102 @@ function AccountTransactionList({
                 {editingTransactionId === transaction.id ? (
                   <>
                   <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/10 p-3">
-                    <div>
-                      <div className="flex flex-wrap gap-2">
-                        {editForm.tags.map((tag) => (
-                          <button
-                            className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[11px] text-sky-100"
-                            key={tag}
-                            onClick={() => toggleEditorTag(tag, false)}
-                            type="button"
-                          >
-                            {tag} ×
-                          </button>
-                        ))}
-                      </div>
-                      <div className="mt-3 flex items-center gap-2">
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Available tags</span>
-                        <button
-                          aria-label="Create a new tag"
-                          className="grid size-6 place-items-center rounded-full border border-white/10 text-sm text-white/60 hover:border-sky-300/30 hover:text-sky-100"
-                          onClick={() => setNewTagFormOpen((current) => !current)}
-                          type="button"
-                        >
-                          <svg
-                            aria-hidden="true"
-                            className="size-3.5"
-                            fill="none"
-                            viewBox="0 0 16 16"
-                          >
-                            <path
-                              d="M8 3.25v9.5M3.25 8h9.5"
-                              stroke="currentColor"
-                              strokeLinecap="round"
-                              strokeWidth="1.5"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {tagLibrary
-                          .filter((tag) => !editForm.tags.some((selected) => selected.toLowerCase() === tag.name.toLowerCase()))
-                          .map((tag) => (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        aria-controls={`transaction-${transaction.id}-tags`}
+                        aria-expanded={tagsExpanded}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${tagsExpanded ? "border-sky-300/30 bg-sky-400/10 text-sky-100" : "border-white/10 text-white/65 hover:border-sky-300/25 hover:text-sky-100"}`}
+                        onClick={() => {
+                          if (tagsExpanded) setNewTagFormOpen(false);
+                          setTagsExpanded(!tagsExpanded);
+                        }}
+                        type="button"
+                      >
+                        Tags
+                      </button>
+                      <button
+                        aria-controls={`transaction-${transaction.id}-note`}
+                        aria-expanded={noteExpanded}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${noteExpanded ? "border-accent/30 bg-accent/10 text-accent" : "border-white/10 text-white/65 hover:border-accent/25 hover:text-accent"}`}
+                        onClick={() => setNoteExpanded((current) => !current)}
+                        type="button"
+                      >
+                        Note
+                      </button>
+                    </div>
+                    {tagsExpanded ? (
+                      <div className="mt-3 border-t border-white/[0.07] pt-3" id={`transaction-${transaction.id}-tags`}>
+                        <div className="flex flex-wrap gap-2">
+                          {editForm.tags.map((tag) => (
                             <button
-                              className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:border-sky-300/20 hover:text-sky-100"
-                              key={tag.id}
-                              onClick={() => toggleEditorTag(tag.name, true)}
+                              className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[11px] text-sky-100"
+                              key={tag}
+                              onClick={() => toggleEditorTag(tag, false)}
                               type="button"
                             >
-                              + {tag.name}
+                              {tag} ×
                             </button>
                           ))}
-                      </div>
-                      {newTagFormOpen ? (
-                        <div className="mt-3 flex gap-2">
-                          <input
-                            className="h-9 min-w-48 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
-                            maxLength={40}
-                            onChange={(event) => setNewTagName(event.target.value)}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                event.preventDefault();
-                                toggleEditorTag(newTagName, true);
-                              }
-                            }}
-                            placeholder="Create a tag"
-                            value={newTagName}
-                          />
-                          <button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70" onClick={() => toggleEditorTag(newTagName, true)} type="button">Add</button>
                         </div>
-                      ) : null}
-                    </div>
-                    <label className="mt-4 block border-t border-white/[0.07] pt-3">
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Transaction note</span>
-                      <textarea
-                        className="mt-2 min-h-20 w-full resize-y rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white outline-none focus:border-accent/50"
-                        maxLength={2000}
-                        onChange={(event) => setEditForm((current) => ({ ...current, note: event.target.value }))}
-                        placeholder="Add context about this transaction"
-                        value={editForm.note}
-                      />
-                    </label>
+                        <div className="mt-3 flex items-center gap-2">
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Available tags</span>
+                          <button
+                            aria-label="Create a new tag"
+                            className="grid size-6 place-items-center rounded-full border border-white/10 text-sm text-white/60 hover:border-sky-300/30 hover:text-sky-100"
+                            onClick={() => setNewTagFormOpen((current) => !current)}
+                            type="button"
+                          >
+                            <svg aria-hidden="true" className="size-3.5" fill="none" viewBox="0 0 16 16">
+                              <path d="M8 3.25v9.5M3.25 8h9.5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {tagLibrary
+                            .filter((tag) => !editForm.tags.some((selected) => selected.toLowerCase() === tag.name.toLowerCase()))
+                            .map((tag) => (
+                              <button
+                                className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:border-sky-300/20 hover:text-sky-100"
+                                key={tag.id}
+                                onClick={() => toggleEditorTag(tag.name, true)}
+                                type="button"
+                              >
+                                + {tag.name}
+                              </button>
+                            ))}
+                        </div>
+                        {newTagFormOpen ? (
+                          <div className="mt-3 flex gap-2">
+                            <input
+                              className="h-9 min-w-48 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
+                              maxLength={40}
+                              onChange={(event) => setNewTagName(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  toggleEditorTag(newTagName, true);
+                                }
+                              }}
+                              placeholder="Create a tag"
+                              value={newTagName}
+                            />
+                            <button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70" onClick={() => toggleEditorTag(newTagName, true)} type="button">Add</button>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {noteExpanded ? (
+                      <label className="mt-3 block border-t border-white/[0.07] pt-3" id={`transaction-${transaction.id}-note`}>
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Transaction note</span>
+                        <textarea
+                          className="mt-2 min-h-20 w-full resize-y rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white outline-none focus:border-accent/50"
+                          maxLength={2000}
+                          onChange={(event) => setEditForm((current) => ({ ...current, note: event.target.value }))}
+                          placeholder="Add context about this transaction"
+                          value={editForm.note}
+                        />
+                      </label>
+                    ) : null}
                     <div className="mt-3">
                       <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Budget treatment</p>
                       <div className="flex items-center gap-1.5">
