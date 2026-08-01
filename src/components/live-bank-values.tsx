@@ -987,6 +987,14 @@ function AccountTransactionList({
     void loadRelationshipSuggestions(transaction.id);
   }
 
+  function toggleTransactionEditor(transaction: CreditCardTransaction) {
+    if (editingTransactionId === transaction.id) {
+      setEditingTransactionId(null);
+      return;
+    }
+    openTransactionEditor(transaction);
+  }
+
   async function loadRelationshipSuggestions(transactionId: number) {
     setSuggestionsLoading(true);
     setRelationshipError("");
@@ -1216,8 +1224,13 @@ function AccountTransactionList({
             transaction.transaction_type === "credit";
           return (
             <div
-              className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 border-b border-white/[0.07] px-4 py-3 last:border-b-0"
+              className="grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] gap-3 border-b border-white/[0.07] px-4 py-3 last:border-b-0"
               key={transaction.id}
+              onClick={(event) => {
+                const target = event.target;
+                if (target instanceof Element && target.closest("a, button, input, label, select, textarea, [data-transaction-editor]")) return;
+                toggleTransactionEditor(transaction);
+              }}
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-white">
@@ -1287,8 +1300,8 @@ function AccountTransactionList({
                   </div>
                 ) : null}
                 {editingTransactionId === transaction.id ? (
-                  <>
-                  <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/10 p-3">
+                  <div className="mt-3 cursor-default" data-transaction-editor>
+                  <div className="rounded-xl border border-white/[0.08] bg-black/10 p-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         aria-controls={`transaction-${transaction.id}-tags`}
@@ -1540,14 +1553,25 @@ function AccountTransactionList({
                   </div>
                   <p className="mt-2 text-[11px] text-muted">Save this transaction changes only the selected row. Save &amp; remember also updates matching descriptions and future imports.</p>
                   {editError ? <p className="mt-2 text-xs text-rose-200">{editError}</p> : null}
-                  </>
+                  </div>
                 ) : null}
               </div>
               <div className="flex items-center gap-3 self-start">
                 <span className={`whitespace-nowrap text-right font-mono text-sm ${isCredit ? "text-accent" : "text-white"}`}>
                   {signedTransactionAmount(transaction, accountKey)}
                 </span>
-                <button className="text-xs font-medium text-white/50 hover:text-accent" onClick={() => openTransactionEditor(transaction)} type="button">Edit</button>
+                <button
+                  aria-expanded={editingTransactionId === transaction.id}
+                  aria-label={`${editingTransactionId === transaction.id ? "Collapse" : "Expand"} transaction ${transaction.description}`}
+                  className="grid size-7 place-items-center rounded-full border border-white/10 text-base font-medium text-white/55 transition hover:border-accent/25 hover:text-accent"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleTransactionEditor(transaction);
+                  }}
+                  type="button"
+                >
+                  <span aria-hidden="true">{editingTransactionId === transaction.id ? "−" : "+"}</span>
+                </button>
               </div>
             </div>
           );
