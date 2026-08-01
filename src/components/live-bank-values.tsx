@@ -1224,7 +1224,7 @@ function AccountTransactionList({
             transaction.transaction_type === "credit";
           return (
             <div
-              className={`grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] gap-3 border-b border-white/[0.07] px-4 py-3 transition-colors duration-[250ms] ease-out last:border-b-0 ${editingTransactionId === transaction.id ? "bg-sky-400/[0.12]" : "hover:bg-white/[0.025]"}`}
+              className={`grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] gap-x-3 border-b border-white/[0.07] px-4 py-3 transition-colors duration-[250ms] ease-out last:border-b-0 ${editingTransactionId === transaction.id ? "bg-sky-400/[0.12]" : "hover:bg-white/[0.025]"}`}
               key={transaction.id}
               onClick={(event) => {
                 const target = event.target;
@@ -1232,7 +1232,8 @@ function AccountTransactionList({
                 toggleTransactionEditor(transaction);
               }}
             >
-              <div className="min-w-0">
+              <div className="contents">
+                <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-white">
                   {transaction.description}
                 </p>
@@ -1299,8 +1300,9 @@ function AccountTransactionList({
                     </button>
                   </div>
                 ) : null}
+                </div>
                 {editingTransactionId === transaction.id ? (
-                  <div className="mt-3 cursor-default" data-transaction-editor>
+                  <div className="col-span-2 mt-3 cursor-default" data-transaction-editor>
                   <div className="rounded-xl border border-white/[0.08] bg-black/10 p-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <button
@@ -1556,7 +1558,7 @@ function AccountTransactionList({
                   </div>
                 ) : null}
               </div>
-              <div className="flex items-center gap-3 self-start">
+              <div className="col-start-2 row-start-1 flex items-center gap-3 self-start">
                 <span className={`whitespace-nowrap text-right font-mono text-sm ${isCredit ? "text-accent" : "text-white"}`}>
                   {signedTransactionAmount(transaction, accountKey)}
                 </span>
