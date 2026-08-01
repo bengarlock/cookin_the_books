@@ -935,6 +935,8 @@ function AccountTransactionList({
   const [newTagFormOpen, setNewTagFormOpen] = useState(false);
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [noteExpanded, setNoteExpanded] = useState(false);
+  const [relatedExpanded, setRelatedExpanded] = useState(false);
+  const [categorizationExpanded, setCategorizationExpanded] = useState(false);
 
   useEffect(() => {
     if (confirmingMatchId === null) return;
@@ -975,6 +977,8 @@ function AccountTransactionList({
     setNewTagFormOpen(false);
     setTagsExpanded(false);
     setNoteExpanded(false);
+    setRelatedExpanded(false);
+    setCategorizationExpanded(false);
     setRelationshipQuery("");
     setRelationshipResults([]);
     setRelationshipError("");
@@ -1305,6 +1309,24 @@ function AccountTransactionList({
                       >
                         Note
                       </button>
+                      <button
+                        aria-controls={`transaction-${transaction.id}-related`}
+                        aria-expanded={relatedExpanded}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${relatedExpanded ? "border-gold/30 bg-gold/10 text-gold" : "border-white/10 text-white/65 hover:border-gold/25 hover:text-gold"}`}
+                        onClick={() => setRelatedExpanded((current) => !current)}
+                        type="button"
+                      >
+                        Related transactions
+                      </button>
+                      <button
+                        aria-controls={`transaction-${transaction.id}-categorization`}
+                        aria-expanded={categorizationExpanded}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${categorizationExpanded ? "border-violet-300/30 bg-violet-400/10 text-violet-100" : "border-white/10 text-white/65 hover:border-violet-300/25 hover:text-violet-100"}`}
+                        onClick={() => setCategorizationExpanded((current) => !current)}
+                        type="button"
+                      >
+                        Categorize
+                      </button>
                     </div>
                     {tagsExpanded ? (
                       <div className="mt-3 border-t border-white/[0.07] pt-3" id={`transaction-${transaction.id}-tags`}>
@@ -1398,7 +1420,7 @@ function AccountTransactionList({
                         >{transaction.include ? "Included" : "Excluded"}</button>
                       </div>
                     </div>
-                    <div className="mt-4 border-t border-white/[0.07] pt-3">
+                    {relatedExpanded ? <div className="mt-4 border-t border-white/[0.07] pt-3" id={`transaction-${transaction.id}-related`}>
                       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Related transactions</p>
                       {suggestionsLoading ? <p className="mt-2 text-xs text-muted">Finding likely matches…</p> : null}
                       {relationshipSuggestions.length ? (
@@ -1458,9 +1480,9 @@ function AccountTransactionList({
                         </div>
                       ) : null}
                       {relationshipError ? <p className="mt-2 text-xs text-rose-200">{relationshipError}</p> : null}
-                    </div>
+                    </div> : null}
                   </div>
-                  <div className="mt-3 grid items-center gap-2 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_auto_auto]">
+                  {categorizationExpanded ? <div className="mt-3 grid items-center gap-2 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_minmax(10rem,auto)]" id={`transaction-${transaction.id}-categorization`}>
                     <select
                       aria-label="Match condition"
                       className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
@@ -1487,7 +1509,8 @@ function AccountTransactionList({
                         <option key={category.key} value={category.key}>{category.label}</option>
                       ))}
                     </select>
-                    <div className="flex items-center gap-2">
+                  </div> : null}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
                       <button
                         className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
                         disabled={savingTransactionId === transaction.id}
@@ -1503,10 +1526,9 @@ function AccountTransactionList({
                         type="button"
                       >Save &amp; remember</button>
                       <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={() => setEditingTransactionId(null)} type="button">Cancel</button>
-                    </div>
-                    <p className="text-[11px] text-muted sm:col-span-5">Save this transaction changes only the selected row. Save &amp; remember also updates matching descriptions and future imports.</p>
-                    {editError ? <p className="text-xs text-rose-200 sm:col-span-5">{editError}</p> : null}
                   </div>
+                  <p className="mt-2 text-[11px] text-muted">Save this transaction changes only the selected row. Save &amp; remember also updates matching descriptions and future imports.</p>
+                  {editError ? <p className="mt-2 text-xs text-rose-200">{editError}</p> : null}
                   </>
                 ) : null}
               </div>

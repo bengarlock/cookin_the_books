@@ -136,6 +136,7 @@ export function ExpenseHistory({
   const [newTagFormOpen, setNewTagFormOpen] = useState(false);
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [noteExpanded, setNoteExpanded] = useState(false);
+  const [categorizationExpanded, setCategorizationExpanded] = useState(false);
   const [error, setError] = useState("");
   const [entryForm, setEntryForm] = useState({
     incurredOn: todayString(),
@@ -304,6 +305,7 @@ export function ExpenseHistory({
     setNewTagFormOpen(false);
     setTagsExpanded(false);
     setNoteExpanded(false);
+    setCategorizationExpanded(false);
     setNoteDraft(transaction.note || "");
     setCorrectingTransactionId(transaction.id);
     setCorrectionRuleForm({
@@ -319,6 +321,7 @@ export function ExpenseHistory({
     setNewTagFormOpen(false);
     setTagsExpanded(false);
     setNoteExpanded(false);
+    setCategorizationExpanded(false);
   }
 
   async function saveTransactionTags(transactionId: number, tags: string[]) {
@@ -899,6 +902,13 @@ export function ExpenseHistory({
                           onClick={() => setNoteExpanded((current) => !current)}
                           type="button"
                         >Note</button>
+                        <button
+                          aria-controls={`expense-transaction-${transaction.id}-categorization`}
+                          aria-expanded={categorizationExpanded}
+                          className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${categorizationExpanded ? "border-violet-300/30 bg-violet-400/10 text-violet-100" : "border-white/10 text-white/65 hover:border-violet-300/25 hover:text-violet-100"}`}
+                          onClick={() => setCategorizationExpanded((current) => !current)}
+                          type="button"
+                        >Categorize</button>
                       </div>
                       {tagsExpanded ? <div className="mt-3 border-t border-white/[0.07] pt-3" id={`expense-transaction-${transaction.id}-tags`}>
                         <div className="flex flex-wrap gap-2">{tagDraft.map((tag) => <button className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[11px] text-sky-100 disabled:opacity-50" disabled={savingTagsId === transaction.id} key={tag} onClick={() => updateTransactionTag(transaction.id, tag, false)} title="Remove tag" type="button">{tag} ×</button>)}</div>
@@ -913,7 +923,8 @@ export function ExpenseHistory({
                       {noteExpanded ? <label className="mt-3 block border-t border-white/[0.07] pt-3" id={`expense-transaction-${transaction.id}-note`}><span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Transaction note</span><textarea className="mt-2 min-h-20 w-full resize-y rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white outline-none focus:border-accent/50" maxLength={2000} onChange={(event) => setNoteDraft(event.target.value)} placeholder="Add context about this transaction" value={noteDraft} /></label> : null}
                       <div className="mt-3"><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Budget treatment</p>{transactionBudgetControls(transaction)}</div>
                     </div> : null}
-                    {correctingTransactionId === transaction.id ? <div className="mt-3 grid items-center gap-2 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_auto_auto]">
+                    {correctingTransactionId === transaction.id ? <>
+                    {categorizationExpanded ? <div className="mt-3 grid items-center gap-2 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_minmax(10rem,auto)]" id={`expense-transaction-${transaction.id}-categorization`}>
                       <select
                         aria-label="Match condition"
                         className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
@@ -925,7 +936,8 @@ export function ExpenseHistory({
                       <input aria-label="Match value" className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" onChange={(event) => setCorrectionRuleForm((current) => ({ ...current, match_value: event.target.value }))} value={correctionRuleForm.match_value} />
                       <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Set category</span>
                       <select aria-label={`Correct category for ${transaction.description}`} className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" onChange={(event) => setCorrectionRuleForm((current) => ({ ...current, category: event.target.value }))} value={correctionRuleForm.category}>{categoryOptions.map((category) => <option key={category.key} value={category.key}>{category.label}</option>)}</select>
-                      <div className="flex items-center gap-2">
+                    </div> : null}
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
                       <button
                         className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
                         disabled={savingCorrectionId === transaction.id || savingNoteId === transaction.id}
@@ -939,9 +951,9 @@ export function ExpenseHistory({
                         type="button"
                       >Save &amp; remember</button>
                       <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={closeTransactionEditor} type="button">Cancel</button>
-                      </div>
-                      <p className="text-[11px] text-muted sm:col-span-5">Save this transaction changes only the selected row. Save &amp; remember also updates matching descriptions and future imports.</p>
-                    </div> : null}
+                    </div>
+                    <p className="mt-2 text-[11px] text-muted">Save this transaction changes only the selected row. Save &amp; remember also updates matching descriptions and future imports.</p>
+                    </> : null}
                   </div>
                   <div className="flex items-center gap-3 self-start">
                     <p className="font-mono text-sm font-semibold text-white">{currencyFormatter.format(effectiveCreditCardTransactionAmount(transaction))}</p>
