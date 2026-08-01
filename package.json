@@ -14,7 +14,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "next": "16.2.9",
+    "next": "16.2.12",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-plaid-link": "^4.1.1"
@@ -25,14 +25,15 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.2.12",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.4"
   },
   "overrides": {
     "esbuild": "0.28.1",
-    "postcss": "8.5.15"
+    "postcss": "8.5.25",
+    "sharp": "0.35.0"
   },
   "engines": {
     "node": ">=24 || ^22.13.0 || ^20.19.0"
@@ -41,7 +42,7 @@
   "allowScripts": {
     "esbuild@0.28.1": true,
     "fsevents@2.3.3": true,
-    "sharp@0.34.5": true,
+    "sharp@0.35.0": true,
     "unrs-resolver@1.12.2": true
   }
 }

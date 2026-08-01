@@ -134,6 +134,10 @@ export function ExpenseHistory({
   const [tagDraft, setTagDraft] = useState<string[]>([]);
   const [newTagName, setNewTagName] = useState("");
   const [newTagFormOpen, setNewTagFormOpen] = useState(false);
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const [noteExpanded, setNoteExpanded] = useState(false);
+  const [categorizationExpanded, setCategorizationExpanded] = useState(false);
+  const [budgetTreatmentExpanded, setBudgetTreatmentExpanded] = useState(false);
   const [error, setError] = useState("");
   const [entryForm, setEntryForm] = useState({
     incurredOn: todayString(),
@@ -300,6 +304,10 @@ export function ExpenseHistory({
     setTagDraft((transaction.tags || []).map((tag) => tag.name));
     setNewTagName("");
     setNewTagFormOpen(false);
+    setTagsExpanded(false);
+    setNoteExpanded(false);
+    setCategorizationExpanded(false);
+    setBudgetTreatmentExpanded(false);
     setNoteDraft(transaction.note || "");
     setCorrectingTransactionId(transaction.id);
     setCorrectionRuleForm({
@@ -312,6 +320,19 @@ export function ExpenseHistory({
   function closeTransactionEditor() {
     setTaggingTransactionId(null);
     setCorrectingTransactionId(null);
+    setNewTagFormOpen(false);
+    setTagsExpanded(false);
+    setNoteExpanded(false);
+    setCategorizationExpanded(false);
+    setBudgetTreatmentExpanded(false);
+  }
+
+  function toggleTransactionEditor(transaction: ExpenseTransaction) {
+    if (taggingTransactionId === transaction.id) {
+      closeTransactionEditor();
+      return;
+    }
+    openTransactionEditor(transaction);
   }
 
   async function saveTransactionTags(transactionId: number, tags: string[]) {
@@ -866,26 +887,70 @@ export function ExpenseHistory({
                 <div className="h-2 overflow-hidden rounded-full bg-white/[0.07]"><div className="h-full rounded-full bg-accent" style={{ width: `${categorizedTotal ? Math.max(2, amount / categorizedTotal * 100) : 0}%` }} /></div>
               </button>
               {isExpanded ? <div className="divide-y divide-white/[0.06] border-t border-white/[0.07] bg-black/10">
-                {categoryTransactions.map((transaction) => <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3" key={transaction.id}>
+                {categoryTransactions.map((transaction) => <div
+                  className={`grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 transition-colors duration-[250ms] ease-out ${taggingTransactionId === transaction.id ? "bg-sky-400/[0.12]" : "hover:bg-white/[0.025]"}`}
+                  key={transaction.id}
+                  onClick={(event) => {
+                    const target = event.target;
+                    if (target instanceof Element && target.closest("a, button, input, label, select, textarea, [data-transaction-editor]")) return;
+                    toggleTransactionEditor(transaction);
+                  }}
+                >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-white">{transaction.description}</p>
                     <p className="mt-1 text-xs text-muted">{formatDate(transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}</p>
                     {transaction.note ? <p className="mt-2 text-xs italic text-white/60">{transaction.note}</p> : null}
                     {transaction.tags?.length ? <div className="mt-2 flex flex-wrap gap-1.5">{transaction.tags.map((tag) => <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2 py-0.5 text-[10px] font-medium text-sky-100" key={tag.id}>{tag.name}</span>)}</div> : null}
                     <MatchedOrderDetails transaction={transaction} />
-                    {taggingTransactionId === transaction.id ? <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/10 p-3">
-                      <div className="mt-3 flex flex-wrap gap-2">{tagDraft.map((tag) => <button className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[11px] text-sky-100 disabled:opacity-50" disabled={savingTagsId === transaction.id} key={tag} onClick={() => updateTransactionTag(transaction.id, tag, false)} title="Remove tag" type="button">{tag} ×</button>)}</div>
-                      <div className="mt-3 flex items-center gap-2"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Available tags</p><button aria-label="Create a new tag" className="grid size-6 place-items-center rounded-full border border-white/10 text-sm text-white/60 transition hover:border-sky-300/30 hover:text-sky-100" onClick={() => setNewTagFormOpen((current) => !current)} title="Create a new tag" type="button">+</button></div>
-                      {availableTagNames.filter((tag) => !tagDraft.some((selected) => selected.toLowerCase() === tag.toLowerCase())).length ? <div className="mt-2 flex flex-wrap gap-2">{availableTagNames.filter((tag) => !tagDraft.some((selected) => selected.toLowerCase() === tag.toLowerCase())).map((tag) => <button className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:border-sky-300/20 hover:text-sky-100 disabled:opacity-50" disabled={savingTagsId === transaction.id} key={tag} onClick={() => updateTransactionTag(transaction.id, tag, true)} type="button">+ {tag}</button>)}</div> : <p className="mt-2 text-[11px] text-muted">No other saved tags.</p>}
-                      {newTagFormOpen ? <div className="mt-3 flex flex-wrap gap-2">
-                        <input className="h-9 min-w-48 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" maxLength={40} onChange={(event) => setNewTagName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); updateTransactionTag(transaction.id, newTagName, true); } }} placeholder="Create a tag" value={newTagName} />
-                        <button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70" onClick={() => updateTransactionTag(transaction.id, newTagName, true)} type="button">Add</button>
+                    {taggingTransactionId === transaction.id ? <div className="mt-3 cursor-default rounded-xl border border-white/[0.08] bg-black/10 p-3" data-transaction-editor>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          aria-controls={`expense-transaction-${transaction.id}-tags`}
+                          aria-expanded={tagsExpanded}
+                          className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${tagsExpanded ? "border-sky-300/30 bg-sky-400/10 text-sky-100" : "border-white/10 text-white/65 hover:border-sky-300/25 hover:text-sky-100"}`}
+                          onClick={() => {
+                            if (tagsExpanded) setNewTagFormOpen(false);
+                            setTagsExpanded(!tagsExpanded);
+                          }}
+                          type="button"
+                        >Tags</button>
+                        <button
+                          aria-controls={`expense-transaction-${transaction.id}-note`}
+                          aria-expanded={noteExpanded}
+                          className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${noteExpanded ? "border-accent/30 bg-accent/10 text-accent" : "border-white/10 text-white/65 hover:border-accent/25 hover:text-accent"}`}
+                          onClick={() => setNoteExpanded((current) => !current)}
+                          type="button"
+                        >Note</button>
+                        <button
+                          aria-controls={`expense-transaction-${transaction.id}-categorization`}
+                          aria-expanded={categorizationExpanded}
+                          className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${categorizationExpanded ? "border-violet-300/30 bg-violet-400/10 text-violet-100" : "border-white/10 text-white/65 hover:border-violet-300/25 hover:text-violet-100"}`}
+                          onClick={() => setCategorizationExpanded((current) => !current)}
+                          type="button"
+                        >Categorize</button>
+                        <button
+                          aria-controls={`expense-transaction-${transaction.id}-budget-treatment`}
+                          aria-expanded={budgetTreatmentExpanded}
+                          className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${budgetTreatmentExpanded ? "border-accent/30 bg-accent/10 text-accent" : "border-white/10 text-white/65 hover:border-accent/25 hover:text-accent"}`}
+                          onClick={() => setBudgetTreatmentExpanded((current) => !current)}
+                          type="button"
+                        >Budget treatment</button>
+                      </div>
+                      {tagsExpanded ? <div className="mt-3 border-t border-white/[0.07] pt-3" id={`expense-transaction-${transaction.id}-tags`}>
+                        <div className="flex flex-wrap gap-2">{tagDraft.map((tag) => <button className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[11px] text-sky-100 disabled:opacity-50" disabled={savingTagsId === transaction.id} key={tag} onClick={() => updateTransactionTag(transaction.id, tag, false)} title="Remove tag" type="button">{tag} ×</button>)}</div>
+                        <div className="mt-3 flex items-center gap-2"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Available tags</p><button aria-label="Create a new tag" className="grid size-6 place-items-center rounded-full border border-white/10 text-sm text-white/60 transition hover:border-sky-300/30 hover:text-sky-100" onClick={() => setNewTagFormOpen((current) => !current)} title="Create a new tag" type="button">+</button></div>
+                        {availableTagNames.filter((tag) => !tagDraft.some((selected) => selected.toLowerCase() === tag.toLowerCase())).length ? <div className="mt-2 flex flex-wrap gap-2">{availableTagNames.filter((tag) => !tagDraft.some((selected) => selected.toLowerCase() === tag.toLowerCase())).map((tag) => <button className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:border-sky-300/20 hover:text-sky-100 disabled:opacity-50" disabled={savingTagsId === transaction.id} key={tag} onClick={() => updateTransactionTag(transaction.id, tag, true)} type="button">+ {tag}</button>)}</div> : <p className="mt-2 text-[11px] text-muted">No other saved tags.</p>}
+                        {newTagFormOpen ? <div className="mt-3 flex flex-wrap gap-2">
+                          <input className="h-9 min-w-48 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" maxLength={40} onChange={(event) => setNewTagName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); updateTransactionTag(transaction.id, newTagName, true); } }} placeholder="Create a tag" value={newTagName} />
+                          <button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70" onClick={() => updateTransactionTag(transaction.id, newTagName, true)} type="button">Add</button>
+                        </div> : null}
+                        {savingTagsId === transaction.id ? <p className="mt-3 text-xs text-muted">Saving tag changes…</p> : null}
                       </div> : null}
-                      {savingTagsId === transaction.id ? <p className="mt-3 text-xs text-muted">Saving tag changes…</p> : null}
-                      <label className="mt-4 block border-t border-white/[0.07] pt-3"><span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Transaction note</span><textarea className="mt-2 min-h-20 w-full resize-y rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white outline-none focus:border-accent/50" maxLength={2000} onChange={(event) => setNoteDraft(event.target.value)} placeholder="Add context about this transaction" value={noteDraft} /></label>
-                      <div className="mt-3"><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Budget treatment</p>{transactionBudgetControls(transaction)}</div>
+                      {noteExpanded ? <label className="mt-3 block border-t border-white/[0.07] pt-3" id={`expense-transaction-${transaction.id}-note`}><span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Transaction note</span><textarea className="mt-2 min-h-20 w-full resize-y rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white outline-none focus:border-accent/50" maxLength={2000} onChange={(event) => setNoteDraft(event.target.value)} placeholder="Add context about this transaction" value={noteDraft} /></label> : null}
+                      {budgetTreatmentExpanded ? <div className="mt-3 border-t border-white/[0.07] pt-3" id={`expense-transaction-${transaction.id}-budget-treatment`}><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Budget treatment</p>{transactionBudgetControls(transaction)}</div> : null}
                     </div> : null}
-                    {correctingTransactionId === transaction.id ? <div className="mt-3 grid items-center gap-2 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_auto_auto]">
+                    {correctingTransactionId === transaction.id ? <div className="cursor-default" data-transaction-editor>
+                    {categorizationExpanded ? <div className="mt-3 grid items-center gap-2 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_minmax(10rem,auto)]" id={`expense-transaction-${transaction.id}-categorization`}>
                       <select
                         aria-label="Match condition"
                         className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
@@ -897,7 +962,8 @@ export function ExpenseHistory({
                       <input aria-label="Match value" className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" onChange={(event) => setCorrectionRuleForm((current) => ({ ...current, match_value: event.target.value }))} value={correctionRuleForm.match_value} />
                       <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Set category</span>
                       <select aria-label={`Correct category for ${transaction.description}`} className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" onChange={(event) => setCorrectionRuleForm((current) => ({ ...current, category: event.target.value }))} value={correctionRuleForm.category}>{categoryOptions.map((category) => <option key={category.key} value={category.key}>{category.label}</option>)}</select>
-                      <div className="flex items-center gap-2">
+                    </div> : null}
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
                       <button
                         className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
                         disabled={savingCorrectionId === transaction.id || savingNoteId === transaction.id}
@@ -911,17 +977,22 @@ export function ExpenseHistory({
                         type="button"
                       >Save &amp; remember</button>
                       <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={closeTransactionEditor} type="button">Cancel</button>
-                      </div>
-                      <p className="text-[11px] text-muted sm:col-span-5">Save this transaction changes only the selected row. Save &amp; remember also updates matching descriptions and future imports.</p>
+                    </div>
+                    <p className="mt-2 text-[11px] text-muted">Save this transaction changes only the selected row. Save &amp; remember also updates matching descriptions and future imports.</p>
                     </div> : null}
                   </div>
                   <div className="flex items-center gap-3 self-start">
                     <p className="font-mono text-sm font-semibold text-white">{currencyFormatter.format(effectiveCreditCardTransactionAmount(transaction))}</p>
                     <button
-                      className="text-xs font-medium text-white/50 hover:text-accent"
-                      onClick={() => openTransactionEditor(transaction)}
+                      aria-expanded={taggingTransactionId === transaction.id}
+                      aria-label={`${taggingTransactionId === transaction.id ? "Collapse" : "Expand"} transaction ${transaction.description}`}
+                      className="grid size-7 place-items-center rounded-full border border-white/10 text-base font-medium text-white/55 transition hover:border-accent/25 hover:text-accent"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        toggleTransactionEditor(transaction);
+                      }}
                       type="button"
-                    >Edit</button>
+                    ><span aria-hidden="true">{taggingTransactionId === transaction.id ? "−" : "+"}</span></button>
                   </div>
                 </div>)}
               </div> : null}

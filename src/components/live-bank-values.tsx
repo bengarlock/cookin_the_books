@@ -933,6 +933,11 @@ function AccountTransactionList({
   });
   const [newTagName, setNewTagName] = useState("");
   const [newTagFormOpen, setNewTagFormOpen] = useState(false);
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const [noteExpanded, setNoteExpanded] = useState(false);
+  const [relatedExpanded, setRelatedExpanded] = useState(false);
+  const [categorizationExpanded, setCategorizationExpanded] = useState(false);
+  const [budgetTreatmentExpanded, setBudgetTreatmentExpanded] = useState(false);
 
   useEffect(() => {
     if (confirmingMatchId === null) return;
@@ -971,10 +976,23 @@ function AccountTransactionList({
     });
     setNewTagName("");
     setNewTagFormOpen(false);
+    setTagsExpanded(false);
+    setNoteExpanded(false);
+    setRelatedExpanded(false);
+    setCategorizationExpanded(false);
+    setBudgetTreatmentExpanded(false);
     setRelationshipQuery("");
     setRelationshipResults([]);
     setRelationshipError("");
     void loadRelationshipSuggestions(transaction.id);
+  }
+
+  function toggleTransactionEditor(transaction: CreditCardTransaction) {
+    if (editingTransactionId === transaction.id) {
+      setEditingTransactionId(null);
+      return;
+    }
+    openTransactionEditor(transaction);
   }
 
   async function loadRelationshipSuggestions(transactionId: number) {
@@ -1206,8 +1224,13 @@ function AccountTransactionList({
             transaction.transaction_type === "credit";
           return (
             <div
-              className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 border-b border-white/[0.07] px-4 py-3 last:border-b-0"
+              className={`grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] gap-3 border-b border-white/[0.07] px-4 py-3 transition-colors duration-[250ms] ease-out last:border-b-0 ${editingTransactionId === transaction.id ? "bg-sky-400/[0.12]" : "hover:bg-white/[0.025]"}`}
               key={transaction.id}
+              onClick={(event) => {
+                const target = event.target;
+                if (target instanceof Element && target.closest("a, button, input, label, select, textarea, [data-transaction-editor]")) return;
+                toggleTransactionEditor(transaction);
+              }}
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-white">
@@ -1277,88 +1300,132 @@ function AccountTransactionList({
                   </div>
                 ) : null}
                 {editingTransactionId === transaction.id ? (
-                  <>
-                  <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/10 p-3">
-                    <div>
-                      <div className="flex flex-wrap gap-2">
-                        {editForm.tags.map((tag) => (
-                          <button
-                            className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[11px] text-sky-100"
-                            key={tag}
-                            onClick={() => toggleEditorTag(tag, false)}
-                            type="button"
-                          >
-                            {tag} ×
-                          </button>
-                        ))}
-                      </div>
-                      <div className="mt-3 flex items-center gap-2">
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Available tags</span>
-                        <button
-                          aria-label="Create a new tag"
-                          className="grid size-6 place-items-center rounded-full border border-white/10 text-sm text-white/60 hover:border-sky-300/30 hover:text-sky-100"
-                          onClick={() => setNewTagFormOpen((current) => !current)}
-                          type="button"
-                        >
-                          <svg
-                            aria-hidden="true"
-                            className="size-3.5"
-                            fill="none"
-                            viewBox="0 0 16 16"
-                          >
-                            <path
-                              d="M8 3.25v9.5M3.25 8h9.5"
-                              stroke="currentColor"
-                              strokeLinecap="round"
-                              strokeWidth="1.5"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {tagLibrary
-                          .filter((tag) => !editForm.tags.some((selected) => selected.toLowerCase() === tag.name.toLowerCase()))
-                          .map((tag) => (
+                  <div className="mt-3 cursor-default" data-transaction-editor>
+                  <div className="rounded-xl border border-white/[0.08] bg-black/10 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        aria-controls={`transaction-${transaction.id}-tags`}
+                        aria-expanded={tagsExpanded}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${tagsExpanded ? "border-sky-300/30 bg-sky-400/10 text-sky-100" : "border-white/10 text-white/65 hover:border-sky-300/25 hover:text-sky-100"}`}
+                        onClick={() => {
+                          if (tagsExpanded) setNewTagFormOpen(false);
+                          setTagsExpanded(!tagsExpanded);
+                        }}
+                        type="button"
+                      >
+                        Tags
+                      </button>
+                      <button
+                        aria-controls={`transaction-${transaction.id}-note`}
+                        aria-expanded={noteExpanded}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${noteExpanded ? "border-accent/30 bg-accent/10 text-accent" : "border-white/10 text-white/65 hover:border-accent/25 hover:text-accent"}`}
+                        onClick={() => setNoteExpanded((current) => !current)}
+                        type="button"
+                      >
+                        Note
+                      </button>
+                      <button
+                        aria-controls={`transaction-${transaction.id}-related`}
+                        aria-expanded={relatedExpanded}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${relatedExpanded ? "border-gold/30 bg-gold/10 text-gold" : "border-white/10 text-white/65 hover:border-gold/25 hover:text-gold"}`}
+                        onClick={() => setRelatedExpanded((current) => !current)}
+                        type="button"
+                      >
+                        Related transactions
+                      </button>
+                      <button
+                        aria-controls={`transaction-${transaction.id}-categorization`}
+                        aria-expanded={categorizationExpanded}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${categorizationExpanded ? "border-violet-300/30 bg-violet-400/10 text-violet-100" : "border-white/10 text-white/65 hover:border-violet-300/25 hover:text-violet-100"}`}
+                        onClick={() => setCategorizationExpanded((current) => !current)}
+                        type="button"
+                      >
+                        Categorize
+                      </button>
+                      <button
+                        aria-controls={`transaction-${transaction.id}-budget-treatment`}
+                        aria-expanded={budgetTreatmentExpanded}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${budgetTreatmentExpanded ? "border-accent/30 bg-accent/10 text-accent" : "border-white/10 text-white/65 hover:border-accent/25 hover:text-accent"}`}
+                        onClick={() => setBudgetTreatmentExpanded((current) => !current)}
+                        type="button"
+                      >
+                        Budget treatment
+                      </button>
+                    </div>
+                    {tagsExpanded ? (
+                      <div className="mt-3 border-t border-white/[0.07] pt-3" id={`transaction-${transaction.id}-tags`}>
+                        <div className="flex flex-wrap gap-2">
+                          {editForm.tags.map((tag) => (
                             <button
-                              className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:border-sky-300/20 hover:text-sky-100"
-                              key={tag.id}
-                              onClick={() => toggleEditorTag(tag.name, true)}
+                              className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[11px] text-sky-100"
+                              key={tag}
+                              onClick={() => toggleEditorTag(tag, false)}
                               type="button"
                             >
-                              + {tag.name}
+                              {tag} ×
                             </button>
                           ))}
-                      </div>
-                      {newTagFormOpen ? (
-                        <div className="mt-3 flex gap-2">
-                          <input
-                            className="h-9 min-w-48 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
-                            maxLength={40}
-                            onChange={(event) => setNewTagName(event.target.value)}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                event.preventDefault();
-                                toggleEditorTag(newTagName, true);
-                              }
-                            }}
-                            placeholder="Create a tag"
-                            value={newTagName}
-                          />
-                          <button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70" onClick={() => toggleEditorTag(newTagName, true)} type="button">Add</button>
                         </div>
-                      ) : null}
-                    </div>
-                    <label className="mt-4 block border-t border-white/[0.07] pt-3">
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Transaction note</span>
-                      <textarea
-                        className="mt-2 min-h-20 w-full resize-y rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white outline-none focus:border-accent/50"
-                        maxLength={2000}
-                        onChange={(event) => setEditForm((current) => ({ ...current, note: event.target.value }))}
-                        placeholder="Add context about this transaction"
-                        value={editForm.note}
-                      />
-                    </label>
-                    <div className="mt-3">
+                        <div className="mt-3 flex items-center gap-2">
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Available tags</span>
+                          <button
+                            aria-label="Create a new tag"
+                            className="grid size-6 place-items-center rounded-full border border-white/10 text-sm text-white/60 hover:border-sky-300/30 hover:text-sky-100"
+                            onClick={() => setNewTagFormOpen((current) => !current)}
+                            type="button"
+                          >
+                            <svg aria-hidden="true" className="size-3.5" fill="none" viewBox="0 0 16 16">
+                              <path d="M8 3.25v9.5M3.25 8h9.5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {tagLibrary
+                            .filter((tag) => !editForm.tags.some((selected) => selected.toLowerCase() === tag.name.toLowerCase()))
+                            .map((tag) => (
+                              <button
+                                className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:border-sky-300/20 hover:text-sky-100"
+                                key={tag.id}
+                                onClick={() => toggleEditorTag(tag.name, true)}
+                                type="button"
+                              >
+                                + {tag.name}
+                              </button>
+                            ))}
+                        </div>
+                        {newTagFormOpen ? (
+                          <div className="mt-3 flex gap-2">
+                            <input
+                              className="h-9 min-w-48 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
+                              maxLength={40}
+                              onChange={(event) => setNewTagName(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  toggleEditorTag(newTagName, true);
+                                }
+                              }}
+                              placeholder="Create a tag"
+                              value={newTagName}
+                            />
+                            <button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70" onClick={() => toggleEditorTag(newTagName, true)} type="button">Add</button>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {noteExpanded ? (
+                      <label className="mt-3 block border-t border-white/[0.07] pt-3" id={`transaction-${transaction.id}-note`}>
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Transaction note</span>
+                        <textarea
+                          className="mt-2 min-h-20 w-full resize-y rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white outline-none focus:border-accent/50"
+                          maxLength={2000}
+                          onChange={(event) => setEditForm((current) => ({ ...current, note: event.target.value }))}
+                          placeholder="Add context about this transaction"
+                          value={editForm.note}
+                        />
+                      </label>
+                    ) : null}
+                    {budgetTreatmentExpanded ? <div className="mt-3 border-t border-white/[0.07] pt-3" id={`transaction-${transaction.id}-budget-treatment`}>
                       <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Budget treatment</p>
                       <div className="flex items-center gap-1.5">
                         <button
@@ -1376,8 +1443,8 @@ function AccountTransactionList({
                           type="button"
                         >{transaction.include ? "Included" : "Excluded"}</button>
                       </div>
-                    </div>
-                    <div className="mt-4 border-t border-white/[0.07] pt-3">
+                    </div> : null}
+                    {relatedExpanded ? <div className="mt-4 border-t border-white/[0.07] pt-3" id={`transaction-${transaction.id}-related`}>
                       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Related transactions</p>
                       {suggestionsLoading ? <p className="mt-2 text-xs text-muted">Finding likely matches…</p> : null}
                       {relationshipSuggestions.length ? (
@@ -1437,9 +1504,9 @@ function AccountTransactionList({
                         </div>
                       ) : null}
                       {relationshipError ? <p className="mt-2 text-xs text-rose-200">{relationshipError}</p> : null}
-                    </div>
+                    </div> : null}
                   </div>
-                  <div className="mt-3 grid items-center gap-2 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_auto_auto]">
+                  {categorizationExpanded ? <div className="mt-3 grid items-center gap-2 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_minmax(10rem,auto)]" id={`transaction-${transaction.id}-categorization`}>
                     <select
                       aria-label="Match condition"
                       className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50"
@@ -1466,7 +1533,8 @@ function AccountTransactionList({
                         <option key={category.key} value={category.key}>{category.label}</option>
                       ))}
                     </select>
-                    <div className="flex items-center gap-2">
+                  </div> : null}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
                       <button
                         className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
                         disabled={savingTransactionId === transaction.id}
@@ -1482,18 +1550,28 @@ function AccountTransactionList({
                         type="button"
                       >Save &amp; remember</button>
                       <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={() => setEditingTransactionId(null)} type="button">Cancel</button>
-                    </div>
-                    <p className="text-[11px] text-muted sm:col-span-5">Save this transaction changes only the selected row. Save &amp; remember also updates matching descriptions and future imports.</p>
-                    {editError ? <p className="text-xs text-rose-200 sm:col-span-5">{editError}</p> : null}
                   </div>
-                  </>
+                  <p className="mt-2 text-[11px] text-muted">Save this transaction changes only the selected row. Save &amp; remember also updates matching descriptions and future imports.</p>
+                  {editError ? <p className="mt-2 text-xs text-rose-200">{editError}</p> : null}
+                  </div>
                 ) : null}
               </div>
               <div className="flex items-center gap-3 self-start">
                 <span className={`whitespace-nowrap text-right font-mono text-sm ${isCredit ? "text-accent" : "text-white"}`}>
                   {signedTransactionAmount(transaction, accountKey)}
                 </span>
-                <button className="text-xs font-medium text-white/50 hover:text-accent" onClick={() => openTransactionEditor(transaction)} type="button">Edit</button>
+                <button
+                  aria-expanded={editingTransactionId === transaction.id}
+                  aria-label={`${editingTransactionId === transaction.id ? "Collapse" : "Expand"} transaction ${transaction.description}`}
+                  className="grid size-7 place-items-center rounded-full border border-white/10 text-base font-medium text-white/55 transition hover:border-accent/25 hover:text-accent"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleTransactionEditor(transaction);
+                  }}
+                  type="button"
+                >
+                  <span aria-hidden="true">{editingTransactionId === transaction.id ? "−" : "+"}</span>
+                </button>
               </div>
             </div>
           );
