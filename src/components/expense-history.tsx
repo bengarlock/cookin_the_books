@@ -888,7 +888,7 @@ export function ExpenseHistory({
               </button>
               {isExpanded ? <div className="divide-y divide-white/[0.06] border-t border-white/[0.07] bg-black/10">
                 {categoryTransactions.map((transaction) => <div
-                  className="grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3"
+                  className={`grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 transition-colors ${taggingTransactionId === transaction.id ? "bg-white/[0.065]" : "hover:bg-white/[0.025]"}`}
                   key={transaction.id}
                   onClick={(event) => {
                     const target = event.target;
