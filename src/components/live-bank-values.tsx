@@ -937,6 +937,7 @@ function AccountTransactionList({
   const [noteExpanded, setNoteExpanded] = useState(false);
   const [relatedExpanded, setRelatedExpanded] = useState(false);
   const [categorizationExpanded, setCategorizationExpanded] = useState(false);
+  const [budgetTreatmentExpanded, setBudgetTreatmentExpanded] = useState(false);
 
   useEffect(() => {
     if (confirmingMatchId === null) return;
@@ -979,6 +980,7 @@ function AccountTransactionList({
     setNoteExpanded(false);
     setRelatedExpanded(false);
     setCategorizationExpanded(false);
+    setBudgetTreatmentExpanded(false);
     setRelationshipQuery("");
     setRelationshipResults([]);
     setRelationshipError("");
@@ -1327,6 +1329,15 @@ function AccountTransactionList({
                       >
                         Categorize
                       </button>
+                      <button
+                        aria-controls={`transaction-${transaction.id}-budget-treatment`}
+                        aria-expanded={budgetTreatmentExpanded}
+                        className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${budgetTreatmentExpanded ? "border-accent/30 bg-accent/10 text-accent" : "border-white/10 text-white/65 hover:border-accent/25 hover:text-accent"}`}
+                        onClick={() => setBudgetTreatmentExpanded((current) => !current)}
+                        type="button"
+                      >
+                        Budget treatment
+                      </button>
                     </div>
                     {tagsExpanded ? (
                       <div className="mt-3 border-t border-white/[0.07] pt-3" id={`transaction-${transaction.id}-tags`}>
@@ -1401,7 +1412,7 @@ function AccountTransactionList({
                         />
                       </label>
                     ) : null}
-                    <div className="mt-3">
+                    {budgetTreatmentExpanded ? <div className="mt-3 border-t border-white/[0.07] pt-3" id={`transaction-${transaction.id}-budget-treatment`}>
                       <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Budget treatment</p>
                       <div className="flex items-center gap-1.5">
                         <button
@@ -1419,7 +1430,7 @@ function AccountTransactionList({
                           type="button"
                         >{transaction.include ? "Included" : "Excluded"}</button>
                       </div>
-                    </div>
+                    </div> : null}
                     {relatedExpanded ? <div className="mt-4 border-t border-white/[0.07] pt-3" id={`transaction-${transaction.id}-related`}>
                       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Related transactions</p>
                       {suggestionsLoading ? <p className="mt-2 text-xs text-muted">Finding likely matches…</p> : null}

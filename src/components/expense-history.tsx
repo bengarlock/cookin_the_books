@@ -137,6 +137,7 @@ export function ExpenseHistory({
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [noteExpanded, setNoteExpanded] = useState(false);
   const [categorizationExpanded, setCategorizationExpanded] = useState(false);
+  const [budgetTreatmentExpanded, setBudgetTreatmentExpanded] = useState(false);
   const [error, setError] = useState("");
   const [entryForm, setEntryForm] = useState({
     incurredOn: todayString(),
@@ -306,6 +307,7 @@ export function ExpenseHistory({
     setTagsExpanded(false);
     setNoteExpanded(false);
     setCategorizationExpanded(false);
+    setBudgetTreatmentExpanded(false);
     setNoteDraft(transaction.note || "");
     setCorrectingTransactionId(transaction.id);
     setCorrectionRuleForm({
@@ -322,6 +324,7 @@ export function ExpenseHistory({
     setTagsExpanded(false);
     setNoteExpanded(false);
     setCategorizationExpanded(false);
+    setBudgetTreatmentExpanded(false);
   }
 
   async function saveTransactionTags(transactionId: number, tags: string[]) {
@@ -909,6 +912,13 @@ export function ExpenseHistory({
                           onClick={() => setCategorizationExpanded((current) => !current)}
                           type="button"
                         >Categorize</button>
+                        <button
+                          aria-controls={`expense-transaction-${transaction.id}-budget-treatment`}
+                          aria-expanded={budgetTreatmentExpanded}
+                          className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${budgetTreatmentExpanded ? "border-accent/30 bg-accent/10 text-accent" : "border-white/10 text-white/65 hover:border-accent/25 hover:text-accent"}`}
+                          onClick={() => setBudgetTreatmentExpanded((current) => !current)}
+                          type="button"
+                        >Budget treatment</button>
                       </div>
                       {tagsExpanded ? <div className="mt-3 border-t border-white/[0.07] pt-3" id={`expense-transaction-${transaction.id}-tags`}>
                         <div className="flex flex-wrap gap-2">{tagDraft.map((tag) => <button className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-[11px] text-sky-100 disabled:opacity-50" disabled={savingTagsId === transaction.id} key={tag} onClick={() => updateTransactionTag(transaction.id, tag, false)} title="Remove tag" type="button">{tag} ×</button>)}</div>
@@ -921,7 +931,7 @@ export function ExpenseHistory({
                         {savingTagsId === transaction.id ? <p className="mt-3 text-xs text-muted">Saving tag changes…</p> : null}
                       </div> : null}
                       {noteExpanded ? <label className="mt-3 block border-t border-white/[0.07] pt-3" id={`expense-transaction-${transaction.id}-note`}><span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Transaction note</span><textarea className="mt-2 min-h-20 w-full resize-y rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white outline-none focus:border-accent/50" maxLength={2000} onChange={(event) => setNoteDraft(event.target.value)} placeholder="Add context about this transaction" value={noteDraft} /></label> : null}
-                      <div className="mt-3"><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Budget treatment</p>{transactionBudgetControls(transaction)}</div>
+                      {budgetTreatmentExpanded ? <div className="mt-3 border-t border-white/[0.07] pt-3" id={`expense-transaction-${transaction.id}-budget-treatment`}><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Budget treatment</p>{transactionBudgetControls(transaction)}</div> : null}
                     </div> : null}
                     {correctingTransactionId === transaction.id ? <>
                     {categorizationExpanded ? <div className="mt-3 grid items-center gap-2 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_minmax(10rem,auto)]" id={`expense-transaction-${transaction.id}-categorization`}>
