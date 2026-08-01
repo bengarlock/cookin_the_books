@@ -888,7 +888,7 @@ export function ExpenseHistory({
               </button>
               {isExpanded ? <div className="divide-y divide-white/[0.06] border-t border-white/[0.07] bg-black/10">
                 {categoryTransactions.map((transaction) => <div
-                  className={`grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 transition-colors duration-[250ms] ease-out ${taggingTransactionId === transaction.id ? "bg-sky-400/[0.12]" : "hover:bg-white/[0.025]"}`}
+                  className={`grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] gap-x-3 px-4 py-3 transition-colors duration-[250ms] ease-out ${taggingTransactionId === transaction.id ? "bg-sky-400/[0.12]" : "hover:bg-white/[0.025]"}`}
                   key={transaction.id}
                   onClick={(event) => {
                     const target = event.target;
@@ -896,13 +896,15 @@ export function ExpenseHistory({
                     toggleTransactionEditor(transaction);
                   }}
                 >
-                  <div className="min-w-0">
+                  <div className="contents">
+                    <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-white">{transaction.description}</p>
                     <p className="mt-1 text-xs text-muted">{formatDate(transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}</p>
                     {transaction.note ? <p className="mt-2 text-xs italic text-white/60">{transaction.note}</p> : null}
                     {transaction.tags?.length ? <div className="mt-2 flex flex-wrap gap-1.5">{transaction.tags.map((tag) => <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2 py-0.5 text-[10px] font-medium text-sky-100" key={tag.id}>{tag.name}</span>)}</div> : null}
                     <MatchedOrderDetails transaction={transaction} />
-                    {taggingTransactionId === transaction.id ? <div className="mt-3 cursor-default rounded-xl border border-white/[0.08] bg-black/10 p-3" data-transaction-editor>
+                    </div>
+                    {taggingTransactionId === transaction.id ? <div className="col-span-2 mt-3 cursor-default rounded-xl border border-white/[0.08] bg-black/10 p-3" data-transaction-editor>
                       <div className="flex flex-wrap items-center gap-2">
                         <button
                           aria-controls={`expense-transaction-${transaction.id}-tags`}
@@ -949,7 +951,7 @@ export function ExpenseHistory({
                       {noteExpanded ? <label className="mt-3 block border-t border-white/[0.07] pt-3" id={`expense-transaction-${transaction.id}-note`}><span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Transaction note</span><textarea className="mt-2 min-h-20 w-full resize-y rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white outline-none focus:border-accent/50" maxLength={2000} onChange={(event) => setNoteDraft(event.target.value)} placeholder="Add context about this transaction" value={noteDraft} /></label> : null}
                       {budgetTreatmentExpanded ? <div className="mt-3 border-t border-white/[0.07] pt-3" id={`expense-transaction-${transaction.id}-budget-treatment`}><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Budget treatment</p>{transactionBudgetControls(transaction)}</div> : null}
                     </div> : null}
-                    {correctingTransactionId === transaction.id ? <div className="cursor-default" data-transaction-editor>
+                    {correctingTransactionId === transaction.id ? <div className="col-span-2 cursor-default" data-transaction-editor>
                     {categorizationExpanded ? <div className="mt-3 grid items-center gap-2 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_minmax(10rem,auto)]" id={`expense-transaction-${transaction.id}-categorization`}>
                       <select
                         aria-label="Match condition"
@@ -981,7 +983,7 @@ export function ExpenseHistory({
                     <p className="mt-2 text-[11px] text-muted">Save this transaction changes only the selected row. Save &amp; remember also updates matching descriptions and future imports.</p>
                     </div> : null}
                   </div>
-                  <div className="flex items-center gap-3 self-start">
+                  <div className="col-start-2 row-start-1 flex items-center gap-3 self-start">
                     <p className="font-mono text-sm font-semibold text-white">{currencyFormatter.format(effectiveCreditCardTransactionAmount(transaction))}</p>
                     <button
                       aria-expanded={taggingTransactionId === transaction.id}
