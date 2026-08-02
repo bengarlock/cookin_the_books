@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { AccountSyncLog } from "@/components/account-sync-log";
 import { AmazonOrderImport } from "@/components/amazon-order-import";
 import { CategorySettings } from "@/components/category-settings";
 import { PlaidConnections } from "@/components/plaid-connections";
@@ -37,6 +38,7 @@ export default async function SettingsPage() {
       <ReceiptInbox />
       <CategorySettings initialCategories={expenseCategories} />
       <PlaidConnections initialConnections={plaidConnections} />
+      <AccountSyncLog />
     </div>
   );
 }

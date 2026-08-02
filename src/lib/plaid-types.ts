@@ -30,3 +30,24 @@ export type PlaidSyncResult = {
     removed_count: number;
   };
 };
+
+export type AccountSyncLogEntry = {
+  id: number;
+  connection_id: number | null;
+  institution_name: string;
+  status: "queued" | "running" | "succeeded" | "failed";
+  result: {
+    created_count?: number;
+    updated_count?: number;
+    removed_count?: number;
+    balance_updated_count?: number;
+    transactions_refresh_status?: string;
+    transactions_refresh_error_code?: string;
+    transactions_refresh_error?: string;
+  };
+  error_code: string;
+  error_message: string;
+  queued_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+};
