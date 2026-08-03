@@ -42,6 +42,7 @@ export function ReceiptInbox() {
   const [mailboxSettings, setMailboxSettings] = useState<ReceiptMailboxSettings | null>(null);
   const [forwardingFromAddress, setForwardingFromAddress] = useState("");
   const [savingAddress, setSavingAddress] = useState(false);
+  const [retryingReceiptId, setRetryingReceiptId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
 
@@ -101,6 +102,28 @@ export function ReceiptInbox() {
     }
   }
 
+  async function retryMatching(receipt: ReceiptEmail) {
+    setRetryingReceiptId(receipt.id);
+    setError("");
+    setStatus("");
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/receipt-emails/${receipt.id}/retry-match`, {
+        method: "POST",
+        cache: "no-store",
+      });
+      const data = await response.json().catch(() => null) as ReceiptEmail | { message?: string } | null;
+      if (!response.ok || !data || !("id" in data)) {
+        throw new Error(data && "message" in data ? data.message : "The receipt could not be matched again.");
+      }
+      setReceipts((current) => current.map((item) => item.id === data.id ? data : item));
+      setStatus(data.status === "matched" ? "Receipt matched to a transaction." : "No matching transaction was found yet.");
+    } catch (retryError) {
+      setError(retryError instanceof Error ? retryError.message : "The receipt could not be matched again.");
+    } finally {
+      setRetryingReceiptId(null);
+    }
+  }
+
   return (
     <section className="surface overflow-hidden rounded-2xl">
       <div className="border-b border-white/10 p-5 sm:p-6">
@@ -147,9 +170,21 @@ export function ReceiptInbox() {
               {receipt.receipt_order ? <p className="mt-1 text-xs text-muted">Order {receipt.receipt_order.external_order_id} · {receipt.receipt_order.items.length} item{receipt.receipt_order.items.length === 1 ? "" : "s"}</p> : null}
               {receipt.error_message ? <p className="mt-1 text-xs text-amber-300">{receipt.error_message}</p> : null}
             </div>
-            <span className={`shrink-0 text-xs font-semibold ${receipt.status === "matched" ? "text-accent" : receipt.status === "failed" ? "text-rose-300" : "text-amber-300"}`}>
-              {statusLabel(receipt.status)}
-            </span>
+            <div className="flex shrink-0 items-center gap-3">
+              {receipt.status === "parsed" && receipt.receipt_order ? (
+                <button
+                  className="min-w-32 rounded-lg border border-accent/40 px-3 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent/10 disabled:opacity-50"
+                  disabled={retryingReceiptId !== null}
+                  onClick={() => void retryMatching(receipt)}
+                  type="button"
+                >
+                  {retryingReceiptId === receipt.id ? "Retrying..." : "Retry matching"}
+                </button>
+              ) : null}
+              <span className={`text-xs font-semibold ${receipt.status === "matched" ? "text-accent" : receipt.status === "failed" ? "text-rose-300" : "text-amber-300"}`}>
+                {statusLabel(receipt.status)}
+              </span>
+            </div>
           </div>
         )) : (
           <p className="px-5 py-5 text-sm text-muted sm:px-6">No forwarded receipts have been processed yet.</p>
