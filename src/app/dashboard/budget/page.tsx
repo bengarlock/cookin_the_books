@@ -7,6 +7,7 @@ import { getDashboardPendingCardTransactions } from "@/lib/dashboard-pending-car
 import { getExpenseCategories } from "@/lib/expense-categories";
 import { allTimeExpenseDateRange } from "@/lib/expense-date-range";
 import { getExpenseTransactions } from "@/lib/expense-transactions";
+import { getExpenseEntries } from "@/lib/expense-entries";
 import { getIncomeEntries } from "@/lib/income-entries";
 import { getIncomeTransactions } from "@/lib/income-transactions";
 import { getPendingTransactions } from "@/lib/pending-transactions";
@@ -20,6 +21,7 @@ export default async function BudgetPage() {
     budgetPlanSettings,
     expenseCategories,
     expenseTransactions,
+    expenseEntries,
     incomeEntries,
     incomeTransactions,
     pendingCardTransactions,
@@ -28,6 +30,7 @@ export default async function BudgetPage() {
     getBudgetPlanSettings(),
     getExpenseCategories(),
     getExpenseTransactions(allTimeExpenseDateRange()),
+    getExpenseEntries(),
     getIncomeEntries(),
     getIncomeTransactions(),
     getDashboardPendingCardTransactions(),
@@ -48,6 +51,17 @@ export default async function BudgetPage() {
         incomeEntries={incomeEntries}
         incomeTransactions={incomeTransactions}
         pendingTransactions={pendingTransactions}
+        propertyTaxExpenses={expenseEntries
+          .filter(
+            (entry) =>
+              entry.source_type === "property_tax_pdf" &&
+              !entry.exclude_from_credit_card,
+          )
+          .map((entry) => ({
+            amount: entry.amount,
+            category: "property_taxes",
+            incurred_on: entry.incurred_on,
+          }))}
         transactions={expenseTransactions}
       />
     </>

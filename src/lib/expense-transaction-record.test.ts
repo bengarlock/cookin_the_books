@@ -87,6 +87,7 @@ describe("compactExpenseTransaction", () => {
 
     expect(compact.has_amazon_orders).toBe(true);
     expect(compact.has_receipt_orders).toBe(false);
+    expect(compact.pending).toBe(false);
     expect(compact).not.toHaveProperty("source_identifier");
   });
 });

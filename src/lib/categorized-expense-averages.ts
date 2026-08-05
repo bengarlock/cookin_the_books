@@ -5,9 +5,16 @@ export type CategorizedExpenseTransaction = {
   amount: string;
   category: string;
   include: boolean;
+  pending?: boolean;
   split: boolean;
   transaction_date: string;
   transaction_type: "purchase" | "payment" | "credit" | "fee" | "interest";
+};
+
+export type SupplementalCategorizedExpense = {
+  amount: string;
+  category: string;
+  incurred_on: string;
 };
 
 export type ExpenseAverages = {
@@ -38,6 +45,7 @@ function calendarDays(start: string, end: string) {
 export function isCategorizedExpense(transaction: CategorizedExpenseTransaction) {
   return (
     transaction.include !== false &&
+    transaction.pending !== true &&
     expenseTransactionTypes.has(transaction.transaction_type) &&
     !excludedCategories.has(transaction.category)
   );
@@ -56,9 +64,10 @@ export function categorizedExpenseAverages(
   dateRange: ExpenseDateRange,
   today: string,
   category?: string,
+  supplementalExpenses: SupplementalCategorizedExpense[] = [],
 ): ExpenseAverages {
   const effectiveEnd = dateRange.end < today ? dateRange.end : today;
-  const total = transactions
+  const transactionTotal = transactions
     .filter(
       (transaction) =>
         isCategorizedExpense(transaction) &&
@@ -70,6 +79,15 @@ export function categorizedExpenseAverages(
       (sum, transaction) => sum + effectiveCategorizedExpenseAmount(transaction),
       0,
     );
+  const supplementalTotal = supplementalExpenses
+    .filter(
+      (expense) =>
+        expense.incurred_on >= dateRange.start &&
+        expense.incurred_on <= effectiveEnd &&
+        (!category || expense.category === category),
+    )
+    .reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
+  const total = transactionTotal + supplementalTotal;
   const days = calendarDays(dateRange.start, effectiveEnd);
   const daily = days ? total / days : 0;
 
@@ -85,10 +103,12 @@ export function categorizedExpenseCategories(
   transactions: CategorizedExpenseTransaction[],
   dateRange: ExpenseDateRange,
   today: string,
+  supplementalExpenses: SupplementalCategorizedExpense[] = [],
 ) {
   return Array.from(
     new Set(
-      transactions
+      [
+        ...transactions
         .filter(
           (transaction) =>
             isCategorizedExpense(transaction) &&
@@ -96,6 +116,14 @@ export function categorizedExpenseCategories(
             transaction.transaction_date <= (dateRange.end < today ? dateRange.end : today),
         )
         .map((transaction) => transaction.category),
+        ...supplementalExpenses
+          .filter(
+            (expense) =>
+              expense.incurred_on >= dateRange.start &&
+              expense.incurred_on <= (dateRange.end < today ? dateRange.end : today),
+          )
+          .map((expense) => expense.category),
+      ],
     ),
   ).sort((left, right) => left.localeCompare(right));
 }

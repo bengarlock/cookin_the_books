@@ -10,6 +10,7 @@ import type {
   IncomeTransaction,
 } from "@/lib/credit-card-transaction-types";
 import type { IncomeEntry } from "@/lib/income-entry-types";
+import type { SupplementalCategorizedExpense } from "@/lib/categorized-expense-averages";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import {
   followingPayday,
@@ -136,12 +137,14 @@ function SummaryRow({
 export function ProjectionsDashboard({
   initialBudgetPlanSettings,
   initialCategorizedTransactions,
+  initialPropertyTaxExpenses,
   initialIncomeEntries,
   initialIncomeTransactions,
   initialPendingTransactions,
 }: {
   initialBudgetPlanSettings: BudgetPlanSettings;
   initialCategorizedTransactions: ExpenseTransaction[];
+  initialPropertyTaxExpenses: SupplementalCategorizedExpense[];
   initialIncomeEntries: IncomeEntry[];
   initialIncomeTransactions: IncomeTransaction[];
   initialPendingTransactions: PendingTransaction[];
@@ -163,12 +166,14 @@ export function ProjectionsDashboard({
         expenseEntries: [],
         creditCardTransactions: [],
         categorizedTransactions: initialCategorizedTransactions,
+        supplementalExpenses: initialPropertyTaxExpenses,
         snapshot,
         pendingTransactions: initialPendingTransactions,
         nextPaydayOverride,
       }),
     [
       initialCategorizedTransactions,
+      initialPropertyTaxExpenses,
       initialIncomeEntries,
       initialPendingTransactions,
       nextPaydayOverride,
@@ -184,11 +189,13 @@ export function ProjectionsDashboard({
         expenseEntries: [],
         creditCardTransactions: [],
         categorizedTransactions: initialCategorizedTransactions,
+        supplementalExpenses: initialPropertyTaxExpenses,
         incomeTransactions: initialIncomeTransactions,
         nextPaydayOverride,
       }),
     [
       initialCategorizedTransactions,
+      initialPropertyTaxExpenses,
       initialIncomeEntries,
       initialIncomeTransactions,
       nextPaydayOverride,
@@ -202,11 +209,13 @@ export function ProjectionsDashboard({
         expenseEntries: [],
         creditCardTransactions: [],
         categorizedTransactions: initialCategorizedTransactions,
+        supplementalExpenses: initialPropertyTaxExpenses,
         snapshot,
         pendingTransactions: initialPendingTransactions,
       }),
     [
       initialCategorizedTransactions,
+      initialPropertyTaxExpenses,
       initialPendingTransactions,
       snapshot,
     ],

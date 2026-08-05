@@ -22,6 +22,7 @@ export function compactExpenseTransaction(
     tags: transaction.tags,
     split: transaction.split,
     include: transaction.include,
+    pending: transaction.pending,
     note: transaction.note,
     has_amazon_orders:
       "has_amazon_orders" in transaction

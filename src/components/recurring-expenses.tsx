@@ -10,6 +10,7 @@ import { APP_BASE_PATH } from "@/lib/config";
 import {
   categorizedExpenseAverages,
   categorizedExpenseCategories,
+  type SupplementalCategorizedExpense,
 } from "@/lib/categorized-expense-averages";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
 import {
@@ -48,6 +49,7 @@ export function RecurringExpenses({
   incomeEntries,
   incomeTransactions,
   pendingTransactions,
+  propertyTaxExpenses,
   transactions,
 }: {
   budgetPlanSettings: BudgetPlanSettings;
@@ -55,6 +57,7 @@ export function RecurringExpenses({
   incomeEntries: IncomeEntry[];
   incomeTransactions: IncomeTransaction[];
   pendingTransactions: PendingTransaction[];
+  propertyTaxExpenses: SupplementalCategorizedExpense[];
   transactions: ExpenseTransaction[];
 }) {
   const [dateRange, setDateRange] = useState(defaultExpenseDateRange);
@@ -62,7 +65,7 @@ export function RecurringExpenses({
   const today = todayString();
   const categoryRows = useMemo(
     () =>
-      categorizedExpenseCategories(transactions, dateRange, today)
+      categorizedExpenseCategories(transactions, dateRange, today, propertyTaxExpenses)
         .map((category) => ({
           category,
           averages: categorizedExpenseAverages(
@@ -70,12 +73,19 @@ export function RecurringExpenses({
             dateRange,
             today,
             category,
+            propertyTaxExpenses,
           ),
         }))
         .sort((left, right) => right.averages.monthly - left.averages.monthly),
-    [dateRange, today, transactions],
+    [dateRange, propertyTaxExpenses, today, transactions],
   );
-  const total = categorizedExpenseAverages(transactions, dateRange, today);
+  const total = categorizedExpenseAverages(
+    transactions,
+    dateRange,
+    today,
+    undefined,
+    propertyTaxExpenses,
+  );
   const yearProjection = useMemo(
     () =>
       projectCurrentYear({
@@ -84,10 +94,11 @@ export function RecurringExpenses({
         expenseEntries: [],
         creditCardTransactions: [],
         categorizedTransactions: transactions,
+        supplementalExpenses: propertyTaxExpenses,
         incomeTransactions,
         nextPaydayOverride: budgetPlanSettings.next_payday_override,
       }),
-    [budgetPlanSettings.next_payday_override, incomeEntries, incomeTransactions, transactions],
+    [budgetPlanSettings.next_payday_override, incomeEntries, incomeTransactions, propertyTaxExpenses, transactions],
   );
   const payCycleProjection = useMemo(
     () =>
@@ -97,11 +108,12 @@ export function RecurringExpenses({
         expenseEntries: [],
         creditCardTransactions: [],
         categorizedTransactions: transactions,
+        supplementalExpenses: propertyTaxExpenses,
         pendingTransactions,
         snapshot,
         nextPaydayOverride: budgetPlanSettings.next_payday_override,
       }),
-    [budgetPlanSettings.next_payday_override, incomeEntries, pendingTransactions, snapshot, transactions],
+    [budgetPlanSettings.next_payday_override, incomeEntries, pendingTransactions, propertyTaxExpenses, snapshot, transactions],
   );
 
   return (

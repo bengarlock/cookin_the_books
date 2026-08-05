@@ -106,6 +106,7 @@ export type ExpenseTransaction = Pick<
   | "split"
   | "include"
   | "note"
+  | "pending"
 > & {
   has_amazon_orders: boolean;
   has_receipt_orders: boolean;
