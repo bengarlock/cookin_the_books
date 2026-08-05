@@ -7,6 +7,8 @@ import { getDashboardPendingCardTransactions } from "@/lib/dashboard-pending-car
 import { getExpenseCategories } from "@/lib/expense-categories";
 import { allTimeExpenseDateRange } from "@/lib/expense-date-range";
 import { getExpenseTransactions } from "@/lib/expense-transactions";
+import { getIncomeEntries } from "@/lib/income-entries";
+import { getIncomeTransactions } from "@/lib/income-transactions";
 import { getPendingTransactions } from "@/lib/pending-transactions";
 
 export const metadata: Metadata = {
@@ -18,12 +20,16 @@ export default async function BudgetPage() {
     budgetPlanSettings,
     expenseCategories,
     expenseTransactions,
+    incomeEntries,
+    incomeTransactions,
     pendingCardTransactions,
     pendingTransactions,
   ] = await Promise.all([
     getBudgetPlanSettings(),
     getExpenseCategories(),
     getExpenseTransactions(allTimeExpenseDateRange()),
+    getIncomeEntries(),
+    getIncomeTransactions(),
     getDashboardPendingCardTransactions(),
     getPendingTransactions(),
   ]);
@@ -38,6 +44,10 @@ export default async function BudgetPage() {
       />
       <RecurringExpenses
         categories={expenseCategories}
+        budgetPlanSettings={budgetPlanSettings}
+        incomeEntries={incomeEntries}
+        incomeTransactions={incomeTransactions}
+        pendingTransactions={pendingTransactions}
         transactions={expenseTransactions}
       />
     </>

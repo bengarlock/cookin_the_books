@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { DateRangePicker } from "@/components/date-range-picker";
+import { useLiveSnapshot } from "@/components/live-snapshot-provider";
+import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import { APP_BASE_PATH } from "@/lib/config";
 import {
   categorizedExpenseAverages,
@@ -14,7 +16,16 @@ import {
   defaultExpenseDateRange,
   formatExpenseDateRange,
 } from "@/lib/expense-date-range";
-import type { ExpenseTransaction } from "@/lib/credit-card-transaction-types";
+import type {
+  ExpenseTransaction,
+  IncomeTransaction,
+} from "@/lib/credit-card-transaction-types";
+import type { IncomeEntry } from "@/lib/income-entry-types";
+import type { PendingTransaction } from "@/lib/pending-transaction-types";
+import {
+  projectCurrentYear,
+  projectRevenueAfterPayCycle,
+} from "@/lib/projections";
 import { labelForCategory } from "@/lib/transaction-categories";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -32,13 +43,22 @@ function todayString() {
 }
 
 export function RecurringExpenses({
+  budgetPlanSettings,
   categories,
+  incomeEntries,
+  incomeTransactions,
+  pendingTransactions,
   transactions,
 }: {
+  budgetPlanSettings: BudgetPlanSettings;
   categories: ExpenseCategory[];
+  incomeEntries: IncomeEntry[];
+  incomeTransactions: IncomeTransaction[];
+  pendingTransactions: PendingTransaction[];
   transactions: ExpenseTransaction[];
 }) {
   const [dateRange, setDateRange] = useState(defaultExpenseDateRange);
+  const { snapshot } = useLiveSnapshot();
   const today = todayString();
   const categoryRows = useMemo(
     () =>
@@ -56,6 +76,33 @@ export function RecurringExpenses({
     [dateRange, today, transactions],
   );
   const total = categorizedExpenseAverages(transactions, dateRange, today);
+  const yearProjection = useMemo(
+    () =>
+      projectCurrentYear({
+        incomeEntries,
+        budgetItems: [],
+        expenseEntries: [],
+        creditCardTransactions: [],
+        categorizedTransactions: transactions,
+        incomeTransactions,
+        nextPaydayOverride: budgetPlanSettings.next_payday_override,
+      }),
+    [budgetPlanSettings.next_payday_override, incomeEntries, incomeTransactions, transactions],
+  );
+  const payCycleProjection = useMemo(
+    () =>
+      projectRevenueAfterPayCycle({
+        incomeEntries,
+        budgetItems: [],
+        expenseEntries: [],
+        creditCardTransactions: [],
+        categorizedTransactions: transactions,
+        pendingTransactions,
+        snapshot,
+        nextPaydayOverride: budgetPlanSettings.next_payday_override,
+      }),
+    [budgetPlanSettings.next_payday_override, incomeEntries, pendingTransactions, snapshot, transactions],
+  );
 
   return (
     <section className="mt-8">
@@ -82,35 +129,53 @@ export function RecurringExpenses({
         </div>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        <article className="dashboard-tile rounded-2xl border border-accent/25 bg-accent/[0.09] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
-            All categories
-          </p>
-          <p className="mt-4 font-mono text-3xl font-semibold tracking-tight text-white">
-            {currencyFormatter.format(total.monthly)}
-          </p>
-          <p className="mt-3 text-xs leading-5 text-muted">
-            Monthly average · {currencyFormatter.format(total.daily)} per day
-          </p>
-        </article>
-        {categoryRows.map(({ category, averages }) => (
-          <article
-            className="dashboard-tile rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)]"
-            key={category}
-          >
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-              {labelForCategory(category, categories)}
-            </p>
-            <p className="mt-4 font-mono text-3xl font-semibold tracking-tight text-white">
-              {currencyFormatter.format(averages.monthly)}
-            </p>
-            <p className="mt-3 text-xs leading-5 text-muted">
-              {currencyFormatter.format(averages.total)} total · {currencyFormatter.format(averages.daily)} per day
-            </p>
-          </article>
-        ))}
-      </div>
+      <section className="surface overflow-hidden rounded-2xl">
+        <div className="border-b border-white/10 bg-white/[0.045] px-5 py-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold">Annual outlook</p>
+          <p className="mt-1 text-sm text-muted">Actual year-to-date income and spending, with the current forecast through Dec. 31.</p>
+        </div>
+        <BudgetTable
+          rows={[
+            ["Income", yearProjection.ytdIncome, yearProjection.forecastIncome, yearProjection.projectedIncome],
+            ["Expenses", -yearProjection.ytdExpenses, -yearProjection.forecastExpenses, -yearProjection.projectedExpenses],
+            ["Net gain / loss", yearProjection.ytdIncome - yearProjection.ytdExpenses, yearProjection.forecastIncome - yearProjection.forecastExpenses, yearProjection.projectedNet],
+          ]}
+          headings={["Actual YTD", "Forecast", "Year-end projection"]}
+        />
+      </section>
+
+      <section className="surface mt-5 overflow-hidden rounded-2xl">
+        <div className="border-b border-white/10 bg-white/[0.045] px-5 py-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold">Expense categories</p>
+          <p className="mt-1 text-sm text-muted">Included categorized transactions for the selected period.</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[680px] text-left">
+            <thead className="border-b border-white/[0.07] text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
+              <tr><th className="px-5 py-3">Category</th><th className="px-5 py-3 text-right">Total</th><th className="px-5 py-3 text-right">Daily</th><th className="px-5 py-3 text-right">Monthly average</th><th className="px-5 py-3 text-right">Annual pace</th></tr>
+            </thead>
+            <tbody>
+              {categoryRows.map(({ category, averages }) => (
+                <tr className="border-b border-white/[0.07]" key={category}>
+                  <th className="px-5 py-3 text-sm font-medium text-white/80">{labelForCategory(category, categories)}</th>
+                  <td className="px-5 py-3 text-right font-mono text-sm text-white">{currencyFormatter.format(averages.total)}</td>
+                  <td className="px-5 py-3 text-right font-mono text-sm text-white">{currencyFormatter.format(averages.daily)}</td>
+                  <td className="px-5 py-3 text-right font-mono text-sm text-white">{currencyFormatter.format(averages.monthly)}</td>
+                  <td className="px-5 py-3 text-right font-mono text-sm text-white">{currencyFormatter.format(averages.monthly * 12)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-white/[0.045] font-semibold">
+              <tr><th className="px-5 py-4 text-sm text-white">All categories</th><td className="px-5 py-4 text-right font-mono text-sm text-accent">{currencyFormatter.format(total.total)}</td><td className="px-5 py-4 text-right font-mono text-sm text-accent">{currencyFormatter.format(total.daily)}</td><td className="px-5 py-4 text-right font-mono text-sm text-accent">{currencyFormatter.format(total.monthly)}</td><td className="px-5 py-4 text-right font-mono text-sm text-accent">{currencyFormatter.format(total.monthly * 12)}</td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <section className="surface mt-5 overflow-hidden rounded-2xl">
+        <div className="border-b border-white/10 bg-white/[0.045] px-5 py-4"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold">Current pay cycle</p><p className="mt-1 text-sm text-muted">{payCycleProjection.daysRemaining} days until {payCycleProjection.nextPaydayLabel}.</p></div>
+        <BudgetTable rows={[["Projected paycheck", payCycleProjection.predictedNextPaycheck], ["Spent so far", -payCycleProjection.spentThisPayCycle], ["Expected additional spend", -payCycleProjection.predictedAdditionalSpend], ["Projected cash after payday", payCycleProjection.projectedCashAfterPayCycle]]} headings={["Amount"]} />
+      </section>
 
       {!categoryRows.length ? (
         <p className="surface mt-5 rounded-2xl px-5 py-10 text-center text-sm text-muted">
@@ -118,5 +183,22 @@ export function RecurringExpenses({
         </p>
       ) : null}
     </section>
+  );
+}
+
+function BudgetTable({
+  headings,
+  rows,
+}: {
+  headings: string[];
+  rows: [string, ...number[]][];
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[560px] text-left">
+        <thead className="border-b border-white/[0.07] text-[10px] font-semibold uppercase tracking-[0.16em] text-muted"><tr><th className="px-5 py-3">Metric</th>{headings.map((heading) => <th className="px-5 py-3 text-right" key={heading}>{heading}</th>)}</tr></thead>
+        <tbody>{rows.map(([label, ...values]) => <tr className="border-b border-white/[0.07] last:border-b-0" key={label}><th className="px-5 py-3 text-sm font-medium text-white/80">{label}</th>{values.map((value, index) => <td className={`px-5 py-3 text-right font-mono text-sm ${value < 0 ? "text-rose-300" : "text-white"}`} key={index}>{value < 0 ? "−" : ""}{currencyFormatter.format(Math.abs(value))}</td>)}</tr>)}</tbody>
+      </table>
+    </div>
   );
 }
