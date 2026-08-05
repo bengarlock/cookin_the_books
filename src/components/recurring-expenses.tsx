@@ -24,7 +24,7 @@ import type {
 import type { IncomeEntry } from "@/lib/income-entry-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import {
-  projectCurrentYear,
+  projectDateRange,
   projectRevenueAfterPayCycle,
 } from "@/lib/projections";
 import { labelForCategory } from "@/lib/transaction-categories";
@@ -86,19 +86,17 @@ export function RecurringExpenses({
     undefined,
     propertyTaxExpenses,
   );
-  const yearProjection = useMemo(
+  const rangeProjection = useMemo(
     () =>
-      projectCurrentYear({
+      projectDateRange({
         incomeEntries,
-        budgetItems: [],
-        expenseEntries: [],
-        creditCardTransactions: [],
         categorizedTransactions: transactions,
         supplementalExpenses: propertyTaxExpenses,
         incomeTransactions,
+        dateRange,
         nextPaydayOverride: budgetPlanSettings.next_payday_override,
       }),
-    [budgetPlanSettings.next_payday_override, incomeEntries, incomeTransactions, propertyTaxExpenses, transactions],
+    [budgetPlanSettings.next_payday_override, dateRange, incomeEntries, incomeTransactions, propertyTaxExpenses, transactions],
   );
   const payCycleProjection = useMemo(
     () =>
@@ -143,16 +141,16 @@ export function RecurringExpenses({
 
       <section className="surface overflow-hidden rounded-2xl">
         <div className="border-b border-white/10 bg-white/[0.045] px-5 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold">Annual outlook</p>
-          <p className="mt-1 text-sm text-muted">Actual year-to-date income and spending, with the current forecast through Dec. 31.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold">Selected-period outlook</p>
+          <p className="mt-1 text-sm text-muted">Actual income and spending for {formatExpenseDateRange(dateRange)}, plus a forecast for any days still ahead.</p>
         </div>
         <BudgetTable
           rows={[
-            ["Income", yearProjection.ytdIncome, yearProjection.forecastIncome, yearProjection.projectedIncome],
-            ["Expenses", -yearProjection.ytdExpenses, -yearProjection.forecastExpenses, -yearProjection.projectedExpenses],
-            ["Net gain / loss", yearProjection.ytdIncome - yearProjection.ytdExpenses, yearProjection.forecastIncome - yearProjection.forecastExpenses, yearProjection.projectedNet],
+            ["Income", rangeProjection.actualIncome, rangeProjection.forecastIncome, rangeProjection.projectedIncome],
+            ["Expenses", -rangeProjection.actualExpenses, -rangeProjection.forecastExpenses, -rangeProjection.projectedExpenses],
+            ["Net gain / loss", rangeProjection.actualIncome - rangeProjection.actualExpenses, rangeProjection.forecastIncome - rangeProjection.forecastExpenses, rangeProjection.projectedNet],
           ]}
-          headings={["Actual YTD", "Forecast", "Year-end projection"]}
+          headings={["Actual", "Forecast", "Selected-period projection"]}
         />
       </section>
 

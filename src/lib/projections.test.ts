@@ -13,6 +13,7 @@ import {
   incomeEntriesInLookback,
   liquidReservesFromSnapshot,
   projectCurrentYear,
+  projectDateRange,
   projectRevenueAfterPayCycle,
   projectUnemploymentRunway,
   yearToDateIncome,
@@ -285,6 +286,45 @@ describe("yearToDateIncome", () => {
 describe("remainingPaydaysInYear", () => {
   it("counts paydays after today through year end", () => {
     expect(remainingPaydaysInYear(new Date(2026, 5, 27))).toBe(12);
+  });
+});
+
+describe("projectDateRange", () => {
+  it("recalculates actuals and forecasts for the selected dates", () => {
+    const result = projectDateRange({
+      incomeEntries: [
+        incomeEntry({ id: 1, pay_date: "2026-06-01", net_pay: "3000.00" }),
+        incomeEntry({ id: 2, pay_date: "2026-06-15", net_pay: "3000.00" }),
+      ],
+      categorizedTransactions: [
+        {
+          amount: "120.00",
+          category: "groceries",
+          include: true,
+          split: false,
+          transaction_date: "2026-06-10",
+          transaction_type: "purchase",
+        },
+        {
+          amount: "75.00",
+          category: "groceries",
+          include: true,
+          pending: true,
+          split: false,
+          transaction_date: "2026-06-20",
+          transaction_type: "purchase",
+        },
+      ],
+      dateRange: { start: "2026-06-01", end: "2026-07-31" },
+      currentDate: new Date(2026, 5, 27),
+    });
+
+    expect(result.actualIncome).toBe(6000);
+    expect(result.actualExpenses).toBe(120);
+    expect(result.remainingPaydays).toBe(3);
+    expect(result.forecastIncome).toBe(9000);
+    expect(result.remainingDays).toBe(34);
+    expect(result.projectedExpenses).toBeGreaterThan(result.actualExpenses);
   });
 });
 

@@ -1,8 +1,10 @@
 import type { IncomeEntry } from "./income-entry-types";
 import { defaultExpenseDateRange, localDateString } from "./expense-date-range";
+import type { ExpenseDateRange } from "./expense-date-range";
 import type { PendingTransaction } from "./pending-transaction-types";
 import {
   formatPayday,
+  followingPayday,
   getCurrentPayPeriod,
   getNextPayCycle,
   localPaydayString,
@@ -107,6 +109,18 @@ export type CurrentYearProjection = {
   projectedNet: number;
   remainingPaydays: number;
   predictedPaycheck: number;
+  remainingDays: number;
+};
+
+export type DateRangeProjection = {
+  actualIncome: number;
+  forecastIncome: number;
+  projectedIncome: number;
+  actualExpenses: number;
+  forecastExpenses: number;
+  projectedExpenses: number;
+  projectedNet: number;
+  remainingPaydays: number;
   remainingDays: number;
 };
 
@@ -345,6 +359,93 @@ function calendarDaysBetween(start: string, end: string) {
   if (!Number.isFinite(startValue) || !Number.isFinite(endValue)) return 0;
   if (endValue < startValue) return 0;
   return Math.floor((endValue - startValue) / MILLISECONDS_PER_DAY) + 1;
+}
+
+function forecastPaydaysInRange(
+  dateRange: ExpenseDateRange,
+  currentDate: Date,
+  nextPaydayOverride?: string | null,
+) {
+  const tomorrow = new Date(
+    currentDate.getFullYear(),
+    currentDate.getMonth(),
+    currentDate.getDate() + 1,
+  );
+  const forecastStart = localDateString(tomorrow);
+  if (dateRange.end < forecastStart) return 0;
+
+  let payday = getNextPayCycle(currentDate, nextPaydayOverride).nextPayday;
+  let count = 0;
+  while (localPaydayString(payday) <= dateRange.end) {
+    if (localPaydayString(payday) >= dateRange.start) count += 1;
+    payday = followingPayday(payday);
+  }
+  return count;
+}
+
+export function projectDateRange({
+  incomeEntries,
+  incomeTransactions = [],
+  categorizedTransactions,
+  supplementalExpenses,
+  dateRange,
+  currentDate = new Date(),
+  nextPaydayOverride,
+}: {
+  incomeEntries: IncomeEntry[];
+  incomeTransactions?: IncomeTransaction[];
+  categorizedTransactions: CategorizedExpenseTransaction[];
+  supplementalExpenses?: SupplementalCategorizedExpense[];
+  dateRange: ExpenseDateRange;
+  currentDate?: Date;
+  nextPaydayOverride?: string | null;
+}): DateRangeProjection {
+  const today = localDateString(currentDate);
+  const effectiveEnd = dateRange.end < today ? dateRange.end : today;
+  const actualRange = { start: dateRange.start, end: effectiveEnd };
+  const actualIncome = incomeLedgerTotals(
+    incomeEntries,
+    cashAccountIncomeTransactions(incomeTransactions, { includeExcluded: true }),
+    actualRange,
+  ).net;
+  const expenseAverages = categorizedExpenseAverages(
+    categorizedTransactions,
+    actualRange,
+    today,
+    undefined,
+    supplementalExpenses,
+  );
+  const remainingPaydays = forecastPaydaysInRange(
+    dateRange,
+    currentDate,
+    nextPaydayOverride,
+  );
+  const predictedPaycheck = classifyPaychecks(
+    incomeEntries,
+    currentDate,
+  ).predictedNetPay;
+  const forecastIncome = remainingPaydays * predictedPaycheck;
+  const forecastStart = dateRange.start > today ? dateRange.start : today;
+  const remainingDays = Math.max(
+    0,
+    calendarDaysBetween(forecastStart, dateRange.end) -
+      (forecastStart === today ? 1 : 0),
+  );
+  const forecastExpenses = expenseAverages.daily * remainingDays;
+  const projectedIncome = actualIncome + forecastIncome;
+  const projectedExpenses = expenseAverages.total + forecastExpenses;
+
+  return {
+    actualIncome,
+    forecastIncome,
+    projectedIncome,
+    actualExpenses: expenseAverages.total,
+    forecastExpenses,
+    projectedExpenses,
+    projectedNet: projectedIncome - projectedExpenses,
+    remainingPaydays,
+    remainingDays,
+  };
 }
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
