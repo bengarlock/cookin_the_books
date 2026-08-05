@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 import { DateRangePicker } from "@/components/date-range-picker";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
@@ -14,8 +15,8 @@ import {
 } from "@/lib/categorized-expense-averages";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
 import {
-  defaultExpenseDateRange,
   formatExpenseDateRange,
+  type ExpenseDateRange,
 } from "@/lib/expense-date-range";
 import type {
   ExpenseTransaction,
@@ -50,6 +51,7 @@ export function RecurringExpenses({
   incomeTransactions,
   pendingTransactions,
   propertyTaxExpenses,
+  initialRange,
   transactions,
 }: {
   budgetPlanSettings: BudgetPlanSettings;
@@ -58,9 +60,12 @@ export function RecurringExpenses({
   incomeTransactions: IncomeTransaction[];
   pendingTransactions: PendingTransaction[];
   propertyTaxExpenses: SupplementalCategorizedExpense[];
+  initialRange: ExpenseDateRange;
   transactions: ExpenseTransaction[];
 }) {
-  const [dateRange, setDateRange] = useState(defaultExpenseDateRange);
+  const [dateRange, setDateRange] = useState(initialRange);
+  const pathname = usePathname();
+  const router = useRouter();
   const { snapshot } = useLiveSnapshot();
   const today = todayString();
   const categoryRows = useMemo(
@@ -114,6 +119,11 @@ export function RecurringExpenses({
     [budgetPlanSettings.next_payday_override, incomeEntries, pendingTransactions, propertyTaxExpenses, snapshot, transactions],
   );
 
+  function applyDateRange(nextRange: ExpenseDateRange) {
+    setDateRange(nextRange);
+    router.replace(`${pathname}?${new URLSearchParams(nextRange)}`);
+  }
+
   return (
     <section className="mt-8">
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -129,7 +139,7 @@ export function RecurringExpenses({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <DateRangePicker range={dateRange} onApply={setDateRange} />
+          <DateRangePicker range={dateRange} onApply={applyDateRange} />
           <Link
             className="rounded-xl border border-accent/20 bg-accent/10 px-4 py-2.5 text-center text-sm font-semibold text-accent transition hover:bg-accent/15"
             href={`${APP_BASE_PATH}/dashboard/budget/expenses`}

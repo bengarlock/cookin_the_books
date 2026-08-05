@@ -5,7 +5,10 @@ import { RecurringExpenses } from "@/components/recurring-expenses";
 import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
 import { getDashboardPendingCardTransactions } from "@/lib/dashboard-pending-card-transactions";
 import { getExpenseCategories } from "@/lib/expense-categories";
-import { allTimeExpenseDateRange } from "@/lib/expense-date-range";
+import {
+  allTimeExpenseDateRange,
+  expenseDateRangeFromSearchParams,
+} from "@/lib/expense-date-range";
 import { getExpenseTransactions } from "@/lib/expense-transactions";
 import { getExpenseEntries } from "@/lib/expense-entries";
 import { getIncomeEntries } from "@/lib/income-entries";
@@ -16,7 +19,12 @@ export const metadata: Metadata = {
   title: "Budget",
 };
 
-export default async function BudgetPage() {
+export default async function BudgetPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ start?: string | string[]; end?: string | string[] }>;
+}) {
+  const initialRange = expenseDateRangeFromSearchParams(await searchParams);
   const [
     budgetPlanSettings,
     expenseCategories,
@@ -51,6 +59,7 @@ export default async function BudgetPage() {
         incomeEntries={incomeEntries}
         incomeTransactions={incomeTransactions}
         pendingTransactions={pendingTransactions}
+        initialRange={initialRange}
         propertyTaxExpenses={expenseEntries
           .filter(
             (entry) =>

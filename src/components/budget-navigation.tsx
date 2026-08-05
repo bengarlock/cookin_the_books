@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 const budgetLinks = [
   { href: "/dashboard/budget", label: "Plan" },
@@ -13,6 +13,14 @@ const budgetLinks = [
 
 export function BudgetNavigation() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const dateRangeQuery = new URLSearchParams();
+  const start = searchParams.get("start");
+  const end = searchParams.get("end");
+  if (start && end) {
+    dateRangeQuery.set("start", start);
+    dateRangeQuery.set("end", end);
+  }
 
   return (
     <nav
@@ -26,7 +34,11 @@ export function BudgetNavigation() {
               ? "border-accent/20 bg-accent/10 text-accent"
               : "border-white/10 bg-white/[0.03] text-white/60 hover:border-white/20 hover:text-white"
           }`}
-          href={link.href}
+          href={
+            link.href === "/dashboard/budget/goals" || !dateRangeQuery.size
+              ? link.href
+              : `${link.href}?${dateRangeQuery}`
+          }
           key={link.href}
           prefetch={false}
         >

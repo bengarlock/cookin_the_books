@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 
 import { ProjectionsDashboard } from "@/components/projections-dashboard";
 import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
-import { allTimeExpenseDateRange } from "@/lib/expense-date-range";
+import {
+  allTimeExpenseDateRange,
+  expenseDateRangeFromSearchParams,
+} from "@/lib/expense-date-range";
 import { getExpenseTransactions } from "@/lib/expense-transactions";
 import { getExpenseEntries } from "@/lib/expense-entries";
 import { getIncomeEntries } from "@/lib/income-entries";
@@ -13,7 +16,12 @@ export const metadata: Metadata = {
   title: "Projections",
 };
 
-export default async function ProjectionsPage() {
+export default async function ProjectionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ start?: string | string[]; end?: string | string[] }>;
+}) {
+  const initialRange = expenseDateRangeFromSearchParams(await searchParams);
   const [
     budgetPlanSettings,
     categorizedTransactions,
@@ -45,6 +53,7 @@ export default async function ProjectionsPage() {
           category: "property_taxes",
           incurred_on: entry.incurred_on,
         }))}
+      initialRange={initialRange}
       initialIncomeEntries={incomeEntries}
       initialIncomeTransactions={incomeTransactions}
       initialPendingTransactions={pendingTransactions}

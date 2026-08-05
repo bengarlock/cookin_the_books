@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
@@ -111,6 +112,8 @@ export function ExpenseHistory({
   const [spendingDateRange, setSpendingDateRange] = useState<ExpenseDateRange>(
     initialRange,
   );
+  const pathname = usePathname();
+  const router = useRouter();
   const [expandedSpendingCategory, setExpandedSpendingCategory] = useState<
     string | null
   >(null);
@@ -277,6 +280,7 @@ export function ExpenseHistory({
   async function applySpendingRange(range: ExpenseDateRange) {
     if (await loadTransactions(range)) {
       setSpendingDateRange(range);
+      router.replace(`${pathname}?${new URLSearchParams(range)}`);
       setExpandedSpendingCategory(null);
     }
   }

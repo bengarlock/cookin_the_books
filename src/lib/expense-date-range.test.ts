@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   allTimeExpenseDateRange,
   defaultExpenseDateRange,
+  expenseDateRangeFromSearchParams,
   expenseDateRangePreset,
   formatExpenseDateRange,
   mergeExpenseDateRange,
@@ -26,6 +27,21 @@ describe("expense date ranges", () => {
       start: "2026-01-01",
       end: "2026-06-22",
     });
+  });
+
+  it("uses a valid date range supplied in the Budget URL", () => {
+    expect(
+      expenseDateRangeFromSearchParams(
+        { start: "2026-04-01", end: "2026-04-30" },
+        new Date(2026, 5, 22),
+      ),
+    ).toEqual({ start: "2026-04-01", end: "2026-04-30" });
+    expect(
+      expenseDateRangeFromSearchParams(
+        { start: "bad", end: "2026-04-30" },
+        new Date(2026, 5, 22),
+      ),
+    ).toEqual({ start: "2026-01-01", end: "2026-06-22" });
   });
 
   it("handles a month-end date", () => {
