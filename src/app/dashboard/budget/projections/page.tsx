@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 
 import { ProjectionsDashboard } from "@/components/projections-dashboard";
-import { getBudgetAverageTransactions } from "@/lib/budget-average-transactions";
-import { getBudgetItems } from "@/lib/budget-items";
 import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
-import { getExpenseEntries } from "@/lib/expense-entries";
+import { allTimeExpenseDateRange } from "@/lib/expense-date-range";
+import { getExpenseTransactions } from "@/lib/expense-transactions";
 import { getIncomeEntries } from "@/lib/income-entries";
 import { getIncomeTransactions } from "@/lib/income-transactions";
 import { getPendingTransactions } from "@/lib/pending-transactions";
@@ -15,18 +14,14 @@ export const metadata: Metadata = {
 
 export default async function ProjectionsPage() {
   const [
-    budgetItems,
     budgetPlanSettings,
-    creditCardTransactions,
-    expenseEntries,
+    categorizedTransactions,
     incomeEntries,
     incomeTransactions,
     pendingTransactions,
   ] = await Promise.all([
-    getBudgetItems(),
     getBudgetPlanSettings(),
-    getBudgetAverageTransactions(),
-    getExpenseEntries(),
+    getExpenseTransactions(allTimeExpenseDateRange()),
     getIncomeEntries(),
     getIncomeTransactions(),
     getPendingTransactions(),
@@ -34,10 +29,8 @@ export default async function ProjectionsPage() {
 
   return (
     <ProjectionsDashboard
-      initialBudgetItems={budgetItems}
       initialBudgetPlanSettings={budgetPlanSettings}
-      initialCreditCardTransactions={creditCardTransactions}
-      initialExpenseEntries={expenseEntries}
+      initialCategorizedTransactions={categorizedTransactions}
       initialIncomeEntries={incomeEntries}
       initialIncomeTransactions={incomeTransactions}
       initialPendingTransactions={pendingTransactions}

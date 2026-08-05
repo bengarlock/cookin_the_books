@@ -3,14 +3,12 @@
 import { type ReactNode, useMemo, useState } from "react";
 
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
-import type { BudgetItem } from "@/lib/budget-item-types";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import { APP_BASE_PATH } from "@/lib/config";
 import type {
-  BudgetAverageTransaction,
+  ExpenseTransaction,
   IncomeTransaction,
 } from "@/lib/credit-card-transaction-types";
-import type { ExpenseEntry } from "@/lib/expense-entry-types";
 import type { IncomeEntry } from "@/lib/income-entry-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import {
@@ -136,18 +134,14 @@ function SummaryRow({
 }
 
 export function ProjectionsDashboard({
-  initialBudgetItems,
   initialBudgetPlanSettings,
-  initialCreditCardTransactions,
-  initialExpenseEntries,
+  initialCategorizedTransactions,
   initialIncomeEntries,
   initialIncomeTransactions,
   initialPendingTransactions,
 }: {
-  initialBudgetItems: BudgetItem[];
   initialBudgetPlanSettings: BudgetPlanSettings;
-  initialCreditCardTransactions: BudgetAverageTransaction[];
-  initialExpenseEntries: ExpenseEntry[];
+  initialCategorizedTransactions: ExpenseTransaction[];
   initialIncomeEntries: IncomeEntry[];
   initialIncomeTransactions: IncomeTransaction[];
   initialPendingTransactions: PendingTransaction[];
@@ -165,17 +159,16 @@ export function ProjectionsDashboard({
     () =>
       projectRevenueAfterPayCycle({
         incomeEntries: initialIncomeEntries,
-        budgetItems: initialBudgetItems,
-        expenseEntries: initialExpenseEntries,
-        creditCardTransactions: initialCreditCardTransactions,
+        budgetItems: [],
+        expenseEntries: [],
+        creditCardTransactions: [],
+        categorizedTransactions: initialCategorizedTransactions,
         snapshot,
         pendingTransactions: initialPendingTransactions,
         nextPaydayOverride,
       }),
     [
-      initialBudgetItems,
-      initialCreditCardTransactions,
-      initialExpenseEntries,
+      initialCategorizedTransactions,
       initialIncomeEntries,
       initialPendingTransactions,
       nextPaydayOverride,
@@ -187,16 +180,15 @@ export function ProjectionsDashboard({
     () =>
       projectCurrentYear({
         incomeEntries: initialIncomeEntries,
-        budgetItems: initialBudgetItems,
-        expenseEntries: initialExpenseEntries,
-        creditCardTransactions: initialCreditCardTransactions,
+        budgetItems: [],
+        expenseEntries: [],
+        creditCardTransactions: [],
+        categorizedTransactions: initialCategorizedTransactions,
         incomeTransactions: initialIncomeTransactions,
         nextPaydayOverride,
       }),
     [
-      initialBudgetItems,
-      initialCreditCardTransactions,
-      initialExpenseEntries,
+      initialCategorizedTransactions,
       initialIncomeEntries,
       initialIncomeTransactions,
       nextPaydayOverride,
@@ -206,16 +198,15 @@ export function ProjectionsDashboard({
   const unemploymentRunway = useMemo(
     () =>
       projectUnemploymentRunway({
-        budgetItems: initialBudgetItems,
-        expenseEntries: initialExpenseEntries,
-        creditCardTransactions: initialCreditCardTransactions,
+        budgetItems: [],
+        expenseEntries: [],
+        creditCardTransactions: [],
+        categorizedTransactions: initialCategorizedTransactions,
         snapshot,
         pendingTransactions: initialPendingTransactions,
       }),
     [
-      initialBudgetItems,
-      initialCreditCardTransactions,
-      initialExpenseEntries,
+      initialCategorizedTransactions,
       initialPendingTransactions,
       snapshot,
     ],

@@ -5,28 +5,22 @@ import { useMemo, useState } from "react";
 
 import { DateRangePicker } from "@/components/date-range-picker";
 import { APP_BASE_PATH } from "@/lib/config";
-import type { BudgetItem } from "@/lib/budget-item-types";
-import type { BudgetAverageTransaction } from "@/lib/credit-card-transaction-types";
-import { budgetItemExpenseAverages } from "@/lib/expense-averages";
+import {
+  categorizedExpenseAverages,
+  categorizedExpenseCategories,
+} from "@/lib/categorized-expense-averages";
+import type { ExpenseCategory } from "@/lib/expense-category-types";
 import {
   defaultExpenseDateRange,
   formatExpenseDateRange,
 } from "@/lib/expense-date-range";
-import {
-  amountForBudgetPeriod,
-  budgetPeriods,
-  type BudgetPeriod,
-} from "@/lib/budget-periods";
-import type { ExpenseEntry } from "@/lib/expense-entry-types";
+import type { ExpenseTransaction } from "@/lib/credit-card-transaction-types";
+import { labelForCategory } from "@/lib/transaction-categories";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
 });
-
-function formatCurrency(value: number) {
-  return currencyFormatter.format(value);
-}
 
 function todayString() {
   const today = new Date();
@@ -38,160 +32,91 @@ function todayString() {
 }
 
 export function RecurringExpenses({
-  budgetItems,
-  creditCardTransactions,
-  expenseEntries,
+  categories,
+  transactions,
 }: {
-  budgetItems: BudgetItem[];
-  creditCardTransactions: BudgetAverageTransaction[];
-  expenseEntries: ExpenseEntry[];
+  categories: ExpenseCategory[];
+  transactions: ExpenseTransaction[];
 }) {
   const [dateRange, setDateRange] = useState(defaultExpenseDateRange);
   const today = todayString();
-
-  const rows = useMemo(
+  const categoryRows = useMemo(
     () =>
-      budgetItems.map((item) => ({
-        item,
-        averages: budgetItemExpenseAverages(
-          item,
-          expenseEntries,
-          creditCardTransactions,
-          dateRange,
-          today,
-          budgetItems,
-        ),
-      })),
-    [budgetItems, creditCardTransactions, dateRange, expenseEntries, today],
+      categorizedExpenseCategories(transactions, dateRange, today)
+        .map((category) => ({
+          category,
+          averages: categorizedExpenseAverages(
+            transactions,
+            dateRange,
+            today,
+            category,
+          ),
+        }))
+        .sort((left, right) => right.averages.monthly - left.averages.monthly),
+    [dateRange, today, transactions],
   );
-
-  const totalMonthly = rows.reduce(
-    (total, row) => total + row.averages.monthly,
-    0,
-  );
-  const totalDaily = rows.reduce(
-    (total, row) => total + row.averages.daily,
-    0,
-  );
-  const totalWeekly = rows.reduce(
-    (total, row) => total + row.averages.weekly,
-    0,
-  );
-  const totalYearly = amountForBudgetPeriod(totalMonthly, "yearly");
+  const total = categorizedExpenseAverages(transactions, dateRange, today);
 
   return (
-    <div className="surface mt-8 overflow-hidden rounded-2xl">
-      <div className="flex flex-col gap-4 border-b border-white/10 bg-white/[0.045] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+    <section className="mt-8">
+      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">
-            Recurring expenses
+            Expense categories
           </p>
+          <h2 className="mt-1 text-xl font-semibold text-white">
+            Spending from categorized transactions
+          </h2>
           <p className="mt-1 text-sm text-muted">
-            Monthly averages from expense history for{" "}
-            {formatExpenseDateRange(dateRange)}. Amounts use a four-week
-            budgeting month.
+            {formatExpenseDateRange(dateRange)} · included transactions only.
           </p>
         </div>
-        <Link
-          className="rounded-xl border border-accent/20 bg-accent/10 px-4 py-2.5 text-center text-sm font-semibold text-accent transition hover:bg-accent/15"
-          href={`${APP_BASE_PATH}/dashboard/budget/expenses`}
-        >
-          Manage expenses
-        </Link>
-      </div>
-
-      <div className="border-b border-white/10 bg-black/10 px-4 py-4 sm:px-5">
-        <DateRangePicker range={dateRange} onApply={setDateRange} />
-      </div>
-
-      <div className="grid border-b border-white/10 sm:grid-cols-3">
-        {[
-          { label: "Daily average", value: totalDaily },
-          { label: "Weekly average", value: totalWeekly },
-          { label: "Yearly average", value: totalYearly },
-        ].map((summary, index) => (
-          <div
-            className={`bg-white/[0.025] px-5 py-4 ${
-              index > 0
-                ? "border-t border-white/[0.07] sm:border-l sm:border-t-0"
-                : ""
-            }`}
-            key={summary.label}
+        <div className="flex flex-wrap items-center gap-3">
+          <DateRangePicker range={dateRange} onApply={setDateRange} />
+          <Link
+            className="rounded-xl border border-accent/20 bg-accent/10 px-4 py-2.5 text-center text-sm font-semibold text-accent transition hover:bg-accent/15"
+            href={`${APP_BASE_PATH}/dashboard/budget/expenses`}
           >
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
-              {summary.label}
+            Review transactions
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <article className="dashboard-tile rounded-2xl border border-accent/25 bg-accent/[0.09] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
+            All categories
+          </p>
+          <p className="mt-4 font-mono text-3xl font-semibold tracking-tight text-white">
+            {currencyFormatter.format(total.monthly)}
+          </p>
+          <p className="mt-3 text-xs leading-5 text-muted">
+            Monthly average · {currencyFormatter.format(total.daily)} per day
+          </p>
+        </article>
+        {categoryRows.map(({ category, averages }) => (
+          <article
+            className="dashboard-tile rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)]"
+            key={category}
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+              {labelForCategory(category, categories)}
             </p>
-            <p className="mt-2 font-mono text-xl font-semibold text-accent">
-              {formatCurrency(summary.value)}
+            <p className="mt-4 font-mono text-3xl font-semibold tracking-tight text-white">
+              {currencyFormatter.format(averages.monthly)}
             </p>
-          </div>
+            <p className="mt-3 text-xs leading-5 text-muted">
+              {currencyFormatter.format(averages.total)} total · {currencyFormatter.format(averages.daily)} per day
+            </p>
+          </article>
         ))}
       </div>
 
-      <div className="overflow-x-auto">
-        <div className="min-w-[1140px]">
-          <div className="grid grid-cols-[minmax(220px,1fr)_repeat(5,minmax(160px,0.5fr))] border-b border-white/10 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-            <span>Expense</span>
-            <span className="text-right">Daily</span>
-            <span className="text-right">Weekly</span>
-            <span className="text-right">Bi-Weekly</span>
-            <span className="text-right">Monthly</span>
-            <span className="text-right">Yearly</span>
-          </div>
-
-          {rows.map(({ item, averages }) => (
-            <div
-              className="grid grid-cols-[minmax(220px,1fr)_repeat(5,minmax(160px,0.5fr))] items-center border-b border-white/[0.07] px-5 py-3"
-              key={item.id}
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-white/80">
-                  {item.label}
-                </p>
-                {item.is_shared_cost ? (
-                  <p className="mt-0.5 text-xs text-muted">Shared cost</p>
-                ) : null}
-              </div>
-
-              <p className="text-right font-mono text-sm text-white">
-                {formatCurrency(averages.daily)}
-              </p>
-
-              {budgetPeriods.map((period: BudgetPeriod) => (
-                <p
-                  className="text-right font-mono text-sm text-white"
-                  key={period}
-                >
-                  {formatCurrency(
-                    amountForBudgetPeriod(averages.monthly, period),
-                  )}
-                </p>
-              ))}
-            </div>
-          ))}
-
-          {rows.length ? (
-            <div className="grid grid-cols-[minmax(220px,1fr)_repeat(5,minmax(160px,0.5fr))] items-center bg-white/[0.045] px-5 py-4">
-              <span className="text-sm font-semibold text-white">Total</span>
-              <span className="text-right font-mono text-sm font-semibold text-accent">
-                {formatCurrency(totalDaily)}
-              </span>
-              {budgetPeriods.map((period) => (
-                <span
-                  className="text-right font-mono text-sm font-semibold text-accent"
-                  key={period}
-                >
-                  {formatCurrency(amountForBudgetPeriod(totalMonthly, period))}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="px-5 py-10 text-center text-sm text-muted">
-              No expenses configured yet. Add entries on the Expenses page.
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
+      {!categoryRows.length ? (
+        <p className="surface mt-5 rounded-2xl px-5 py-10 text-center text-sm text-muted">
+          No categorized expenses in this date range. Review transactions to assign categories.
+        </p>
+      ) : null}
+    </section>
   );
 }

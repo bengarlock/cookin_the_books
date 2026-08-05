@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 
 import { LiveBankValues } from "@/components/live-bank-values";
 import { RecurringExpenses } from "@/components/recurring-expenses";
-import { getBudgetAverageTransactions } from "@/lib/budget-average-transactions";
-import { getBudgetItems } from "@/lib/budget-items";
 import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
 import { getDashboardPendingCardTransactions } from "@/lib/dashboard-pending-card-transactions";
-import { getExpenseEntries } from "@/lib/expense-entries";
+import { getExpenseCategories } from "@/lib/expense-categories";
+import { allTimeExpenseDateRange } from "@/lib/expense-date-range";
+import { getExpenseTransactions } from "@/lib/expense-transactions";
 import { getPendingTransactions } from "@/lib/pending-transactions";
 
 export const metadata: Metadata = {
@@ -15,17 +15,15 @@ export const metadata: Metadata = {
 
 export default async function BudgetPage() {
   const [
-    budgetItems,
     budgetPlanSettings,
-    creditCardTransactions,
-    expenseEntries,
+    expenseCategories,
+    expenseTransactions,
     pendingCardTransactions,
     pendingTransactions,
   ] = await Promise.all([
-    getBudgetItems(),
     getBudgetPlanSettings(),
-    getBudgetAverageTransactions(),
-    getExpenseEntries(),
+    getExpenseCategories(),
+    getExpenseTransactions(allTimeExpenseDateRange()),
     getDashboardPendingCardTransactions(),
     getPendingTransactions(),
   ]);
@@ -39,9 +37,8 @@ export default async function BudgetPage() {
         view="budget"
       />
       <RecurringExpenses
-        budgetItems={budgetItems}
-        creditCardTransactions={creditCardTransactions}
-        expenseEntries={expenseEntries}
+        categories={expenseCategories}
+        transactions={expenseTransactions}
       />
     </>
   );

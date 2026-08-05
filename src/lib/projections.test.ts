@@ -289,6 +289,36 @@ describe("remainingPaydaysInYear", () => {
 });
 
 describe("projectCurrentYear", () => {
+  it("uses categorized transactions instead of legacy expense tracks when available", () => {
+    const result = projectCurrentYear({
+      incomeEntries: [],
+      budgetItems: [budgetItem()],
+      expenseEntries: [expenseEntry("999.00", "2026-06-01")],
+      creditCardTransactions: [],
+      categorizedTransactions: [
+        {
+          amount: "120.00",
+          category: "groceries",
+          include: true,
+          split: false,
+          transaction_date: "2026-06-01",
+          transaction_type: "purchase",
+        },
+        {
+          amount: "80.00",
+          category: "needs_review",
+          include: true,
+          split: false,
+          transaction_date: "2026-06-02",
+          transaction_type: "purchase",
+        },
+      ],
+      currentDate: new Date(2026, 5, 27),
+    });
+
+    expect(result.ytdExpenses).toBe(120);
+  });
+
   it("combines year-to-date totals with forecasts for the rest of the year", () => {
     const item = budgetItem();
     const result = projectCurrentYear({
