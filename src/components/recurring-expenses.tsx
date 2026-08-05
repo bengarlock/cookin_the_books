@@ -132,10 +132,11 @@ export function RecurringExpenses({
             Expense categories
           </p>
           <h2 className="mt-1 text-xl font-semibold text-white">
-            Spending from categorized transactions
+            Operating spending from your categories
           </h2>
           <p className="mt-1 text-sm text-muted">
-            {formatExpenseDateRange(dateRange)} · included transactions only.
+            {formatExpenseDateRange(dateRange)} · direct income taxes and capital
+            payments excluded; confirmed refunds and shared reimbursements applied.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -167,7 +168,7 @@ export function RecurringExpenses({
       <section className="surface mt-5 overflow-hidden rounded-2xl">
         <div className="border-b border-white/10 bg-white/[0.045] px-5 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold">Expense categories</p>
-          <p className="mt-1 text-sm text-muted">Included categorized transactions for the selected period.</p>
+          <p className="mt-1 text-sm text-muted">Net operating expenses from user-controlled categories for the selected period.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[680px] text-left">
@@ -199,7 +200,8 @@ export function RecurringExpenses({
 
       {!categoryRows.length ? (
         <p className="surface mt-5 rounded-2xl px-5 py-10 text-center text-sm text-muted">
-          No categorized expenses in this date range. Review transactions to assign categories.
+          No user-categorized operating expenses in this date range. Review
+          transactions to assign categories or budget treatment.
         </p>
       ) : null}
     </section>

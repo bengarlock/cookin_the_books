@@ -15,7 +15,15 @@ export type CreditCardTransaction = {
   source_identifier: string;
   category: string;
   category_confidence: string | null;
-  category_source: "ai" | "rules" | "user" | "user_rule" | "plaid" | "";
+  category_source:
+    | "ai"
+    | "rules"
+    | "user"
+    | "user_rule"
+    | "plaid"
+    | "history_consensus"
+    | "manual"
+    | "";
   categorized_at: string | null;
   tags: ExpenseTag[];
   split: boolean;
@@ -102,12 +110,18 @@ export type ExpenseTransaction = Pick<
   | "amount"
   | "transaction_type"
   | "category"
+  | "category_source"
   | "tags"
   | "split"
   | "include"
   | "note"
+  | "plaid_category_primary"
+  | "plaid_category_detailed"
+  | "plaid_counterparty_name"
+  | "plaid_counterparty_entity_id"
   | "pending"
 > & {
+  related_transaction_ids: number[];
   has_amazon_orders: boolean;
   has_receipt_orders: boolean;
   amazon_orders?: AmazonOrder[];

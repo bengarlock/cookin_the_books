@@ -3,7 +3,10 @@ import type { Metadata } from "next";
 import { ExpenseHistory } from "@/components/expense-history";
 import { getBudgetItems } from "@/lib/budget-items";
 import { getExpenseCategories } from "@/lib/expense-categories";
-import { expenseDateRangeFromSearchParams } from "@/lib/expense-date-range";
+import {
+  allTimeExpenseDateRange,
+  expenseDateRangeFromSearchParams,
+} from "@/lib/expense-date-range";
 import { getExpenseEntries } from "@/lib/expense-entries";
 import { getExpenseTags } from "@/lib/expense-tags";
 import {
@@ -33,12 +36,13 @@ export default async function ExpensesPage({
     getExpenseEntries(),
     getExpenseCategories(),
     getExpenseTags(),
-    getExpenseTransactions(initialRange),
+    getExpenseTransactions(allTimeExpenseDateRange()),
     getExpenseTransactionMetadata(),
   ]);
 
   return (
     <ExpenseHistory
+      initialAllTransactionsLoaded
       initialBudgetItems={budgetItems}
       initialCategories={expenseCategories}
       initialEntries={expenseEntries}

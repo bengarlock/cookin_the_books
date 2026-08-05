@@ -6,6 +6,7 @@ import type { BudgetItem } from "./budget-item-types";
 import type { ExpenseEntry } from "./expense-entry-types";
 import type { PendingTransaction } from "./pending-transaction-types";
 import type { CreditCardTransaction } from "./credit-card-transaction-types";
+import type { CategorizedExpenseTransaction } from "./categorized-expense-averages";
 import { remainingPaydaysInYear } from "./pay-cycle";
 import {
   classifyPaychecks,
@@ -37,6 +38,31 @@ function incomeEntry(
     breakdown: {},
     created_at: overrides.pay_date,
     updated_at: overrides.pay_date,
+    ...overrides,
+  };
+}
+
+function categorizedTransaction(
+  overrides: Partial<CategorizedExpenseTransaction> = {},
+): CategorizedExpenseTransaction {
+  return {
+    id: 1,
+    issuer: "Chase",
+    account_last_four: "0277",
+    transaction_date: "2026-06-10",
+    description: "Groceries",
+    amount: "120.00",
+    transaction_type: "purchase",
+    category: "groceries",
+    category_source: "user_rule",
+    split: false,
+    include: true,
+    pending: false,
+    plaid_category_primary: "FOOD_AND_DRINK",
+    plaid_category_detailed: "FOOD_AND_DRINK_GROCERIES",
+    plaid_counterparty_name: "Grocery store",
+    plaid_counterparty_entity_id: "grocer",
+    related_transaction_ids: [],
     ...overrides,
   };
 }
@@ -297,23 +323,13 @@ describe("projectDateRange", () => {
         incomeEntry({ id: 2, pay_date: "2026-06-15", net_pay: "3000.00" }),
       ],
       categorizedTransactions: [
-        {
-          amount: "120.00",
-          category: "groceries",
-          include: true,
-          split: false,
-          transaction_date: "2026-06-10",
-          transaction_type: "purchase",
-        },
-        {
+        categorizedTransaction(),
+        categorizedTransaction({
+          id: 2,
           amount: "75.00",
-          category: "groceries",
-          include: true,
           pending: true,
-          split: false,
           transaction_date: "2026-06-20",
-          transaction_type: "purchase",
-        },
+        }),
       ],
       dateRange: { start: "2026-06-01", end: "2026-07-31" },
       currentDate: new Date(2026, 5, 27),
@@ -336,22 +352,15 @@ describe("projectCurrentYear", () => {
       expenseEntries: [expenseEntry("999.00", "2026-06-01")],
       creditCardTransactions: [],
       categorizedTransactions: [
-        {
-          amount: "120.00",
-          category: "groceries",
-          include: true,
-          split: false,
+        categorizedTransaction({
           transaction_date: "2026-06-01",
-          transaction_type: "purchase",
-        },
-        {
+        }),
+        categorizedTransaction({
+          id: 2,
           amount: "80.00",
           category: "needs_review",
-          include: true,
-          split: false,
           transaction_date: "2026-06-02",
-          transaction_type: "purchase",
-        },
+        }),
       ],
       currentDate: new Date(2026, 5, 27),
     });
