@@ -1,7 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
 
 import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
@@ -23,7 +22,6 @@ import {
   scaleExpenseAverages,
 } from "@/lib/expense-averages";
 import {
-  defaultExpenseDateRange,
   mergeExpenseDateRange,
   type ExpenseDateRange,
   formatExpenseDateRange,
@@ -33,7 +31,6 @@ import {
   compactExpenseTransaction,
   mergeExpenseTransactions,
 } from "@/lib/expense-transaction-record";
-import type { ExpenseTransactionMetadata } from "@/lib/expense-transactions";
 import {
   validateCreditCardImportFiles,
   validatePdfImportFiles,
@@ -76,7 +73,6 @@ export function ExpenseHistory({
   initialEntries,
   initialRange,
   initialTags,
-  initialTransactionMetadata,
   initialTransactions,
 }: {
   initialAllTransactionsLoaded?: boolean;
@@ -85,7 +81,6 @@ export function ExpenseHistory({
   initialEntries: ExpenseEntry[];
   initialRange: ExpenseDateRange;
   initialTags: ExpenseTag[];
-  initialTransactionMetadata: ExpenseTransactionMetadata;
   initialTransactions: ExpenseTransaction[];
 }) {
   const [items, setItems] = useState(initialBudgetItems);
@@ -117,11 +112,7 @@ export function ExpenseHistory({
   >({});
   const [importMessage, setImportMessage] = useState("");
   const [categorizing, setCategorizing] = useState(false);
-  const [spendingDateRange, setSpendingDateRange] = useState<ExpenseDateRange>(
-    initialRange,
-  );
-  const pathname = usePathname();
-  const router = useRouter();
+  const spendingDateRange = initialRange;
   const [expandedSpendingCategory, setExpandedSpendingCategory] = useState<
     string | null
   >(null);
@@ -156,12 +147,10 @@ export function ExpenseHistory({
     note: "",
     excludeFromCreditCard: false,
   });
-  const [dateRanges, setDateRanges] = useState<Record<number, ExpenseDateRange>>(
-    () =>
-      Object.fromEntries(
-        initialBudgetItems.map((item) => [item.id, initialRange]),
-      ),
-  );
+  const sharedRangeKey = `${initialRange.start}:${initialRange.end}`;
+  const [dateRanges, setDateRanges] = useState<
+    Record<number, { range: ExpenseDateRange; sharedRangeKey: string }>
+  >({});
   const today = todayString();
   const categoryList = initialCategories;
   const categoryLabels = categoryLabelMap(categoryList);
@@ -231,34 +220,6 @@ export function ExpenseHistory({
     undefined,
     propertyTaxExpenses,
   ).total;
-  const earliestTransactionDate = creditCardTransactions.reduce(
-    (earliest, item) =>
-      !earliest || item.transaction_date < earliest
-        ? item.transaction_date
-        : earliest,
-    "",
-  );
-  const creditCardTransactionYears = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          [
-            ...initialTransactionMetadata.available_years,
-            ...creditCardTransactions.map((transaction) =>
-              Number(transaction.transaction_date.slice(0, 4)),
-            ),
-          ],
-        ),
-      ).sort((left, right) => right - left),
-    [creditCardTransactions, initialTransactionMetadata.available_years],
-  );
-  const allTimeTransactionStart =
-    [
-      initialTransactionMetadata.earliest_transaction_date,
-      earliestTransactionDate,
-    ]
-      .filter((value): value is string => Boolean(value))
-      .sort()[0] || undefined;
   const availableTagNames = tagLibrary
     .map((tag) => tag.name)
     .sort((left, right) => left.localeCompare(right));
@@ -315,17 +276,12 @@ export function ExpenseHistory({
     }
   }
 
-  async function applySpendingRange(range: ExpenseDateRange) {
-    if (await loadTransactions(range)) {
-      setSpendingDateRange(range);
-      router.replace(`${pathname}?${new URLSearchParams(range)}`);
-      setExpandedSpendingCategory(null);
-    }
-  }
-
   async function applyItemRange(itemId: number, range: ExpenseDateRange) {
     if (await loadTransactions(range)) {
-      setDateRanges((current) => ({ ...current, [itemId]: range }));
+      setDateRanges((current) => ({
+        ...current,
+        [itemId]: { range, sharedRangeKey },
+      }));
     }
   }
 
@@ -782,7 +738,15 @@ export function ExpenseHistory({
             };
             setDateRanges((current) => ({
               ...current,
-              [item.id]: mergeExpenseDateRange(current[item.id], importedRange),
+              [item.id]: {
+                range: mergeExpenseDateRange(
+                  current[item.id]?.sharedRangeKey === sharedRangeKey
+                    ? current[item.id].range
+                    : initialRange,
+                  importedRange,
+                ),
+                sharedRangeKey,
+              },
             }));
             setExpandedTransactionItems((current) => ({
               ...current,
@@ -890,13 +854,6 @@ export function ExpenseHistory({
                 type="button"
               >×</button> : null}
             </label>
-            <DateRangePicker
-              allTimeStart={allTimeTransactionStart}
-              availableYears={creditCardTransactionYears}
-              dialogLabel="Select spending graph date range"
-              onApply={(range) => void applySpendingRange(range)}
-              range={spendingDateRange}
-            />
             <button className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50"
               disabled={categorizing} onClick={() => void categorizeExpenses()} type="button">
               {categorizing ? "Categorizing…" : "Categorize new expenses"}
@@ -1049,7 +1006,9 @@ export function ExpenseHistory({
       <div className="grid gap-5 xl:grid-cols-2">
         {items.map((item) => {
           const dateRange =
-            dateRanges[item.id] || defaultExpenseDateRange();
+            dateRanges[item.id]?.sharedRangeKey === sharedRangeKey
+              ? dateRanges[item.id].range
+              : initialRange;
           const relevantEntries = entries
             .filter(
               (entry) =>
