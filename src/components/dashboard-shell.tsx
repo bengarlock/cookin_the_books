@@ -4,11 +4,12 @@ import Link from "next/link";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import { LogoutButton } from "@/components/logout-button";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { APP_BASE_PATH } from "@/lib/config";
+import { isExpenseDateRange } from "@/lib/expense-date-range";
 
 type IconProps = {
   className?: string;
@@ -362,6 +363,16 @@ function isNavigationSectionActive(pathname: string, href: string) {
 
 export function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const budgetRange = isExpenseDateRange({
+    start: searchParams.get("start") || "",
+    end: searchParams.get("end") || "",
+  })
+    ? {
+        start: searchParams.get("start") || "",
+        end: searchParams.get("end") || "",
+      }
+    : null;
   const isBudgetSectionActive = isNavigationSectionActive(
     pathname,
     budgetParentHref,
@@ -370,6 +381,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     isBudgetSectionActive,
   );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  function budgetHref(href: string) {
+    if (href === "/dashboard/budget/goals" || !budgetRange) return href;
+    return `${href}?${new URLSearchParams(budgetRange)}`;
+  }
 
   return (
     <div className="app-backdrop min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
@@ -430,7 +446,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               <div key={item.name} className="w-full lg:w-auto">
                 <div className="flex items-center gap-2">
                   <Link
-                    href={item.href}
+                    href={budgetHref(item.href)}
                     prefetch={false}
                     onClick={() => {
                       setIsBudgetExpanded(true);
@@ -482,7 +498,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
                     return (
                       <Link
-                        href={child.href}
+                        href={budgetHref(child.href)}
                         prefetch={false}
                         onClick={() => setIsMobileMenuOpen(false)}
                         className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition lg:ml-8 lg:w-[calc(100%-2rem)] ${

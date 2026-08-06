@@ -9,10 +9,7 @@ import {
 } from "@/lib/expense-date-range";
 import { getExpenseEntries } from "@/lib/expense-entries";
 import { getExpenseTags } from "@/lib/expense-tags";
-import {
-  getExpenseTransactionMetadata,
-  getExpenseTransactions,
-} from "@/lib/expense-transactions";
+import { getExpenseTransactions } from "@/lib/expense-transactions";
 
 export const metadata: Metadata = {
   title: "Expenses",
@@ -30,14 +27,12 @@ export default async function ExpensesPage({
     expenseCategories,
     expenseTags,
     expenseTransactions,
-    expenseTransactionMetadata,
   ] = await Promise.all([
     getBudgetItems(),
     getExpenseEntries(),
     getExpenseCategories(),
     getExpenseTags(),
     getExpenseTransactions(allTimeExpenseDateRange()),
-    getExpenseTransactionMetadata(),
   ]);
 
   return (
@@ -48,7 +43,6 @@ export default async function ExpensesPage({
       initialEntries={expenseEntries}
       initialRange={initialRange}
       initialTags={expenseTags}
-      initialTransactionMetadata={expenseTransactionMetadata}
       initialTransactions={expenseTransactions}
     />
   );

@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useMemo } from "react";
 
-import { DateRangePicker } from "@/components/date-range-picker";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import { APP_BASE_PATH } from "@/lib/config";
@@ -63,9 +61,7 @@ export function RecurringExpenses({
   initialRange: ExpenseDateRange;
   transactions: ExpenseTransaction[];
 }) {
-  const [dateRange, setDateRange] = useState(initialRange);
-  const pathname = usePathname();
-  const router = useRouter();
+  const dateRange = initialRange;
   const { snapshot } = useLiveSnapshot();
   const today = todayString();
   const categoryRows = useMemo(
@@ -119,11 +115,6 @@ export function RecurringExpenses({
     [budgetPlanSettings.next_payday_override, incomeEntries, pendingTransactions, propertyTaxExpenses, snapshot, transactions],
   );
 
-  function applyDateRange(nextRange: ExpenseDateRange) {
-    setDateRange(nextRange);
-    router.replace(`${pathname}?${new URLSearchParams(nextRange)}`);
-  }
-
   return (
     <section className="mt-8">
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -140,10 +131,9 @@ export function RecurringExpenses({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <DateRangePicker range={dateRange} onApply={applyDateRange} />
           <Link
             className="rounded-xl border border-accent/20 bg-accent/10 px-4 py-2.5 text-center text-sm font-semibold text-accent transition hover:bg-accent/15"
-            href={`${APP_BASE_PATH}/dashboard/budget/expenses`}
+            href={`${APP_BASE_PATH}/dashboard/budget/expenses?${new URLSearchParams(dateRange)}`}
           >
             Review transactions
           </Link>
