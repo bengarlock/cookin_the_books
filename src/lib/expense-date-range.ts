@@ -32,17 +32,25 @@ export function defaultExpenseDateRange(currentDate = new Date()) {
   };
 }
 
+export function isExpenseDateRange(
+  value: Partial<ExpenseDateRange>,
+): value is ExpenseDateRange {
+  return (
+    typeof value.start === "string" &&
+    typeof value.end === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value.start) &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value.end) &&
+    value.start <= value.end
+  );
+}
+
 export function expenseDateRangeFromSearchParams(
   searchParams: { start?: string | string[]; end?: string | string[] },
   currentDate = new Date(),
 ) {
   const start = typeof searchParams.start === "string" ? searchParams.start : "";
   const end = typeof searchParams.end === "string" ? searchParams.end : "";
-  if (
-    /^\d{4}-\d{2}-\d{2}$/.test(start) &&
-    /^\d{4}-\d{2}-\d{2}$/.test(end) &&
-    start <= end
-  ) {
+  if (isExpenseDateRange({ start, end })) {
     return { start, end };
   }
   return defaultExpenseDateRange(currentDate);

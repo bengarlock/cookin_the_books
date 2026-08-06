@@ -6,6 +6,7 @@ import {
   expenseDateRangeFromSearchParams,
   expenseDateRangePreset,
   formatExpenseDateRange,
+  isExpenseDateRange,
   mergeExpenseDateRange,
 } from "./expense-date-range";
 
@@ -42,6 +43,16 @@ describe("expense date ranges", () => {
         new Date(2026, 5, 22),
       ),
     ).toEqual({ start: "2026-01-01", end: "2026-06-22" });
+  });
+
+  it("only accepts complete, ordered date ranges", () => {
+    expect(
+      isExpenseDateRange({ start: "2025-01-01", end: "2025-12-31" }),
+    ).toBe(true);
+    expect(
+      isExpenseDateRange({ start: "2025-12-31", end: "2025-01-01" }),
+    ).toBe(false);
+    expect(isExpenseDateRange({ start: "2025-01-01" })).toBe(false);
   });
 
   it("handles a month-end date", () => {
