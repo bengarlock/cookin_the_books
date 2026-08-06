@@ -6,6 +6,7 @@ import type { BudgetItem } from "./budget-item-types";
 import type { ExpenseEntry } from "./expense-entry-types";
 import type { PendingTransaction } from "./pending-transaction-types";
 import type { CreditCardTransaction } from "./credit-card-transaction-types";
+import type { CategorizedExpenseTransaction } from "./categorized-expense-averages";
 import { remainingPaydaysInYear } from "./pay-cycle";
 import {
   classifyPaychecks,
@@ -13,6 +14,7 @@ import {
   incomeEntriesInLookback,
   liquidReservesFromSnapshot,
   projectCurrentYear,
+  projectDateRange,
   projectRevenueAfterPayCycle,
   projectUnemploymentRunway,
   yearToDateIncome,
@@ -36,6 +38,31 @@ function incomeEntry(
     breakdown: {},
     created_at: overrides.pay_date,
     updated_at: overrides.pay_date,
+    ...overrides,
+  };
+}
+
+function categorizedTransaction(
+  overrides: Partial<CategorizedExpenseTransaction> = {},
+): CategorizedExpenseTransaction {
+  return {
+    id: 1,
+    issuer: "Chase",
+    account_last_four: "0277",
+    transaction_date: "2026-06-10",
+    description: "Groceries",
+    amount: "120.00",
+    transaction_type: "purchase",
+    category: "groceries",
+    category_source: "user_rule",
+    split: false,
+    include: true,
+    pending: false,
+    plaid_category_primary: "FOOD_AND_DRINK",
+    plaid_category_detailed: "FOOD_AND_DRINK_GROCERIES",
+    plaid_counterparty_name: "Grocery store",
+    plaid_counterparty_entity_id: "grocer",
+    related_transaction_ids: [],
     ...overrides,
   };
 }
@@ -288,7 +315,59 @@ describe("remainingPaydaysInYear", () => {
   });
 });
 
+describe("projectDateRange", () => {
+  it("recalculates actuals and forecasts for the selected dates", () => {
+    const result = projectDateRange({
+      incomeEntries: [
+        incomeEntry({ id: 1, pay_date: "2026-06-01", net_pay: "3000.00" }),
+        incomeEntry({ id: 2, pay_date: "2026-06-15", net_pay: "3000.00" }),
+      ],
+      categorizedTransactions: [
+        categorizedTransaction(),
+        categorizedTransaction({
+          id: 2,
+          amount: "75.00",
+          pending: true,
+          transaction_date: "2026-06-20",
+        }),
+      ],
+      dateRange: { start: "2026-06-01", end: "2026-07-31" },
+      currentDate: new Date(2026, 5, 27),
+    });
+
+    expect(result.actualIncome).toBe(6000);
+    expect(result.actualExpenses).toBe(120);
+    expect(result.remainingPaydays).toBe(3);
+    expect(result.forecastIncome).toBe(9000);
+    expect(result.remainingDays).toBe(34);
+    expect(result.projectedExpenses).toBeGreaterThan(result.actualExpenses);
+  });
+});
+
 describe("projectCurrentYear", () => {
+  it("uses categorized transactions instead of legacy expense tracks when available", () => {
+    const result = projectCurrentYear({
+      incomeEntries: [],
+      budgetItems: [budgetItem()],
+      expenseEntries: [expenseEntry("999.00", "2026-06-01")],
+      creditCardTransactions: [],
+      categorizedTransactions: [
+        categorizedTransaction({
+          transaction_date: "2026-06-01",
+        }),
+        categorizedTransaction({
+          id: 2,
+          amount: "80.00",
+          category: "needs_review",
+          transaction_date: "2026-06-02",
+        }),
+      ],
+      currentDate: new Date(2026, 5, 27),
+    });
+
+    expect(result.ytdExpenses).toBe(120);
+  });
+
   it("combines year-to-date totals with forecasts for the rest of the year", () => {
     const item = budgetItem();
     const result = projectCurrentYear({

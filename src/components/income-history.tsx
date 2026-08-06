@@ -1,13 +1,13 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 import { DateRangePicker } from "@/components/date-range-picker";
 import { APP_BASE_PATH } from "@/lib/config";
 import { cashAccountIncomeTransactions } from "@/lib/cash-account-ledgers";
 import type { IncomeTransaction } from "@/lib/credit-card-transaction-types";
 import {
-  defaultExpenseDateRange,
   formatExpenseDateRange,
   type ExpenseDateRange,
 } from "@/lib/expense-date-range";
@@ -147,17 +147,21 @@ function statementEntries(
 export function IncomeHistory({
   initialIncomeEntries,
   initialIncomeTransactions,
+  initialRange,
 }: {
   initialIncomeEntries: IncomeEntry[];
   initialIncomeTransactions: IncomeTransaction[];
+  initialRange: ExpenseDateRange;
 }) {
   const [entries, setEntries] = useState(initialIncomeEntries);
   const [incomeTransactions, setIncomeTransactions] = useState(
     initialIncomeTransactions,
   );
   const [dateRange, setDateRange] = useState<ExpenseDateRange>(
-    defaultExpenseDateRange(),
+    initialRange,
   );
+  const pathname = usePathname();
+  const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -577,7 +581,13 @@ export function IncomeHistory({
         </div>
 
         <div className="border-b border-white/[0.07] px-5 py-4">
-          <DateRangePicker range={dateRange} onApply={setDateRange} />
+          <DateRangePicker
+            range={dateRange}
+            onApply={(nextRange) => {
+              setDateRange(nextRange);
+              router.replace(`${pathname}?${new URLSearchParams(nextRange)}`);
+            }}
+          />
         </div>
 
         <div className="grid grid-cols-2 border-b border-white/[0.07] bg-black/10 lg:grid-cols-5">

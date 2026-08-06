@@ -2,6 +2,7 @@ import type { ExpenseCategory } from "@/lib/expense-category-types";
 
 const specialCategoryLabels: Record<string, string> = {
   needs_review: "Needs review",
+  property_taxes: "Property taxes",
   transfer: "Transfer",
 };
 

@@ -1,8 +1,10 @@
 import type { IncomeEntry } from "./income-entry-types";
 import { defaultExpenseDateRange, localDateString } from "./expense-date-range";
+import type { ExpenseDateRange } from "./expense-date-range";
 import type { PendingTransaction } from "./pending-transaction-types";
 import {
   formatPayday,
+  followingPayday,
   getCurrentPayPeriod,
   getNextPayCycle,
   localPaydayString,
@@ -21,6 +23,11 @@ import type {
 import type { ExpenseEntry } from "./expense-entry-types";
 import { cashAccountIncomeTransactions } from "./cash-account-ledgers";
 import { incomeLedgerTotals } from "./income-reconciliation";
+import {
+  categorizedExpenseAverages,
+  type CategorizedExpenseTransaction,
+  type SupplementalCategorizedExpense,
+} from "./categorized-expense-averages";
 
 const LIABILITY_ACCOUNTS: SnapshotAccountKey[] = [
   "chase_credit",
@@ -102,6 +109,18 @@ export type CurrentYearProjection = {
   projectedNet: number;
   remainingPaydays: number;
   predictedPaycheck: number;
+  remainingDays: number;
+};
+
+export type DateRangeProjection = {
+  actualIncome: number;
+  forecastIncome: number;
+  projectedIncome: number;
+  actualExpenses: number;
+  forecastExpenses: number;
+  projectedExpenses: number;
+  projectedNet: number;
+  remainingPaydays: number;
   remainingDays: number;
 };
 
@@ -342,6 +361,93 @@ function calendarDaysBetween(start: string, end: string) {
   return Math.floor((endValue - startValue) / MILLISECONDS_PER_DAY) + 1;
 }
 
+function forecastPaydaysInRange(
+  dateRange: ExpenseDateRange,
+  currentDate: Date,
+  nextPaydayOverride?: string | null,
+) {
+  const tomorrow = new Date(
+    currentDate.getFullYear(),
+    currentDate.getMonth(),
+    currentDate.getDate() + 1,
+  );
+  const forecastStart = localDateString(tomorrow);
+  if (dateRange.end < forecastStart) return 0;
+
+  let payday = getNextPayCycle(currentDate, nextPaydayOverride).nextPayday;
+  let count = 0;
+  while (localPaydayString(payday) <= dateRange.end) {
+    if (localPaydayString(payday) >= dateRange.start) count += 1;
+    payday = followingPayday(payday);
+  }
+  return count;
+}
+
+export function projectDateRange({
+  incomeEntries,
+  incomeTransactions = [],
+  categorizedTransactions,
+  supplementalExpenses,
+  dateRange,
+  currentDate = new Date(),
+  nextPaydayOverride,
+}: {
+  incomeEntries: IncomeEntry[];
+  incomeTransactions?: IncomeTransaction[];
+  categorizedTransactions: CategorizedExpenseTransaction[];
+  supplementalExpenses?: SupplementalCategorizedExpense[];
+  dateRange: ExpenseDateRange;
+  currentDate?: Date;
+  nextPaydayOverride?: string | null;
+}): DateRangeProjection {
+  const today = localDateString(currentDate);
+  const effectiveEnd = dateRange.end < today ? dateRange.end : today;
+  const actualRange = { start: dateRange.start, end: effectiveEnd };
+  const actualIncome = incomeLedgerTotals(
+    incomeEntries,
+    cashAccountIncomeTransactions(incomeTransactions, { includeExcluded: true }),
+    actualRange,
+  ).net;
+  const expenseAverages = categorizedExpenseAverages(
+    categorizedTransactions,
+    actualRange,
+    today,
+    undefined,
+    supplementalExpenses,
+  );
+  const remainingPaydays = forecastPaydaysInRange(
+    dateRange,
+    currentDate,
+    nextPaydayOverride,
+  );
+  const predictedPaycheck = classifyPaychecks(
+    incomeEntries,
+    currentDate,
+  ).predictedNetPay;
+  const forecastIncome = remainingPaydays * predictedPaycheck;
+  const forecastStart = dateRange.start > today ? dateRange.start : today;
+  const remainingDays = Math.max(
+    0,
+    calendarDaysBetween(forecastStart, dateRange.end) -
+      (forecastStart === today ? 1 : 0),
+  );
+  const forecastExpenses = expenseAverages.daily * remainingDays;
+  const projectedIncome = actualIncome + forecastIncome;
+  const projectedExpenses = expenseAverages.total + forecastExpenses;
+
+  return {
+    actualIncome,
+    forecastIncome,
+    projectedIncome,
+    actualExpenses: expenseAverages.total,
+    forecastExpenses,
+    projectedExpenses,
+    projectedNet: projectedIncome - projectedExpenses,
+    remainingPaydays,
+    remainingDays,
+  };
+}
+
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function currentYearBounds(currentDate = new Date()) {
@@ -369,6 +475,8 @@ export function projectCurrentYear({
   budgetItems,
   expenseEntries,
   creditCardTransactions,
+  categorizedTransactions,
+  supplementalExpenses,
   incomeTransactions = [],
   currentDate = new Date(),
   nextPaydayOverride,
@@ -377,6 +485,8 @@ export function projectCurrentYear({
   budgetItems: BudgetItem[];
   expenseEntries: ExpenseEntry[];
   creditCardTransactions: BudgetAverageTransaction[];
+  categorizedTransactions?: CategorizedExpenseTransaction[];
+  supplementalExpenses?: SupplementalCategorizedExpense[];
   incomeTransactions?: IncomeTransaction[];
   currentDate?: Date;
   nextPaydayOverride?: string | null;
@@ -402,17 +512,29 @@ export function projectCurrentYear({
   let ytdExpenses = 0;
   let monthlyExpenseRate = 0;
 
-  for (const item of budgetItems) {
-    const averages = budgetItemExpenseAverages(
-      item,
-      expenseEntries,
-      creditCardTransactions,
+  if (categorizedTransactions) {
+    const averages = categorizedExpenseAverages(
+      categorizedTransactions,
       yearDateRange,
       today,
-      budgetItems,
+      undefined,
+      supplementalExpenses,
     );
-    ytdExpenses += averages.total;
-    monthlyExpenseRate += averages.monthly;
+    ytdExpenses = averages.total;
+    monthlyExpenseRate = averages.monthly;
+  } else {
+    for (const item of budgetItems) {
+      const averages = budgetItemExpenseAverages(
+        item,
+        expenseEntries,
+        creditCardTransactions,
+        yearDateRange,
+        today,
+        budgetItems,
+      );
+      ytdExpenses += averages.total;
+      monthlyExpenseRate += averages.monthly;
+    }
   }
 
   const remainingDays = Math.max(0, calendarDaysBetween(today, end) - 1);
@@ -440,6 +562,8 @@ export function projectRevenueAfterPayCycle({
   budgetItems,
   expenseEntries,
   creditCardTransactions,
+  categorizedTransactions,
+  supplementalExpenses,
   snapshot,
   pendingTransactions,
   currentDate = new Date(),
@@ -449,6 +573,8 @@ export function projectRevenueAfterPayCycle({
   budgetItems: BudgetItem[];
   expenseEntries: ExpenseEntry[];
   creditCardTransactions: BudgetAverageTransaction[];
+  categorizedTransactions?: CategorizedExpenseTransaction[];
+  supplementalExpenses?: SupplementalCategorizedExpense[];
   snapshot: BankValueSnapshot | null;
   pendingTransactions: PendingTransaction[];
   currentDate?: Date;
@@ -464,6 +590,8 @@ export function projectRevenueAfterPayCycle({
     budgetItems,
     expenseEntries,
     creditCardTransactions,
+    categorizedTransactions,
+    supplementalExpenses,
     currentDate,
   });
   const today = localDateString(currentDate);
@@ -475,19 +603,27 @@ export function projectRevenueAfterPayCycle({
     start: localPaydayString(currentPayPeriod.start),
     end: today,
   };
-  const spentThisPayCycle = budgetItems.reduce(
-    (total, item) =>
-      total +
-      budgetItemExpenseAverages(
-        item,
-        expenseEntries,
-        creditCardTransactions,
+  const spentThisPayCycle = categorizedTransactions
+    ? categorizedExpenseAverages(
+        categorizedTransactions,
         currentPayCycleDateRange,
         today,
-        budgetItems,
-      ).total,
-    0,
-  );
+        undefined,
+        supplementalExpenses,
+      ).total
+    : budgetItems.reduce(
+        (total, item) =>
+          total +
+          budgetItemExpenseAverages(
+            item,
+            expenseEntries,
+            creditCardTransactions,
+            currentPayCycleDateRange,
+            today,
+            budgetItems,
+          ).total,
+        0,
+      );
   const predictedAdditionalSpend =
     dailyAverageExpense * payCycle.daysRemaining;
   const predictedSpend = spentThisPayCycle + predictedAdditionalSpend;
@@ -518,17 +654,30 @@ export function dailyExpenseAverage({
   budgetItems,
   expenseEntries,
   creditCardTransactions,
+  categorizedTransactions,
+  supplementalExpenses,
   currentDate = new Date(),
   excludeCreditCard = false,
 }: {
   budgetItems: BudgetItem[];
   expenseEntries: ExpenseEntry[];
   creditCardTransactions: BudgetAverageTransaction[];
+  categorizedTransactions?: CategorizedExpenseTransaction[];
+  supplementalExpenses?: SupplementalCategorizedExpense[];
   currentDate?: Date;
   excludeCreditCard?: boolean;
 }) {
   const today = localDateString(currentDate);
   const expenseDateRange = defaultExpenseDateRange(currentDate);
+  if (categorizedTransactions) {
+    return categorizedExpenseAverages(
+      categorizedTransactions,
+      expenseDateRange,
+      today,
+      undefined,
+      supplementalExpenses,
+    ).daily;
+  }
   return budgetItems
     .filter((item) => !excludeCreditCard || item.key !== "credit-card")
     .reduce(
@@ -577,6 +726,8 @@ export function projectUnemploymentRunway({
   budgetItems,
   expenseEntries,
   creditCardTransactions,
+  categorizedTransactions,
+  supplementalExpenses,
   snapshot,
   pendingTransactions,
   currentDate = new Date(),
@@ -584,6 +735,8 @@ export function projectUnemploymentRunway({
   budgetItems: BudgetItem[];
   expenseEntries: ExpenseEntry[];
   creditCardTransactions: BudgetAverageTransaction[];
+  categorizedTransactions?: CategorizedExpenseTransaction[];
+  supplementalExpenses?: SupplementalCategorizedExpense[];
   snapshot: BankValueSnapshot | null;
   pendingTransactions: PendingTransaction[];
   currentDate?: Date;
@@ -594,6 +747,8 @@ export function projectUnemploymentRunway({
     budgetItems,
     expenseEntries,
     creditCardTransactions,
+    categorizedTransactions,
+    supplementalExpenses,
     currentDate,
   });
   const monthlyBurnRate = dailyBurnRate * AVERAGE_DAYS_PER_MONTH;

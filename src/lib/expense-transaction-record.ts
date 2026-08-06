@@ -19,10 +19,20 @@ export function compactExpenseTransaction(
     amount: transaction.amount,
     transaction_type: transaction.transaction_type,
     category: transaction.category,
+    category_source: transaction.category_source,
     tags: transaction.tags,
     split: transaction.split,
     include: transaction.include,
+    pending: transaction.pending,
     note: transaction.note,
+    plaid_category_primary: transaction.plaid_category_primary,
+    plaid_category_detailed: transaction.plaid_category_detailed,
+    plaid_counterparty_name: transaction.plaid_counterparty_name,
+    plaid_counterparty_entity_id: transaction.plaid_counterparty_entity_id,
+    related_transaction_ids:
+      "related_transaction_ids" in transaction
+        ? transaction.related_transaction_ids
+        : transaction.related_transactions.map((related) => related.id),
     has_amazon_orders:
       "has_amazon_orders" in transaction
         ? transaction.has_amazon_orders

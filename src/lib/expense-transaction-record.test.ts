@@ -67,6 +67,24 @@ describe("compactExpenseTransaction", () => {
   it("keeps only the expense fields and derives matched-order flags", () => {
     const compact = compactExpenseTransaction(
       fullTransaction({
+        category_source: "user_rule",
+        plaid_category_primary: "FOOD_AND_DRINK",
+        plaid_category_detailed: "FOOD_AND_DRINK_COFFEE",
+        plaid_counterparty_name: "Coffee Shop",
+        plaid_counterparty_entity_id: "merchant-10",
+        related_transactions: [
+          {
+            id: 20,
+            description: "Coffee refund",
+            transaction_date: "2026-01-16",
+            issuer: "Chase",
+            account_last_four: "9125",
+            amount: "4.00",
+            transaction_type: "credit",
+            category: "dining",
+            tags: [],
+          },
+        ],
         amazon_orders: [
           {
             id: 10,
@@ -87,7 +105,23 @@ describe("compactExpenseTransaction", () => {
 
     expect(compact.has_amazon_orders).toBe(true);
     expect(compact.has_receipt_orders).toBe(false);
+    expect(compact.pending).toBe(false);
+    expect(compact.category_source).toBe("user_rule");
+    expect(compact.plaid_category_primary).toBe("FOOD_AND_DRINK");
+    expect(compact.plaid_category_detailed).toBe("FOOD_AND_DRINK_COFFEE");
+    expect(compact.plaid_counterparty_name).toBe("Coffee Shop");
+    expect(compact.plaid_counterparty_entity_id).toBe("merchant-10");
+    expect(compact.related_transaction_ids).toEqual([20]);
     expect(compact).not.toHaveProperty("source_identifier");
+    expect(compact).not.toHaveProperty("related_transactions");
+  });
+
+  it("preserves related transaction IDs from an already compact record", () => {
+    const compact = compactExpenseTransaction(
+      compactTransaction({ related_transaction_ids: [30, 31] }),
+    );
+
+    expect(compact.related_transaction_ids).toEqual([30, 31]);
   });
 });
 

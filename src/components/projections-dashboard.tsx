@@ -3,15 +3,18 @@
 import { type ReactNode, useMemo, useState } from "react";
 
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
-import type { BudgetItem } from "@/lib/budget-item-types";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import { APP_BASE_PATH } from "@/lib/config";
 import type {
-  BudgetAverageTransaction,
+  ExpenseTransaction,
   IncomeTransaction,
 } from "@/lib/credit-card-transaction-types";
-import type { ExpenseEntry } from "@/lib/expense-entry-types";
 import type { IncomeEntry } from "@/lib/income-entry-types";
+import type { SupplementalCategorizedExpense } from "@/lib/categorized-expense-averages";
+import {
+  formatExpenseDateRange,
+  type ExpenseDateRange,
+} from "@/lib/expense-date-range";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import {
   followingPayday,
@@ -20,7 +23,7 @@ import {
 } from "@/lib/pay-cycle";
 import {
   formatRunwayDuration,
-  projectCurrentYear,
+  projectDateRange,
   projectRevenueAfterPayCycle,
   projectUnemploymentRunway,
 } from "@/lib/projections";
@@ -136,18 +139,18 @@ function SummaryRow({
 }
 
 export function ProjectionsDashboard({
-  initialBudgetItems,
   initialBudgetPlanSettings,
-  initialCreditCardTransactions,
-  initialExpenseEntries,
+  initialCategorizedTransactions,
+  initialPropertyTaxExpenses,
+  initialRange,
   initialIncomeEntries,
   initialIncomeTransactions,
   initialPendingTransactions,
 }: {
-  initialBudgetItems: BudgetItem[];
   initialBudgetPlanSettings: BudgetPlanSettings;
-  initialCreditCardTransactions: BudgetAverageTransaction[];
-  initialExpenseEntries: ExpenseEntry[];
+  initialCategorizedTransactions: ExpenseTransaction[];
+  initialPropertyTaxExpenses: SupplementalCategorizedExpense[];
+  initialRange: ExpenseDateRange;
   initialIncomeEntries: IncomeEntry[];
   initialIncomeTransactions: IncomeTransaction[];
   initialPendingTransactions: PendingTransaction[];
@@ -165,17 +168,18 @@ export function ProjectionsDashboard({
     () =>
       projectRevenueAfterPayCycle({
         incomeEntries: initialIncomeEntries,
-        budgetItems: initialBudgetItems,
-        expenseEntries: initialExpenseEntries,
-        creditCardTransactions: initialCreditCardTransactions,
+        budgetItems: [],
+        expenseEntries: [],
+        creditCardTransactions: [],
+        categorizedTransactions: initialCategorizedTransactions,
+        supplementalExpenses: initialPropertyTaxExpenses,
         snapshot,
         pendingTransactions: initialPendingTransactions,
         nextPaydayOverride,
       }),
     [
-      initialBudgetItems,
-      initialCreditCardTransactions,
-      initialExpenseEntries,
+      initialCategorizedTransactions,
+      initialPropertyTaxExpenses,
       initialIncomeEntries,
       initialPendingTransactions,
       nextPaydayOverride,
@@ -183,22 +187,22 @@ export function ProjectionsDashboard({
     ],
   );
 
-  const yearProjection = useMemo(
+  const rangeProjection = useMemo(
     () =>
-      projectCurrentYear({
+      projectDateRange({
         incomeEntries: initialIncomeEntries,
-        budgetItems: initialBudgetItems,
-        expenseEntries: initialExpenseEntries,
-        creditCardTransactions: initialCreditCardTransactions,
+        categorizedTransactions: initialCategorizedTransactions,
+        supplementalExpenses: initialPropertyTaxExpenses,
         incomeTransactions: initialIncomeTransactions,
+        dateRange: initialRange,
         nextPaydayOverride,
       }),
     [
-      initialBudgetItems,
-      initialCreditCardTransactions,
-      initialExpenseEntries,
+      initialCategorizedTransactions,
+      initialPropertyTaxExpenses,
       initialIncomeEntries,
       initialIncomeTransactions,
+      initialRange,
       nextPaydayOverride,
     ],
   );
@@ -206,16 +210,17 @@ export function ProjectionsDashboard({
   const unemploymentRunway = useMemo(
     () =>
       projectUnemploymentRunway({
-        budgetItems: initialBudgetItems,
-        expenseEntries: initialExpenseEntries,
-        creditCardTransactions: initialCreditCardTransactions,
+        budgetItems: [],
+        expenseEntries: [],
+        creditCardTransactions: [],
+        categorizedTransactions: initialCategorizedTransactions,
+        supplementalExpenses: initialPropertyTaxExpenses,
         snapshot,
         pendingTransactions: initialPendingTransactions,
       }),
     [
-      initialBudgetItems,
-      initialCreditCardTransactions,
-      initialExpenseEntries,
+      initialCategorizedTransactions,
+      initialPropertyTaxExpenses,
       initialPendingTransactions,
       snapshot,
     ],
@@ -269,30 +274,28 @@ export function ProjectionsDashboard({
     <div className="mt-10 space-y-8">
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
-          label={`${yearProjection.year} projected income`}
-          value={formatCurrency(yearProjection.projectedIncome)}
+          label="Selected-period income"
+          value={formatCurrency(rangeProjection.projectedIncome)}
           description={
-            yearProjection.predictedPaycheck > 0
-              ? `${formatCurrency(yearProjection.ytdIncome)} year to date plus ${yearProjection.remainingPaydays} remaining paycheck${
-                  yearProjection.remainingPaydays === 1 ? "" : "s"
-                } at ${formatCurrency(yearProjection.predictedPaycheck)} each.`
-              : `${formatCurrency(yearProjection.ytdIncome)} year to date. Add income history to forecast remaining paychecks.`
+            `${formatCurrency(rangeProjection.actualIncome)} actual for ${formatExpenseDateRange(initialRange)} plus ${rangeProjection.remainingPaydays} forecast paycheck${
+              rangeProjection.remainingPaydays === 1 ? "" : "s"
+            }.`
           }
         />
         <MetricCard
-          label={`${yearProjection.year} projected expenses`}
-          value={formatCurrency(yearProjection.projectedExpenses)}
-          description={`${formatCurrency(yearProjection.ytdExpenses)} year to date plus ${formatCurrency(
-            yearProjection.forecastExpenses,
-          )} forecast through Dec 31 from current monthly averages.`}
+          label="Selected-period expenses"
+          value={formatCurrency(rangeProjection.projectedExpenses)}
+          description={`${formatCurrency(rangeProjection.actualExpenses)} actual plus ${formatCurrency(
+            rangeProjection.forecastExpenses,
+          )} forecast through the selected end date.`}
           negative
         />
         <MetricCard
           featured
-          label={`${yearProjection.year} net gain / loss`}
-          negative={yearProjection.projectedNet < 0}
-          value={formatCurrency(yearProjection.projectedNet)}
-          description="Projected income minus projected expenses for the calendar year."
+          label="Selected-period net"
+          negative={rangeProjection.projectedNet < 0}
+          value={formatCurrency(rangeProjection.projectedNet)}
+          description="Projected income minus projected expenses for the selected range."
         />
         <MetricCard
           label="Unemployment runway"

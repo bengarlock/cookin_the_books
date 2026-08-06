@@ -1,9 +1,14 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
+import {
+  categorizedExpenseAverages,
+  categorizedExpenseCategories,
+} from "@/lib/categorized-expense-averages";
 import { creditCardExpenditureAverages, effectiveCreditCardTransactionAmount } from "@/lib/credit-card-averages";
 import type {
   CreditCardTransaction,
@@ -65,6 +70,7 @@ function todayString() {
 }
 
 export function ExpenseHistory({
+  initialAllTransactionsLoaded = false,
   initialBudgetItems,
   initialCategories,
   initialEntries,
@@ -73,6 +79,7 @@ export function ExpenseHistory({
   initialTransactionMetadata,
   initialTransactions,
 }: {
+  initialAllTransactionsLoaded?: boolean;
   initialBudgetItems: BudgetItem[];
   initialCategories: ExpenseCategory[];
   initialEntries: ExpenseEntry[];
@@ -88,7 +95,9 @@ export function ExpenseHistory({
   );
   const [tagLibrary, setTagLibrary] = useState(initialTags);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
-  const [allTransactionsLoaded, setAllTransactionsLoaded] = useState(false);
+  const [allTransactionsLoaded, setAllTransactionsLoaded] = useState(
+    initialAllTransactionsLoaded,
+  );
   const [openItemId, setOpenItemId] = useState<number | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(
     null,
@@ -111,6 +120,8 @@ export function ExpenseHistory({
   const [spendingDateRange, setSpendingDateRange] = useState<ExpenseDateRange>(
     initialRange,
   );
+  const pathname = usePathname();
+  const router = useRouter();
   const [expandedSpendingCategory, setExpandedSpendingCategory] = useState<
     string | null
   >(null);
@@ -182,14 +193,44 @@ export function ExpenseHistory({
       item.transaction_date <= spendingDateRange.end
     );
   });
-  const categoryTotals = Object.entries(
-    categorizedTransactions
-      .reduce<Record<string, number>>((totals, item) => {
-        totals[item.category] = (totals[item.category] || 0) + effectiveCreditCardTransactionAmount(item);
-        return totals;
-      }, {}),
-  ).sort((left, right) => left[0] === "needs_review" ? -1 : right[0] === "needs_review" ? 1 : right[1] - left[1]);
-  const categorizedTotal = categoryTotals.reduce((sum, [, amount]) => sum + amount, 0);
+  const propertyTaxExpenses = entries
+    .filter(
+      (entry) =>
+        entry.source_type === "property_tax_pdf" &&
+        !entry.exclude_from_credit_card,
+    )
+    .map((entry) => ({
+      amount: entry.amount,
+      category: "property_taxes",
+      incurred_on: entry.incurred_on,
+    }));
+  const categoryTotals = categorizedExpenseCategories(
+    creditCardTransactions,
+    spendingDateRange,
+    today,
+    propertyTaxExpenses,
+  )
+    .map(
+      (category) =>
+        [
+          category,
+          categorizedExpenseAverages(
+            creditCardTransactions,
+            spendingDateRange,
+            today,
+            category,
+            propertyTaxExpenses,
+          ).total,
+        ] as const,
+    )
+    .sort((left, right) => right[1] - left[1]);
+  const categorizedTotal = categorizedExpenseAverages(
+    creditCardTransactions,
+    spendingDateRange,
+    today,
+    undefined,
+    propertyTaxExpenses,
+  ).total;
   const earliestTransactionDate = creditCardTransactions.reduce(
     (earliest, item) =>
       !earliest || item.transaction_date < earliest
@@ -277,6 +318,7 @@ export function ExpenseHistory({
   async function applySpendingRange(range: ExpenseDateRange) {
     if (await loadTransactions(range)) {
       setSpendingDateRange(range);
+      router.replace(`${pathname}?${new URLSearchParams(range)}`);
       setExpandedSpendingCategory(null);
     }
   }
@@ -819,9 +861,10 @@ export function ExpenseHistory({
 
       <section className="surface mb-5 rounded-2xl p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Spending by type</p>
-            <h2 className="mt-1 text-lg font-semibold text-white">Categorized expenses</h2>
-            <p className="mt-1 text-sm text-muted">{currencyFormatter.format(categorizedTotal)} across {categoryTotals.length} categories</p></div>
+          <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Operating spending by type</p>
+            <h2 className="mt-1 text-lg font-semibold text-white">User-categorized expenses</h2>
+            <p className="mt-1 text-sm text-muted">{currencyFormatter.format(categorizedTotal)} after tax, capital, refund, and reimbursement adjustments · {categoryTotals.length} categories</p>
+            <p className="mt-1 text-xs text-white/45">Expanded categories show source debits for review. Credits and automatic adjustments are reflected in the totals; search filters the review rows only.</p></div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <label className="relative min-w-56 flex-1 sm:flex-none">
               <span className="sr-only">Search transactions</span>
