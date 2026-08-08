@@ -166,6 +166,14 @@ export function AmazonOrderImport() {
             History.csv inside it and link individual products to matching
             pending or posted card transactions.
           </p>
+          <a
+            className="mt-3 inline-block text-sm font-medium text-accent underline decoration-accent/30 underline-offset-4 transition hover:text-accent/80"
+            href="https://www.amazon.com/hz/privacy-central/data-requests/preview.html#:~:text=Submit%20Request-,Request%20All%20Your%20Data,-By%20requesting%20%22all"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Request your Amazon data
+          </a>
         </div>
         <label className="inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-[#07100f] transition hover:bg-accent disabled:opacity-60">
           {isImporting ? "Importing..." : "Choose ZIP"}
