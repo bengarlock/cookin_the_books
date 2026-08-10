@@ -96,12 +96,12 @@ const trackingOptions: {
   {
     metric: "remaining_budget",
     label: "Remaining budget",
-    description: "Subtract current spending from the spending target.",
+    description: "Subtract the current tracked value from the goal target.",
   },
   {
     metric: "total_budget",
     label: "Total Budget",
-    description: "Monitor the full spending target set for this goal.",
+    description: "Monitor the full target set for this goal.",
   },
   {
     metric: "projected_savings",
@@ -646,8 +646,8 @@ function trackingMetricValue(
 ) {
   if (value === null) {
     return metric === "projected_savings"
-      ? "Needs a spending target and paycheck history"
-      : "Needs a spending target and pay period";
+      ? "Needs a balance or spending target and paycheck history"
+      : "Needs a balance or spending target and pay period";
   }
   if (metric === "days_left_in_pay_cycle") {
     return `${value} ${value === 1 ? "day" : "days"}`;

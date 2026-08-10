@@ -300,14 +300,21 @@ export function evaluateFinancialGoal({
       ? result || condition.met
       : result && condition.met;
   }, false);
-  const spendingTarget = goal.success_conditions.find(
+  const budgetCondition = goal.success_conditions.find(
     (condition) => condition.field === "spending",
+  ) ?? goal.success_conditions.find(
+    (condition) =>
+      condition.field === "current_balances" ||
+      condition.field === "account_balance",
   );
-  const spendingBudget = spendingTarget
-    ? Number(spendingTarget.value)
+  const budgetTarget = budgetCondition
+    ? Number(budgetCondition.value)
     : Number.NaN;
-  const remainingBudget = Number.isFinite(spendingBudget)
-    ? spendingBudget - spending
+  const budgetActual = budgetCondition?.field === "spending"
+    ? spending
+    : balance;
+  const remainingBudget = Number.isFinite(budgetTarget)
+    ? budgetTarget - budgetActual
     : null;
   const daysLeft = range ? daysLeftInPeriod(range.end, currentDate) : null;
   const dailySpendingLimit =
@@ -320,10 +327,10 @@ export function evaluateFinancialGoal({
     days_left_in_pay_cycle: daysLeft,
     daily_spending_limit: dailySpendingLimit,
     remaining_budget: remainingBudget,
-    total_budget: Number.isFinite(spendingBudget) ? spendingBudget : null,
+    total_budget: Number.isFinite(budgetTarget) ? budgetTarget : null,
     projected_savings:
-      Number.isFinite(spendingBudget) && projectedNextPaycheck !== null
-        ? projectedNextPaycheck - spendingBudget
+      Number.isFinite(budgetTarget) && projectedNextPaycheck !== null
+        ? projectedNextPaycheck - budgetTarget
         : null,
     total_credit_card_spend: balances.liabilities,
   };
