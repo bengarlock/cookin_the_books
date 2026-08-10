@@ -1727,7 +1727,7 @@ function AccountTransactionList({
           </span>
           <input
             className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 font-mono text-sm text-white outline-none focus:border-accent/50"
-            min="0.01"
+            min={liabilityAccounts.has(accountKey) ? undefined : "0.01"}
             onChange={(event) =>
               onChangeTransactionForm({ amount: event.target.value })
             }
