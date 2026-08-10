@@ -110,8 +110,15 @@ describe("evaluateFinancialGoal", () => {
           {
             id: "current-balances",
             field: "current_balances",
-            operator: "equals",
-            value: "525",
+            operator: "less_than_or_equal",
+            value: "1200",
+          },
+          {
+            id: "period",
+            logic_operator: "and",
+            field: "spending_period",
+            operator: "within",
+            value: "2026-07-16..2026-07-31",
           },
         ],
       },
@@ -121,6 +128,7 @@ describe("evaluateFinancialGoal", () => {
         chase_checking: "100.00",
       },
       currentDate: new Date("2026-07-25T12:00:00"),
+      projectedNextPaycheck: 1500,
     });
 
     expect(result.selectedAccountBalance).toBe(525);
@@ -129,12 +137,24 @@ describe("evaluateFinancialGoal", () => {
         (metric) => metric.metric === "total_credit_card_spend",
       )?.value,
     ).toBe(425);
-    expect(result.conditions).toEqual([
+    expect(
+      result.conditions.find(
+        (condition) => condition.field === "current_balances",
+      ),
+    ).toEqual(
       expect.objectContaining({
         field: "current_balances",
         actual: 525,
         met: true,
       }),
+    );
+    expect(result.trackingMetrics).toEqual([
+      { metric: "days_left_in_pay_cycle", value: 6 },
+      { metric: "daily_spending_limit", value: 112.5 },
+      { metric: "remaining_budget", value: 675 },
+      { metric: "total_budget", value: 1200 },
+      { metric: "projected_savings", value: 300 },
+      { metric: "total_credit_card_spend", value: 425 },
     ]);
   });
 
