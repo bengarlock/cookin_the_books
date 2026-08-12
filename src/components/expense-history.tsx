@@ -5,8 +5,8 @@ import { FormEvent, useState } from "react";
 import type { BudgetItem } from "@/lib/budget-item-types";
 import { APP_BASE_PATH } from "@/lib/config";
 import {
-  categorizedExpenseAverages,
-  categorizedExpenseCategories,
+  effectiveCategorizedExpenseAmount,
+  isCategorizedExpense,
 } from "@/lib/categorized-expense-averages";
 import { creditCardExpenditureAverages, effectiveCreditCardTransactionAmount } from "@/lib/credit-card-averages";
 import type {
@@ -157,15 +157,17 @@ export function ExpenseHistory({
   const categoryOptions = sortedCategoryOptions(categoryList);
   const normalizedTransactionSearch = transactionSearch.trim().toLocaleLowerCase();
   const categorizedTransactions = creditCardTransactions.filter((item) => {
+    if (!isCategorizedExpense(item)) return false;
     if (
-      !item.category ||
-      (item.category === "account_payment" && item.include === false) ||
-      !["purchase", "fee", "interest"].includes(item.transaction_type)
-    ) {
-      return false;
-    }
-    if (normalizedTransactionSearch) {
-      return [
+      item.transaction_date < spendingDateRange.start ||
+      item.transaction_date > spendingDateRange.end ||
+      item.transaction_date > today
+    ) return false;
+    return true;
+  });
+  const filteredCategorizedTransactions = normalizedTransactionSearch
+    ? categorizedTransactions.filter((item) =>
+        [
         item.description,
         item.issuer,
         item.account_last_four,
@@ -175,13 +177,11 @@ export function ExpenseHistory({
         item.category,
         categoryLabels[item.category],
         ...(item.tags || []).map((tag) => tag.name),
-      ].some((value) => String(value || "").toLocaleLowerCase().includes(normalizedTransactionSearch));
-    }
-    return (
-      item.transaction_date >= spendingDateRange.start &&
-      item.transaction_date <= spendingDateRange.end
-    );
-  });
+        ].some((value) =>
+          String(value || "").toLocaleLowerCase().includes(normalizedTransactionSearch),
+        ),
+      )
+    : categorizedTransactions;
   const propertyTaxExpenses = entries
     .filter(
       (entry) =>
@@ -193,33 +193,31 @@ export function ExpenseHistory({
       category: "property_taxes",
       incurred_on: entry.incurred_on,
     }));
-  const categoryTotals = categorizedExpenseCategories(
-    creditCardTransactions,
-    spendingDateRange,
-    today,
-    propertyTaxExpenses,
-  )
-    .map(
-      (category) =>
-        [
-          category,
-          categorizedExpenseAverages(
-            creditCardTransactions,
-            spendingDateRange,
-            today,
-            category,
-            propertyTaxExpenses,
-          ).total,
-        ] as const,
-    )
+  const categoryTotalMap = new Map<string, number>();
+  for (const transaction of categorizedTransactions) {
+    categoryTotalMap.set(
+      transaction.category,
+      (categoryTotalMap.get(transaction.category) || 0) +
+        effectiveCategorizedExpenseAmount(transaction),
+    );
+  }
+  for (const expense of propertyTaxExpenses) {
+    if (
+      expense.incurred_on < spendingDateRange.start ||
+      expense.incurred_on > spendingDateRange.end ||
+      expense.incurred_on > today
+    ) continue;
+    categoryTotalMap.set(
+      expense.category,
+      (categoryTotalMap.get(expense.category) || 0) + Number(expense.amount),
+    );
+  }
+  const categoryTotals = Array.from(categoryTotalMap.entries())
     .sort((left, right) => right[1] - left[1]);
-  const categorizedTotal = categorizedExpenseAverages(
-    creditCardTransactions,
-    spendingDateRange,
-    today,
-    undefined,
-    propertyTaxExpenses,
-  ).total;
+  const categorizedTotal = categoryTotals.reduce(
+    (total, [, amount]) => total + amount,
+    0,
+  );
   const availableTagNames = tagLibrary
     .map((tag) => tag.name)
     .sort((left, right) => left.localeCompare(right));
@@ -827,8 +825,8 @@ export function ExpenseHistory({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Operating spending by type</p>
             <h2 className="mt-1 text-lg font-semibold text-white">User-categorized expenses</h2>
-            <p className="mt-1 text-sm text-muted">{currencyFormatter.format(categorizedTotal)} after tax, capital, refund, and reimbursement adjustments · {categoryTotals.length} categories</p>
-            <p className="mt-1 text-xs text-white/45">Expanded categories show source debits for review. Credits and automatic adjustments are reflected in the totals; search filters the review rows only.</p></div>
+            <p className="mt-1 text-sm text-muted">{currencyFormatter.format(categorizedTotal)} across {categoryTotals.length} categories</p>
+            <p className="mt-1 text-xs text-white/45">Each transaction category total is the sum of its included, posted transactions. Search filters the review rows only.</p></div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <label className="relative min-w-56 flex-1 sm:flex-none">
               <span className="sr-only">Search transactions</span>
@@ -863,7 +861,7 @@ export function ExpenseHistory({
         {categoryTotals.length ? <div className="mt-5 space-y-2">
           {categoryTotals.map(([category, amount]) => {
             const isExpanded = expandedSpendingCategory === category;
-            const categoryTransactions = categorizedTransactions
+            const categoryTransactions = filteredCategorizedTransactions
               .filter((transaction) => transaction.category === category)
               .sort((left, right) =>
                 right.transaction_date.localeCompare(left.transaction_date) ||
