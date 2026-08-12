@@ -10,7 +10,6 @@ import type {
   IncomeTransaction,
 } from "@/lib/credit-card-transaction-types";
 import type { IncomeEntry } from "@/lib/income-entry-types";
-import type { SupplementalCategorizedExpense } from "@/lib/categorized-expense-averages";
 import {
   formatExpenseDateRange,
   type ExpenseDateRange,
@@ -141,7 +140,6 @@ function SummaryRow({
 export function ProjectionsDashboard({
   initialBudgetPlanSettings,
   initialCategorizedTransactions,
-  initialPropertyTaxExpenses,
   initialRange,
   initialIncomeEntries,
   initialIncomeTransactions,
@@ -149,7 +147,6 @@ export function ProjectionsDashboard({
 }: {
   initialBudgetPlanSettings: BudgetPlanSettings;
   initialCategorizedTransactions: ExpenseTransaction[];
-  initialPropertyTaxExpenses: SupplementalCategorizedExpense[];
   initialRange: ExpenseDateRange;
   initialIncomeEntries: IncomeEntry[];
   initialIncomeTransactions: IncomeTransaction[];
@@ -172,14 +169,12 @@ export function ProjectionsDashboard({
         expenseEntries: [],
         creditCardTransactions: [],
         categorizedTransactions: initialCategorizedTransactions,
-        supplementalExpenses: initialPropertyTaxExpenses,
         snapshot,
         pendingTransactions: initialPendingTransactions,
         nextPaydayOverride,
       }),
     [
       initialCategorizedTransactions,
-      initialPropertyTaxExpenses,
       initialIncomeEntries,
       initialPendingTransactions,
       nextPaydayOverride,
@@ -192,14 +187,12 @@ export function ProjectionsDashboard({
       projectDateRange({
         incomeEntries: initialIncomeEntries,
         categorizedTransactions: initialCategorizedTransactions,
-        supplementalExpenses: initialPropertyTaxExpenses,
         incomeTransactions: initialIncomeTransactions,
         dateRange: initialRange,
         nextPaydayOverride,
       }),
     [
       initialCategorizedTransactions,
-      initialPropertyTaxExpenses,
       initialIncomeEntries,
       initialIncomeTransactions,
       initialRange,
@@ -214,13 +207,11 @@ export function ProjectionsDashboard({
         expenseEntries: [],
         creditCardTransactions: [],
         categorizedTransactions: initialCategorizedTransactions,
-        supplementalExpenses: initialPropertyTaxExpenses,
         snapshot,
         pendingTransactions: initialPendingTransactions,
       }),
     [
       initialCategorizedTransactions,
-      initialPropertyTaxExpenses,
       initialPendingTransactions,
       snapshot,
     ],
