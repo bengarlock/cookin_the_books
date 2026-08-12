@@ -9,7 +9,6 @@ import { APP_BASE_PATH } from "@/lib/config";
 import {
   categorizedExpenseAverages,
   categorizedExpenseCategories,
-  type SupplementalCategorizedExpense,
 } from "@/lib/categorized-expense-averages";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
 import {
@@ -48,7 +47,6 @@ export function RecurringExpenses({
   incomeEntries,
   incomeTransactions,
   pendingTransactions,
-  propertyTaxExpenses,
   initialRange,
   transactions,
 }: {
@@ -57,7 +55,6 @@ export function RecurringExpenses({
   incomeEntries: IncomeEntry[];
   incomeTransactions: IncomeTransaction[];
   pendingTransactions: PendingTransaction[];
-  propertyTaxExpenses: SupplementalCategorizedExpense[];
   initialRange: ExpenseDateRange;
   transactions: ExpenseTransaction[];
 }) {
@@ -66,7 +63,7 @@ export function RecurringExpenses({
   const today = todayString();
   const categoryRows = useMemo(
     () =>
-      categorizedExpenseCategories(transactions, dateRange, today, propertyTaxExpenses)
+      categorizedExpenseCategories(transactions, dateRange, today)
         .map((category) => ({
           category,
           averages: categorizedExpenseAverages(
@@ -74,30 +71,27 @@ export function RecurringExpenses({
             dateRange,
             today,
             category,
-            propertyTaxExpenses,
           ),
         }))
         .sort((left, right) => right.averages.monthly - left.averages.monthly),
-    [dateRange, propertyTaxExpenses, today, transactions],
+    [dateRange, today, transactions],
   );
   const total = categorizedExpenseAverages(
     transactions,
     dateRange,
     today,
     undefined,
-    propertyTaxExpenses,
   );
   const rangeProjection = useMemo(
     () =>
       projectDateRange({
         incomeEntries,
         categorizedTransactions: transactions,
-        supplementalExpenses: propertyTaxExpenses,
         incomeTransactions,
         dateRange,
         nextPaydayOverride: budgetPlanSettings.next_payday_override,
       }),
-    [budgetPlanSettings.next_payday_override, dateRange, incomeEntries, incomeTransactions, propertyTaxExpenses, transactions],
+    [budgetPlanSettings.next_payday_override, dateRange, incomeEntries, incomeTransactions, transactions],
   );
   const payCycleProjection = useMemo(
     () =>
@@ -107,12 +101,11 @@ export function RecurringExpenses({
         expenseEntries: [],
         creditCardTransactions: [],
         categorizedTransactions: transactions,
-        supplementalExpenses: propertyTaxExpenses,
         pendingTransactions,
         snapshot,
         nextPaydayOverride: budgetPlanSettings.next_payday_override,
       }),
-    [budgetPlanSettings.next_payday_override, incomeEntries, pendingTransactions, propertyTaxExpenses, snapshot, transactions],
+    [budgetPlanSettings.next_payday_override, incomeEntries, pendingTransactions, snapshot, transactions],
   );
 
   return (
@@ -158,7 +151,7 @@ export function RecurringExpenses({
       <section className="surface mt-5 overflow-hidden rounded-2xl">
         <div className="border-b border-white/10 bg-white/[0.045] px-5 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold">Expense categories</p>
-          <p className="mt-1 text-sm text-muted">Net operating expenses from user-controlled categories for the selected period.</p>
+          <p className="mt-1 text-sm text-muted">Net operating expenses from transaction categories for the selected period.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[680px] text-left">
@@ -190,7 +183,7 @@ export function RecurringExpenses({
 
       {!categoryRows.length ? (
         <p className="surface mt-5 rounded-2xl px-5 py-10 text-center text-sm text-muted">
-          No user-categorized operating expenses in this date range. Review
+          No categorized transaction expenses in this date range. Review
           transactions to assign categories or budget treatment.
         </p>
       ) : null}
