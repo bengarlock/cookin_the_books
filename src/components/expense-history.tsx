@@ -12,6 +12,7 @@ import type {
   CreditCardTransaction,
   ExpenseTag,
   ExpenseTransaction,
+  SuggestedRelatedTransaction,
 } from "@/lib/credit-card-transaction-types";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
 import type { ExpenseDateRange } from "@/lib/expense-date-range";
@@ -67,7 +68,18 @@ export function ExpenseHistory({
   const [tagDraft, setTagDraft] = useState<string[]>([]);
   const [noteDraft, setNoteDraft] = useState("");
   const [categoryDraft, setCategoryDraft] = useState("dining");
-  const [applyToMatching, setApplyToMatching] = useState(false);
+  const [matchType, setMatchType] = useState<"exact" | "starts_with">("exact");
+  const [matchValue, setMatchValue] = useState("");
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const [noteExpanded, setNoteExpanded] = useState(false);
+  const [relatedExpanded, setRelatedExpanded] = useState(false);
+  const [categorizationExpanded, setCategorizationExpanded] = useState(false);
+  const [budgetTreatmentExpanded, setBudgetTreatmentExpanded] = useState(false);
+  const [relationshipSuggestions, setRelationshipSuggestions] = useState<SuggestedRelatedTransaction[]>([]);
+  const [relationshipQuery, setRelationshipQuery] = useState("");
+  const [relationshipResults, setRelationshipResults] = useState<CreditCardTransaction[]>([]);
+  const [relationshipLoading, setRelationshipLoading] = useState(false);
+  const [relationshipSavingId, setRelationshipSavingId] = useState<number | null>(null);
   const [categorizing, setCategorizing] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -126,15 +138,27 @@ export function ExpenseHistory({
     .sort((left, right) => left.localeCompare(right));
 
   function openTransaction(transaction: ExpenseTransaction) {
-    setExpandedTransactionId((current) =>
-      current === transaction.id ? null : transaction.id,
-    );
+    if (expandedTransactionId === transaction.id) {
+      setExpandedTransactionId(null);
+      return;
+    }
+    setExpandedTransactionId(transaction.id);
     setTagDraft((transaction.tags || []).map((tag) => tag.name));
     setNoteDraft(transaction.note || "");
     setCategoryDraft(
       transaction.category === "needs_review" ? "dining" : transaction.category,
     );
-    setApplyToMatching(false);
+    setMatchType("exact");
+    setMatchValue(transaction.description);
+    setTagsExpanded(false);
+    setNoteExpanded(false);
+    setRelatedExpanded(false);
+    setCategorizationExpanded(false);
+    setBudgetTreatmentExpanded(false);
+    setRelationshipSuggestions([]);
+    setRelationshipQuery("");
+    setRelationshipResults([]);
+    void loadRelationshipSuggestions(transaction.id);
   }
 
   async function refreshTransactions() {
@@ -171,7 +195,7 @@ export function ExpenseHistory({
     }
   }
 
-  async function saveTransaction(transaction: ExpenseTransaction) {
+  async function saveTransaction(transaction: ExpenseTransaction, remember = false) {
     if (!categoryDraft) return;
     setSavingId(transaction.id);
     setError("");
@@ -192,12 +216,12 @@ export function ExpenseHistory({
 
       const categoryResponse = await fetch(
         `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/correct-category?include_unbudgeted=true`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match_type: "exact", match_value: transaction.description, category: categoryDraft, apply_to_matching: applyToMatching }) },
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match_type: matchType, match_value: matchValue, category: categoryDraft, apply_to_matching: remember }) },
       );
       const categorized = (await categoryResponse.json().catch(() => null)) as { transactions?: CreditCardTransaction[]; updated_count?: number; message?: string } | null;
       if (!categoryResponse.ok || !categorized?.transactions) throw new Error(categorized?.message || "Unable to save the category.");
 
-      if (applyToMatching) await refreshTransactions();
+      if (remember) await refreshTransactions();
       else setTransactions((current) => mergeExpenseTransactions(current, categorized.transactions!.map(compactExpenseTransaction)));
       setTagLibrary((current) => {
         const tags = new Map(current.map((tag) => [tag.name.toLocaleLowerCase(), tag]));
@@ -205,7 +229,7 @@ export function ExpenseHistory({
         return Array.from(tags.values());
       });
       setExpandedTransactionId(null);
-      setMessage(applyToMatching ? `Updated ${categorized.updated_count || 0} matching transactions.` : "Transaction updated.");
+      setMessage(remember ? `Updated ${categorized.updated_count || 0} matching transactions.` : "Transaction updated.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to update the transaction.");
     } finally {
@@ -219,6 +243,58 @@ export function ExpenseHistory({
         ? current.filter((tag) => tag.toLocaleLowerCase() !== name.toLocaleLowerCase())
         : [...current, name],
     );
+  }
+
+  async function loadRelationshipSuggestions(transactionId: number) {
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions/${transactionId}/relationship-suggestions`, { cache: "no-store" });
+      const result = (await response.json().catch(() => null)) as SuggestedRelatedTransaction[] | { message?: string } | null;
+      if (!response.ok || !Array.isArray(result)) throw new Error("Unable to load relationship suggestions.");
+      setRelationshipSuggestions(result);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load relationship suggestions.");
+    }
+  }
+
+  async function searchRelatedTransactions(transactionId: number) {
+    const query = relationshipQuery.trim();
+    if (!query) return;
+    setRelationshipLoading(true);
+    try {
+      const params = new URLSearchParams({ include_unbudgeted: "true", search: query, exclude_id: String(transactionId), limit: "10" });
+      const response = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions?${params}`, { cache: "no-store" });
+      const result = (await response.json().catch(() => null)) as CreditCardTransaction[] | { message?: string } | null;
+      if (!response.ok || !Array.isArray(result)) throw new Error("Unable to search transactions.");
+      setRelationshipResults(result);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to search transactions.");
+    } finally { setRelationshipLoading(false); }
+  }
+
+  async function updateRelationship(transactionId: number, relatedTransactionId: number, method: "POST" | "DELETE") {
+    setRelationshipSavingId(relatedTransactionId);
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions/${transactionId}/relationships`, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ related_transaction_id: relatedTransactionId }) });
+      const result = (await response.json().catch(() => null)) as CreditCardTransaction | { message?: string } | null;
+      if (!response.ok || !result || !("id" in result)) throw new Error(result && "message" in result ? result.message : "Unable to update this relationship.");
+      setTransactions((current) => mergeExpenseTransactions(current, [compactExpenseTransaction(result)]));
+      setRelationshipResults((current) => current.filter((item) => item.id !== relatedTransactionId));
+      setRelationshipSuggestions((current) => current.filter((item) => item.id !== relatedTransactionId));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to update this relationship.");
+    } finally { setRelationshipSavingId(null); }
+  }
+
+  async function updateBudgetTreatment(transaction: ExpenseTransaction, patch: Partial<Pick<ExpenseTransaction, "split" | "include">>) {
+    setSavingId(transaction.id);
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/update-budget-flags?include_unbudgeted=true`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+      const result = (await response.json().catch(() => null)) as CreditCardTransaction | { message?: string } | null;
+      if (!response.ok || !result || !("id" in result)) throw new Error(result && "message" in result ? result.message : "Unable to update budget treatment.");
+      setTransactions((current) => mergeExpenseTransactions(current, [compactExpenseTransaction(result)]));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to update budget treatment.");
+    } finally { setSavingId(null); }
   }
 
   return (
@@ -250,7 +326,7 @@ export function ExpenseHistory({
                 <div className="mb-2 flex items-center justify-between gap-3 text-xs"><span className="flex items-center gap-2 text-white/75"><span aria-hidden="true" className={`text-accent transition ${expanded ? "rotate-90" : ""}`}>›</span>{categoryLabels[category] || category}<span className="text-muted">{rows.length}</span></span><span className="font-mono text-white">{currencyFormatter.format(amount)}</span></div>
                 <div className="h-2 overflow-hidden rounded-full bg-white/[0.07]"><div className="h-full rounded-full bg-accent" style={{ width: `${total ? Math.max(2, amount / total * 100) : 0}%` }} /></div>
               </button>
-              {expanded ? <div className="divide-y divide-white/[0.06] border-t border-white/[0.07] bg-black/10">{rows.map((transaction) => <TransactionRow categoryDraft={categoryDraft} categoryOptions={categoryOptions} key={transaction.id} noteDraft={noteDraft} onCategoryChange={setCategoryDraft} onNoteChange={setNoteDraft} onSave={() => void saveTransaction(transaction)} onTagToggle={toggleTag} onToggle={() => openTransaction(transaction)} onApplyToMatchingChange={setApplyToMatching} saving={savingId === transaction.id} selected={expandedTransactionId === transaction.id} tagDraft={tagDraft} transaction={transaction} applyToMatching={applyToMatching} availableTagNames={availableTagNames} />)}</div> : null}
+              {expanded ? <div className="divide-y divide-white/[0.06] border-t border-white/[0.07] bg-black/10">{rows.map((transaction) => <TransactionRow availableTagNames={availableTagNames} budgetTreatmentExpanded={budgetTreatmentExpanded} categorizationExpanded={categorizationExpanded} categoryDraft={categoryDraft} categoryOptions={categoryOptions} key={transaction.id} matchType={matchType} matchValue={matchValue} noteDraft={noteDraft} noteExpanded={noteExpanded} onBudgetTreatmentToggle={() => setBudgetTreatmentExpanded((value) => !value)} onCategorizationToggle={() => setCategorizationExpanded((value) => !value)} onCategoryChange={setCategoryDraft} onMatchTypeChange={setMatchType} onMatchValueChange={setMatchValue} onNoteChange={setNoteDraft} onNoteToggle={() => setNoteExpanded((value) => !value)} onRelatedToggle={() => setRelatedExpanded((value) => !value)} onSave={(remember) => void saveTransaction(transaction, remember)} onTagToggle={toggleTag} onTagsToggle={() => setTagsExpanded((value) => !value)} onToggle={() => openTransaction(transaction)} onUpdateBudgetTreatment={(patch) => void updateBudgetTreatment(transaction, patch)} relatedExpanded={relatedExpanded} relationshipLoading={relationshipLoading} relationshipResults={relationshipResults} relationshipSavingId={relationshipSavingId} relationshipSuggestions={relationshipSuggestions} relationshipQuery={relationshipQuery} saving={savingId === transaction.id} selected={expandedTransactionId === transaction.id} setRelationshipQuery={setRelationshipQuery} onSearchRelated={() => void searchRelatedTransactions(transaction.id)} onUpdateRelationship={(relatedId, method) => void updateRelationship(transaction.id, relatedId, method)} tagDraft={tagDraft} tagsExpanded={tagsExpanded} transaction={transaction} />)}</div> : null}
             </div>;
           })}
         </div> : <p className="mt-5 rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-muted">{normalizedSearch ? `No transactions match “${search.trim()}”.` : "No categorized expenses were found in this date range."}</p>}
@@ -259,15 +335,24 @@ export function ExpenseHistory({
   );
 }
 
-function TransactionRow({ transaction, selected, onToggle, categoryOptions, categoryDraft, onCategoryChange, noteDraft, onNoteChange, onSave, saving, tagDraft, onTagToggle, availableTagNames, applyToMatching, onApplyToMatchingChange }: { transaction: ExpenseTransaction; selected: boolean; onToggle: () => void; categoryOptions: ExpenseCategory[]; categoryDraft: string; onCategoryChange: (value: string) => void; noteDraft: string; onNoteChange: (value: string) => void; onSave: () => void; saving: boolean; tagDraft: string[]; onTagToggle: (name: string) => void; availableTagNames: string[]; applyToMatching: boolean; onApplyToMatchingChange: (value: boolean) => void }) {
-  return <div className="px-4 py-3">
-    <button className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 text-left" onClick={onToggle} type="button"><span className="min-w-0"><span className="block truncate text-sm font-medium text-white">{transaction.description}</span><span className="mt-1 block text-xs text-muted">{formatDate(transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}</span></span><span className="font-mono text-sm font-semibold text-white">{currencyFormatter.format(effectiveCategorizedExpenseAmount(transaction))}</span></button>
+function TransactionRow(props: TransactionRowProps) {
+  const { transaction } = props;
+  const controlClass = (active: boolean, color: string) => `rounded-lg border px-3 py-2 text-xs font-semibold transition ${active ? color : "border-white/10 text-white/65 hover:border-accent/25 hover:text-accent"}`;
+  return <div className={`px-4 py-3 ${props.selected ? "bg-sky-400/[0.12]" : ""}`}>
+    <button className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 text-left" onClick={props.onToggle} type="button"><span className="min-w-0"><span className="block truncate text-sm font-medium text-white">{transaction.description}</span><span className="mt-1 block text-xs text-muted">{formatDate(transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}</span><span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45">{transaction.category}</span>{transaction.tags.length ? <span className="mt-1.5 flex flex-wrap gap-1">{transaction.tags.map((tag) => <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2 py-0.5 text-[10px] text-sky-100" key={tag.id}>{tag.name}</span>)}</span> : null}</span><span className="flex items-center gap-3 font-mono text-sm font-semibold text-white">{currencyFormatter.format(effectiveCategorizedExpenseAmount(transaction))}<span className="grid size-7 place-items-center rounded-full border border-white/10 text-base font-medium text-white/55">{props.selected ? "−" : "+"}</span></span></button>
     <MatchedOrderDetails transaction={transaction} />
-    {selected ? <div className="mt-3 border-t border-white/[0.07] pt-3">
-      <div className="grid gap-3 sm:grid-cols-2"><label><span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Category</span><select className="mt-1 h-9 w-full rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" onChange={(event) => onCategoryChange(event.target.value)} value={categoryDraft}>{categoryOptions.map((category) => <option key={category.key} value={category.key}>{category.label}</option>)}</select></label><label><span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Note</span><input className="mt-1 h-9 w-full rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white outline-none focus:border-accent/50" onChange={(event) => onNoteChange(event.target.value)} placeholder="Add a note" value={noteDraft} /></label></div>
-      <div className="mt-3"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Tags</p><div className="mt-2 flex flex-wrap gap-2">{availableTagNames.map((tag) => <button className={`rounded-full border px-2.5 py-1 text-[11px] ${tagDraft.includes(tag) ? "border-sky-300/30 bg-sky-400/10 text-sky-100" : "border-white/10 text-white/60"}`} key={tag} onClick={() => onTagToggle(tag)} type="button">{tagDraft.includes(tag) ? "✓ " : "+ "}{tag}</button>)}</div></div>
-      <label className="mt-3 flex items-center gap-2 text-xs text-white/65"><input checked={applyToMatching} className="size-3.5 rounded border-white/20 bg-black/20 text-accent" onChange={(event) => onApplyToMatchingChange(event.target.checked)} type="checkbox" />Apply category to matching transactions</label>
-      <div className="mt-3 flex gap-2"><button className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50" disabled={saving} onClick={onSave} type="button">{saving ? "Saving…" : "Save transaction"}</button><button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={onToggle} type="button">Cancel</button></div>
+    {props.selected ? <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/10 p-3">
+      <div className="flex flex-wrap items-center gap-2"><button className={controlClass(props.tagsExpanded, "border-sky-300/30 bg-sky-400/10 text-sky-100")} onClick={props.onTagsToggle} type="button">Tags</button><button className={controlClass(props.noteExpanded, "border-accent/30 bg-accent/10 text-accent")} onClick={props.onNoteToggle} type="button">Note</button><button className={controlClass(props.relatedExpanded, "border-gold/30 bg-gold/10 text-gold")} onClick={props.onRelatedToggle} type="button">Related transactions</button><button className={controlClass(props.categorizationExpanded, "border-violet-300/30 bg-violet-400/10 text-violet-100")} onClick={props.onCategorizationToggle} type="button">Categorize</button><button className={controlClass(props.budgetTreatmentExpanded, "border-accent/30 bg-accent/10 text-accent")} onClick={props.onBudgetTreatmentToggle} type="button">Budget treatment</button></div>
+      {props.tagsExpanded ? <div className="mt-3 border-t border-white/[0.07] pt-3"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Tags</p><div className="mt-2 flex flex-wrap gap-2">{props.availableTagNames.map((tag) => <button className={`rounded-full border px-2.5 py-1 text-[11px] ${props.tagDraft.includes(tag) ? "border-sky-300/30 bg-sky-400/10 text-sky-100" : "border-white/10 text-white/60"}`} key={tag} onClick={() => props.onTagToggle(tag)} type="button">{props.tagDraft.includes(tag) ? "✓ " : "+ "}{tag}</button>)}</div></div> : null}
+      {props.noteExpanded ? <label className="mt-3 block border-t border-white/[0.07] pt-3"><span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Transaction note</span><textarea className="mt-2 min-h-20 w-full resize-y rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white outline-none focus:border-accent/50" maxLength={2000} onChange={(event) => props.onNoteChange(event.target.value)} placeholder="Add context about this transaction" value={props.noteDraft} /></label> : null}
+      {props.categorizationExpanded ? <div className="mt-3 grid items-center gap-2 border-t border-white/[0.07] pt-3 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_minmax(10rem,auto)]"><select className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white" onChange={(event) => props.onMatchTypeChange(event.target.value as "exact" | "starts_with")} value={props.matchType}><option value="exact">Equals</option><option value="starts_with">Starts with</option></select><input className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white" onChange={(event) => props.onMatchValueChange(event.target.value)} value={props.matchValue} /><span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Set category</span><select className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white" onChange={(event) => props.onCategoryChange(event.target.value)} value={props.categoryDraft}>{props.categoryOptions.map((category) => <option key={category.key} value={category.key}>{category.label}</option>)}</select></div> : null}
+      {props.budgetTreatmentExpanded ? <div className="mt-3 border-t border-white/[0.07] pt-3"><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Budget treatment</p><div className="flex gap-1.5"><button aria-pressed={transaction.split} className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${transaction.split ? "border-violet-300/30 bg-violet-400/15 text-violet-100" : "border-white/10 text-white/45"}`} disabled={props.saving} onClick={() => props.onUpdateBudgetTreatment({ split: !transaction.split })} type="button">Split</button><button aria-pressed={transaction.include} className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${transaction.include ? "border-accent/25 bg-accent/10 text-accent" : "border-rose-300/20 bg-rose-400/10 text-rose-100"}`} disabled={props.saving} onClick={() => props.onUpdateBudgetTreatment({ include: !transaction.include })} type="button">{transaction.include ? "Included" : "Excluded"}</button></div></div> : null}
+      {props.relatedExpanded ? <div className="mt-3 border-t border-white/[0.07] pt-3"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Related transactions</p>{props.relationshipSuggestions.map((item) => <RelationshipRow item={item} key={item.id} label="Link" onClick={() => props.onUpdateRelationship(item.id, "POST")} saving={props.relationshipSavingId === item.id} />)}<div className="mt-3 flex gap-2"><input className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white" onChange={(event) => props.setRelationshipQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); props.onSearchRelated(); } }} placeholder="Search merchant, amount, account, or date" value={props.relationshipQuery} /><button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/70" disabled={props.relationshipLoading || !props.relationshipQuery.trim()} onClick={props.onSearchRelated} type="button">{props.relationshipLoading ? "Searching…" : "Search"}</button></div>{props.relationshipResults.map((item) => <RelationshipRow item={item} key={item.id} label="Link" onClick={() => props.onUpdateRelationship(item.id, "POST")} saving={props.relationshipSavingId === item.id} />)}</div> : null}
+      <div className="mt-3 flex flex-wrap gap-2"><button className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent" disabled={props.saving} onClick={() => props.onSave(false)} type="button">{props.saving ? "Saving…" : "Save this transaction"}</button><button className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-muted" disabled={props.saving} onClick={() => props.onSave(true)} type="button">Save &amp; remember</button><button className="px-2 py-2 text-xs text-muted" onClick={props.onToggle} type="button">Cancel</button></div><p className="mt-2 text-[11px] text-muted">Save this transaction changes only the selected row. Save &amp; remember also updates matching descriptions and future imports.</p>
     </div> : null}
   </div>;
 }
+
+function RelationshipRow({ item, label, onClick, saving }: { item: CreditCardTransaction; label: string; onClick: () => void; saving: boolean }) { return <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-gold/20 bg-gold/[0.05] px-3 py-2"><div className="min-w-0"><p className="truncate text-xs font-medium text-white">{item.description}</p><p className="mt-0.5 text-[11px] text-muted">{formatDate(item.transaction_date)} · {item.issuer} •••• {item.account_last_four} · {currencyFormatter.format(Number(item.amount))}</p></div><button className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent" disabled={saving} onClick={onClick} type="button">{label}</button></div>; }
+
+type TransactionRowProps = { transaction: ExpenseTransaction; selected: boolean; onToggle: () => void; categoryOptions: ExpenseCategory[]; categoryDraft: string; onCategoryChange: (value: string) => void; noteDraft: string; onNoteChange: (value: string) => void; matchType: "exact" | "starts_with"; onMatchTypeChange: (value: "exact" | "starts_with") => void; matchValue: string; onMatchValueChange: (value: string) => void; onSave: (remember: boolean) => void; saving: boolean; tagDraft: string[]; onTagToggle: (name: string) => void; availableTagNames: string[]; tagsExpanded: boolean; onTagsToggle: () => void; noteExpanded: boolean; onNoteToggle: () => void; relatedExpanded: boolean; onRelatedToggle: () => void; categorizationExpanded: boolean; onCategorizationToggle: () => void; budgetTreatmentExpanded: boolean; onBudgetTreatmentToggle: () => void; onUpdateBudgetTreatment: (patch: Partial<Pick<ExpenseTransaction, "split" | "include">>) => void; relationshipSuggestions: SuggestedRelatedTransaction[]; relationshipResults: CreditCardTransaction[]; relationshipQuery: string; setRelationshipQuery: (value: string) => void; relationshipLoading: boolean; relationshipSavingId: number | null; onSearchRelated: () => void; onUpdateRelationship: (id: number, method: "POST" | "DELETE") => void; };
