@@ -31,7 +31,7 @@ export const dashboardPageHeaders: Record<string, DashboardPageHeader> = {
   },
   "/dashboard/budget/expenses": {
     eyebrow: "Budget",
-    title: "Recurring expenses",
+    title: "Expenses",
     description:
       "Track ongoing costs such as utilities, property taxes, insurance, and other repeating obligations.",
   },
