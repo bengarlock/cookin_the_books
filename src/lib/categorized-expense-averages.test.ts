@@ -35,7 +35,7 @@ function transaction(
 }
 
 describe("categorized expense averages", () => {
-  it("uses only posted expenses with user-controlled categories", () => {
+  it("uses posted expenses with user or system categories", () => {
     const transactions = [
       transaction({ amount: "100", category_source: "user" }),
       transaction({ amount: "40", category_source: "user_rule", split: true }),
@@ -50,8 +50,8 @@ describe("categorized expense averages", () => {
 
     const averages = categorizedExpenseAverages(transactions, range, range.end);
 
-    expect(averages.total).toBe(130);
-    expect(averages.daily).toBeCloseTo(130 / 365);
+    expect(averages.total).toBe(300);
+    expect(averages.daily).toBeCloseTo(300 / 365);
   });
 
   it("excludes direct income-tax payments but retains imported property taxes", () => {

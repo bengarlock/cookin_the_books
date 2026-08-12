@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
 
 import { ExpenseHistory } from "@/components/expense-history";
-import { getBudgetItems } from "@/lib/budget-items";
 import { getExpenseCategories } from "@/lib/expense-categories";
 import {
   allTimeExpenseDateRange,
   expenseDateRangeFromSearchParams,
 } from "@/lib/expense-date-range";
-import { getExpenseEntries } from "@/lib/expense-entries";
 import { getExpenseTags } from "@/lib/expense-tags";
 import { getExpenseTransactions } from "@/lib/expense-transactions";
 
@@ -21,15 +19,7 @@ export default async function ExpensesPage({
   searchParams: Promise<{ start?: string | string[]; end?: string | string[] }>;
 }) {
   const initialRange = expenseDateRangeFromSearchParams(await searchParams);
-  const [
-    budgetItems,
-    expenseEntries,
-    expenseCategories,
-    expenseTags,
-    expenseTransactions,
-  ] = await Promise.all([
-    getBudgetItems(),
-    getExpenseEntries(),
+  const [expenseCategories, expenseTags, expenseTransactions] = await Promise.all([
     getExpenseCategories(),
     getExpenseTags(),
     getExpenseTransactions(allTimeExpenseDateRange()),
@@ -37,10 +27,7 @@ export default async function ExpensesPage({
 
   return (
     <ExpenseHistory
-      initialAllTransactionsLoaded
-      initialBudgetItems={budgetItems}
       initialCategories={expenseCategories}
-      initialEntries={expenseEntries}
       initialRange={initialRange}
       initialTags={expenseTags}
       initialTransactions={expenseTransactions}
