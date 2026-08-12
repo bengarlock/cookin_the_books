@@ -48,7 +48,6 @@ type MatchedCredit = {
 };
 
 const debitTransactionTypes = new Set(["purchase", "fee", "interest"]);
-const userControlledCategorySources = new Set(["user", "user_rule", "manual"]);
 const excludedCategories = new Set([
   "",
   "account_payment",
@@ -170,10 +169,9 @@ function isDirectTax(transaction: CategorizedExpenseTransaction) {
   return transaction.plaid_category_detailed === DIRECT_TAX_DETAIL;
 }
 
-function hasUserControlledCategory(transaction: CategorizedExpenseTransaction) {
+function hasExpenseCategory(transaction: CategorizedExpenseTransaction) {
   return (
-    userControlledCategorySources.has(transaction.category_source) &&
-    !excludedCategories.has(transaction.category)
+    Boolean(transaction.category.trim()) && !excludedCategories.has(transaction.category)
   );
 }
 
@@ -181,7 +179,7 @@ function isBaseEligible(transaction: CategorizedExpenseTransaction) {
   return (
     transaction.include !== false &&
     transaction.pending !== true &&
-    hasUserControlledCategory(transaction) &&
+    hasExpenseCategory(transaction) &&
     !isDirectTax(transaction)
   );
 }
