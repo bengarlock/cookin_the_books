@@ -155,6 +155,7 @@ export function ExpenseHistory({
   const categoryList = initialCategories;
   const categoryLabels = categoryLabelMap(categoryList);
   const categoryOptions = sortedCategoryOptions(categoryList);
+  const budgetItemsById = new Map(items.map((item) => [item.id, item]));
   const normalizedTransactionSearch = transactionSearch.trim().toLocaleLowerCase();
   const categorizedTransactions = creditCardTransactions.filter((item) => {
     if (!isCategorizedExpense(item)) return false;
@@ -189,7 +190,10 @@ export function ExpenseHistory({
         !entry.exclude_from_credit_card,
     )
     .map((entry) => ({
-      amount: entry.amount,
+      amount: effectiveExpenseAmount(
+        entry.amount,
+        budgetItemsById.get(entry.budget_item)?.is_shared_cost ?? false,
+      ),
       category: "property_taxes",
       incurred_on: entry.incurred_on,
     }));
