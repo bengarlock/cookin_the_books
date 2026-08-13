@@ -331,7 +331,7 @@ function MenuIcon({ isOpen }: { isOpen: boolean }) {
 
 function SettingsLink({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const isActive = pathname === "/dashboard/settings";
+  const isActive = pathname === "/dashboard/settings" || pathname.startsWith("/dashboard/settings/");
 
   return (
     <Link
