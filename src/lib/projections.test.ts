@@ -15,6 +15,7 @@ import {
   liquidReservesFromSnapshot,
   projectCurrentYear,
   projectDateRange,
+  dailyExpenseAverage,
   projectRevenueAfterPayCycle,
   projectUnemploymentRunway,
   yearToDateIncome,
@@ -412,6 +413,24 @@ describe("projectCurrentYear", () => {
 });
 
 describe("projectRevenueAfterPayCycle", () => {
+  it("uses the selected history window for the daily spend forecast", () => {
+    const transactions = [
+      categorizedTransaction({ id: 1, transaction_date: "2026-01-01", amount: "3100.00" }),
+      categorizedTransaction({ id: 2, transaction_date: "2026-06-27", amount: "100.00" }),
+    ];
+
+    expect(
+      dailyExpenseAverage({
+        budgetItems: [],
+        expenseEntries: [],
+        creditCardTransactions: [],
+        categorizedTransactions: transactions,
+        expenseAverageDateRange: { start: "2026-05-29", end: "2026-06-27" },
+        currentDate: new Date(2026, 5, 27),
+      }),
+    ).toBeCloseTo(100 / 30, 8);
+  });
+
   it("projects paycheck cash after predicted spend without existing checking", () => {
     const entries = [
       incomeEntry({ id: 1, pay_date: "2026-05-15", net_pay: "3200.00" }),
@@ -525,6 +544,24 @@ describe("projectRevenueAfterPayCycle", () => {
     });
 
     expect(result.creditCardPayoff).toBe(35.5);
+  });
+});
+
+describe("projectDateRange", () => {
+  it("keeps selected-period actual expenses separate from the forecasting history", () => {
+    const result = projectDateRange({
+      incomeEntries: [],
+      categorizedTransactions: [
+        categorizedTransaction({ id: 1, transaction_date: "2026-01-01", amount: "3100.00" }),
+        categorizedTransaction({ id: 2, transaction_date: "2026-06-27", amount: "100.00" }),
+      ],
+      dateRange: { start: "2026-06-01", end: "2026-06-30" },
+      expenseAverageDateRange: { start: "2026-05-29", end: "2026-06-27" },
+      currentDate: new Date(2026, 5, 27),
+    });
+
+    expect(result.actualExpenses).toBe(100);
+    expect(result.forecastExpenses).toBeCloseTo(10, 8);
   });
 });
 

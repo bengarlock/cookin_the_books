@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
@@ -26,6 +27,12 @@ import {
   projectRevenueAfterPayCycle,
   projectUnemploymentRunway,
 } from "@/lib/projections";
+import {
+  defaultProjectionSpendHistory,
+  isProjectionSpendHistory,
+  projectionSpendHistoryDateRange,
+  projectionSpendHistoryOptions,
+} from "@/lib/projection-spend-history";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -153,6 +160,9 @@ export function ProjectionsDashboard({
   initialPendingTransactions: PendingTransaction[];
 }) {
   const { snapshot } = useLiveSnapshot();
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [budgetPlanSettings, setBudgetPlanSettings] = useState(
     initialBudgetPlanSettings,
   );
@@ -160,6 +170,18 @@ export function ProjectionsDashboard({
   const [confirmingFastForward, setConfirmingFastForward] = useState(false);
   const [isFastForwarding, setIsFastForwarding] = useState(false);
   const [fastForwardError, setFastForwardError] = useState("");
+  const spendHistoryParam = searchParams.get("spend_history");
+  const spendHistory = isProjectionSpendHistory(spendHistoryParam)
+    ? spendHistoryParam
+    : defaultProjectionSpendHistory;
+  const expenseAverageDateRange = useMemo(
+    () => projectionSpendHistoryDateRange(spendHistory),
+    [spendHistory],
+  );
+  const spendHistoryLabel =
+    projectionSpendHistoryOptions.find(
+      (option) => option.value === spendHistory,
+    )?.label || "Year to date";
 
   const projection = useMemo(
     () =>
@@ -169,12 +191,14 @@ export function ProjectionsDashboard({
         expenseEntries: [],
         creditCardTransactions: [],
         categorizedTransactions: initialCategorizedTransactions,
+        expenseAverageDateRange,
         snapshot,
         pendingTransactions: initialPendingTransactions,
         nextPaydayOverride,
       }),
     [
       initialCategorizedTransactions,
+      expenseAverageDateRange,
       initialIncomeEntries,
       initialPendingTransactions,
       nextPaydayOverride,
@@ -189,10 +213,12 @@ export function ProjectionsDashboard({
         categorizedTransactions: initialCategorizedTransactions,
         incomeTransactions: initialIncomeTransactions,
         dateRange: initialRange,
+        expenseAverageDateRange,
         nextPaydayOverride,
       }),
     [
       initialCategorizedTransactions,
+      expenseAverageDateRange,
       initialIncomeEntries,
       initialIncomeTransactions,
       initialRange,
@@ -207,11 +233,13 @@ export function ProjectionsDashboard({
         expenseEntries: [],
         creditCardTransactions: [],
         categorizedTransactions: initialCategorizedTransactions,
+        expenseAverageDateRange,
         snapshot,
         pendingTransactions: initialPendingTransactions,
       }),
     [
       initialCategorizedTransactions,
+      expenseAverageDateRange,
       initialPendingTransactions,
       snapshot,
     ],
@@ -261,8 +289,46 @@ export function ProjectionsDashboard({
     projection.paycheckProjection.bonusPaychecks.length;
   const hasIncomeData = sampleSize > 0;
 
+  function updateSpendHistory(value: string) {
+    if (!isProjectionSpendHistory(value)) return;
+    const nextParams = new URLSearchParams(searchParams.toString());
+    if (value === defaultProjectionSpendHistory) {
+      nextParams.delete("spend_history");
+    } else {
+      nextParams.set("spend_history", value);
+    }
+    const query = nextParams.toString();
+    router.replace(`${pathname}${query ? `?${query}` : ""}`, {
+      scroll: false,
+    });
+  }
+
   return (
     <div className="mt-10 space-y-8">
+      <section className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div>
+          <p className="text-sm font-semibold text-white">Daily spend history</p>
+          <p className="mt-1 text-xs leading-5 text-muted">
+            Forecast expenses use the selected period; current-pay-cycle spending
+            remains actual.
+          </p>
+        </div>
+        <label className="flex shrink-0 items-center gap-2 text-xs font-medium text-muted">
+          <span className="sr-only">Daily spend history</span>
+          <select
+            aria-label="Daily spend history"
+            className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none transition hover:border-accent/30 focus:border-accent/50"
+            onChange={(event) => updateSpendHistory(event.target.value)}
+            value={spendHistory}
+          >
+            {projectionSpendHistoryOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Selected-period income"
@@ -278,7 +344,7 @@ export function ProjectionsDashboard({
           value={formatCurrency(rangeProjection.projectedExpenses)}
           description={`${formatCurrency(rangeProjection.actualExpenses)} actual plus ${formatCurrency(
             rangeProjection.forecastExpenses,
-          )} forecast through the selected end date.`}
+          )} forecast through the selected end date, using ${spendHistoryLabel.toLowerCase()}.`}
           negative
         />
         <MetricCard
@@ -300,7 +366,7 @@ export function ProjectionsDashboard({
                   unemploymentRunway.liabilities,
                 )} liabilities, at ${formatCurrency(
                   unemploymentRunway.dailyBurnRate,
-                )}/day average expenses.`
+                )}/day average expenses from ${spendHistoryLabel.toLowerCase()}.`
               : `${formatCurrency(unemploymentRunway.liquidReserves)} in liquid reserves. Add expense history to estimate runway.`
           }
           negative={
@@ -419,7 +485,7 @@ export function ProjectionsDashboard({
         <SummaryRow
           detail={`${formatCurrency(
             projection.dailyAverageExpense,
-          )} daily average expense multiplied by ${projection.daysRemaining} day${
+          )} daily average expense from ${spendHistoryLabel.toLowerCase()}, multiplied by ${projection.daysRemaining} day${
             projection.daysRemaining === 1 ? "" : "s"
           } until the pay cycle.`}
           label="Expected additional spend"

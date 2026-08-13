@@ -389,6 +389,7 @@ export function projectDateRange({
   categorizedTransactions,
   supplementalExpenses,
   dateRange,
+  expenseAverageDateRange,
   currentDate = new Date(),
   nextPaydayOverride,
 }: {
@@ -397,6 +398,7 @@ export function projectDateRange({
   categorizedTransactions: CategorizedExpenseTransaction[];
   supplementalExpenses?: SupplementalCategorizedExpense[];
   dateRange: ExpenseDateRange;
+  expenseAverageDateRange?: ExpenseDateRange;
   currentDate?: Date;
   nextPaydayOverride?: string | null;
 }): DateRangeProjection {
@@ -408,9 +410,16 @@ export function projectDateRange({
     cashAccountIncomeTransactions(incomeTransactions, { includeExcluded: true }),
     actualRange,
   ).net;
-  const expenseAverages = categorizedExpenseAverages(
+  const actualExpenseAverages = categorizedExpenseAverages(
     categorizedTransactions,
     actualRange,
+    today,
+    undefined,
+    supplementalExpenses,
+  );
+  const expenseAverages = categorizedExpenseAverages(
+    categorizedTransactions,
+    expenseAverageDateRange || actualRange,
     today,
     undefined,
     supplementalExpenses,
@@ -433,13 +442,13 @@ export function projectDateRange({
   );
   const forecastExpenses = expenseAverages.daily * remainingDays;
   const projectedIncome = actualIncome + forecastIncome;
-  const projectedExpenses = expenseAverages.total + forecastExpenses;
+  const projectedExpenses = actualExpenseAverages.total + forecastExpenses;
 
   return {
     actualIncome,
     forecastIncome,
     projectedIncome,
-    actualExpenses: expenseAverages.total,
+    actualExpenses: actualExpenseAverages.total,
     forecastExpenses,
     projectedExpenses,
     projectedNet: projectedIncome - projectedExpenses,
@@ -564,6 +573,7 @@ export function projectRevenueAfterPayCycle({
   creditCardTransactions,
   categorizedTransactions,
   supplementalExpenses,
+  expenseAverageDateRange,
   snapshot,
   pendingTransactions,
   currentDate = new Date(),
@@ -575,6 +585,7 @@ export function projectRevenueAfterPayCycle({
   creditCardTransactions: BudgetAverageTransaction[];
   categorizedTransactions?: CategorizedExpenseTransaction[];
   supplementalExpenses?: SupplementalCategorizedExpense[];
+  expenseAverageDateRange?: ExpenseDateRange;
   snapshot: BankValueSnapshot | null;
   pendingTransactions: PendingTransaction[];
   currentDate?: Date;
@@ -592,6 +603,7 @@ export function projectRevenueAfterPayCycle({
     creditCardTransactions,
     categorizedTransactions,
     supplementalExpenses,
+    expenseAverageDateRange,
     currentDate,
   });
   const today = localDateString(currentDate);
@@ -656,6 +668,7 @@ export function dailyExpenseAverage({
   creditCardTransactions,
   categorizedTransactions,
   supplementalExpenses,
+  expenseAverageDateRange,
   currentDate = new Date(),
   excludeCreditCard = false,
 }: {
@@ -664,11 +677,13 @@ export function dailyExpenseAverage({
   creditCardTransactions: BudgetAverageTransaction[];
   categorizedTransactions?: CategorizedExpenseTransaction[];
   supplementalExpenses?: SupplementalCategorizedExpense[];
+  expenseAverageDateRange?: ExpenseDateRange;
   currentDate?: Date;
   excludeCreditCard?: boolean;
 }) {
   const today = localDateString(currentDate);
-  const expenseDateRange = defaultExpenseDateRange(currentDate);
+  const expenseDateRange =
+    expenseAverageDateRange || defaultExpenseDateRange(currentDate);
   if (categorizedTransactions) {
     return categorizedExpenseAverages(
       categorizedTransactions,
@@ -728,6 +743,7 @@ export function projectUnemploymentRunway({
   creditCardTransactions,
   categorizedTransactions,
   supplementalExpenses,
+  expenseAverageDateRange,
   snapshot,
   pendingTransactions,
   currentDate = new Date(),
@@ -737,6 +753,7 @@ export function projectUnemploymentRunway({
   creditCardTransactions: BudgetAverageTransaction[];
   categorizedTransactions?: CategorizedExpenseTransaction[];
   supplementalExpenses?: SupplementalCategorizedExpense[];
+  expenseAverageDateRange?: ExpenseDateRange;
   snapshot: BankValueSnapshot | null;
   pendingTransactions: PendingTransaction[];
   currentDate?: Date;
@@ -749,6 +766,7 @@ export function projectUnemploymentRunway({
     creditCardTransactions,
     categorizedTransactions,
     supplementalExpenses,
+    expenseAverageDateRange,
     currentDate,
   });
   const monthlyBurnRate = dailyBurnRate * AVERAGE_DAYS_PER_MONTH;
