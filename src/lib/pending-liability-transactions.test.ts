@@ -98,5 +98,16 @@ describe("pendingCreditCardTransactionAmount", () => {
         }),
       ),
     ).toBe(0);
+    expect(
+      pendingCreditCardTransactionAmount(
+        transaction({
+          amount: "1135.82",
+          category: "",
+          description: "PAYMENT THANK YOU",
+          plaid_category_detailed: "TRANSFER_IN_OTHER_TRANSFER_IN",
+          transaction_type: "credit",
+        }),
+      ),
+    ).toBe(0);
   });
 });

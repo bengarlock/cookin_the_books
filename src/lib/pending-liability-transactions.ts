@@ -19,16 +19,21 @@ const accountTransferDescriptionPatterns = [
   /\btransfer (?:from|to) (?:chk|sav|checking|savings)\b/,
 ];
 
+const cardPaymentDescriptionPatterns = [/\bpayment thank you\b/];
+
 export function isPendingCreditCardPayment(transaction: PendingCardTransaction) {
   if (transaction.transaction_type === "payment") return true;
   if (transaction.category === "account_payment") return true;
   if (accountPaymentDetailedCategories.has(transaction.plaid_category_detailed)) {
     return true;
   }
+  const description = transaction.description.toLowerCase().replace(/\s+/g, " ");
+  if (cardPaymentDescriptionPatterns.some((pattern) => pattern.test(description))) {
+    return true;
+  }
   if (!accountTransferDetailedCategories.has(transaction.plaid_category_detailed)) {
     return false;
   }
-  const description = transaction.description.toLowerCase().replace(/\s+/g, " ");
   return accountTransferDescriptionPatterns.some((pattern) =>
     pattern.test(description),
   );
