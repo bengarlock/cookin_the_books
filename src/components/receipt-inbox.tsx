@@ -305,12 +305,18 @@ export function ReceiptInbox() {
                 </button>
               ) : null}
               <button
-                className="rounded-lg border border-rose-300/35 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:border-rose-300 hover:bg-rose-300/10 disabled:opacity-50"
+                aria-label={deletingReceiptId === receipt.id ? "Deleting receipt" : "Delete receipt"}
+                className="flex size-9 items-center justify-center rounded-lg border border-rose-300/35 text-rose-200 transition hover:border-rose-300 hover:bg-rose-300/10 disabled:opacity-50"
                 disabled={deletingReceiptId !== null || retryingReceiptId !== null}
                 onClick={() => void deleteReceipt(receipt)}
+                title="Delete receipt"
                 type="button"
               >
-                {deletingReceiptId === receipt.id ? "Deleting..." : "Delete receipt"}
+                {deletingReceiptId === receipt.id ? <span className="text-xs">...</span> : (
+                  <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                    <path d="M4 7h16M10 11v6m4-6v6M9 7l1-2h4l1 2m-9 0 1 13h10l1-13" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
               </button>
               <span className={`text-xs font-semibold ${receipt.status === "matched" ? "text-accent" : receipt.status === "failed" ? "text-rose-300" : "text-amber-300"}`}>
                 {statusLabel(receipt.status)}
