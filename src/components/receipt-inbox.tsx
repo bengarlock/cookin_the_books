@@ -324,6 +324,13 @@ export function ReceiptInbox() {
                     <path d="m5 12 4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
+              ) : receipt.status === "review" ? (
+                <span aria-label="Needs review" className="flex size-8 items-center justify-center rounded-full border border-amber-300/35 text-amber-300" title="Needs review">
+                  <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                    <path d="M12 3 2.8 20h18.4L12 3Z" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M12 9v4m0 4h.01" strokeLinecap="round" />
+                  </svg>
+                </span>
               ) : (
                 <span className={`text-xs font-semibold ${receipt.status === "failed" ? "text-rose-300" : "text-amber-300"}`}>
                   {statusLabel(receipt.status)}
