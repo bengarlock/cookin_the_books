@@ -318,9 +318,17 @@ export function ReceiptInbox() {
                   </svg>
                 )}
               </button>
-              <span className={`text-xs font-semibold ${receipt.status === "matched" ? "text-accent" : receipt.status === "failed" ? "text-rose-300" : "text-amber-300"}`}>
-                {statusLabel(receipt.status)}
-              </span>
+              {receipt.status === "matched" ? (
+                <span aria-label="Matched" className="flex size-8 items-center justify-center rounded-full border border-accent/35 text-accent" title="Matched">
+                  <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path d="m5 12 4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              ) : (
+                <span className={`text-xs font-semibold ${receipt.status === "failed" ? "text-rose-300" : "text-amber-300"}`}>
+                  {statusLabel(receipt.status)}
+                </span>
+              )}
             </div>
           </div>
         )) : (
