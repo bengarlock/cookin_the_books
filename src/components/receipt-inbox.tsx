@@ -28,6 +28,22 @@ type ReceiptEmail = {
   } | null;
 };
 
+type ReviewTransaction = {
+  id: number;
+  description: string;
+  amount: string;
+  transaction_date: string;
+  issuer: string;
+  account_last_four: string;
+  pending: boolean;
+};
+
+type ReceiptReview = {
+  receipt: ReceiptEmail;
+  body_text: string;
+  transactions: ReviewTransaction[];
+};
+
 function statusLabel(status: ReceiptEmail["status"]) {
   return {
     received: "Received",
@@ -59,6 +75,10 @@ export function ReceiptInbox() {
   const [savingAddress, setSavingAddress] = useState(false);
   const [retryingReceiptId, setRetryingReceiptId] = useState<number | null>(null);
   const [deletingReceiptId, setDeletingReceiptId] = useState<number | null>(null);
+  const [openingReviewId, setOpeningReviewId] = useState<number | null>(null);
+  const [matchingTransactionId, setMatchingTransactionId] = useState<number | null>(null);
+  const [review, setReview] = useState<ReceiptReview | null>(null);
+  const [transactionSearch, setTransactionSearch] = useState("");
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
 
@@ -163,6 +183,60 @@ export function ReceiptInbox() {
     }
   }
 
+  async function openReview(receipt: ReceiptEmail) {
+    setOpeningReviewId(receipt.id);
+    setError("");
+    setStatus("");
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/receipt-emails/${receipt.id}/review`, { cache: "no-store" });
+      const data = await response.json().catch(() => null) as ReceiptReview | { message?: string } | null;
+      if (!response.ok || !data || !("receipt" in data)) {
+        throw new Error(data && "message" in data ? data.message : "The receipt review could not be loaded.");
+      }
+      setReview(data);
+      setTransactionSearch("");
+    } catch (reviewError) {
+      setError(reviewError instanceof Error ? reviewError.message : "The receipt review could not be loaded.");
+    } finally {
+      setOpeningReviewId(null);
+    }
+  }
+
+  async function manuallyMatchReceipt(transaction: ReviewTransaction) {
+    if (!review) return;
+    setMatchingTransactionId(transaction.id);
+    setError("");
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/receipt-emails/${review.receipt.id}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transaction_id: transaction.id }),
+        cache: "no-store",
+      });
+      const data = await response.json().catch(() => null) as ReceiptEmail | { message?: string } | null;
+      if (!response.ok || !data || !("id" in data)) {
+        throw new Error(data && "message" in data ? data.message : "The receipt could not be matched manually.");
+      }
+      setReceipts((current) => current.map((item) => item.id === data.id ? data : item));
+      setReview(null);
+      setStatus("Receipt manually matched to the selected transaction.");
+    } catch (matchError) {
+      setError(matchError instanceof Error ? matchError.message : "The receipt could not be matched manually.");
+    } finally {
+      setMatchingTransactionId(null);
+    }
+  }
+
+  const reviewTransactions = review?.transactions.filter((transaction) => {
+    const query = transactionSearch.trim().toLowerCase();
+    return !query || [
+      transaction.description,
+      transaction.amount,
+      transaction.transaction_date,
+      transaction.account_last_four,
+    ].some((value) => value.toLowerCase().includes(query));
+  }) || [];
+
   return (
     <section className="surface overflow-hidden rounded-2xl">
       <div className="border-b border-white/10 p-5 sm:p-6">
@@ -220,6 +294,16 @@ export function ReceiptInbox() {
                   {retryingReceiptId === receipt.id ? "Retrying..." : "Retry matching"}
                 </button>
               ) : null}
+              {(["review", "failed", "parsed"] as ReceiptEmail["status"][]).includes(receipt.status) ? (
+                <button
+                  className="rounded-lg border border-accent/40 px-3 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent/10 disabled:opacity-50"
+                  disabled={openingReviewId !== null || deletingReceiptId !== null || retryingReceiptId !== null}
+                  onClick={() => void openReview(receipt)}
+                  type="button"
+                >
+                  {openingReviewId === receipt.id ? "Opening..." : "Review receipt"}
+                </button>
+              ) : null}
               <button
                 className="rounded-lg border border-rose-300/35 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:border-rose-300 hover:bg-rose-300/10 disabled:opacity-50"
                 disabled={deletingReceiptId !== null || retryingReceiptId !== null}
@@ -237,6 +321,57 @@ export function ReceiptInbox() {
           <p className="px-5 py-5 text-sm text-muted sm:px-6">No forwarded receipts have been processed yet.</p>
         )}
       </div>
+      {review ? (
+        <div aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4" role="dialog">
+          <div className="surface flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-line shadow-2xl">
+            <div className="flex items-start justify-between border-b border-line/70 p-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold">Receipt review</p>
+                <h3 className="mt-1 text-lg font-semibold text-foreground">{review.receipt.subject || "Forwarded receipt"}</h3>
+                <p className="mt-1 text-sm text-amber-300">{review.receipt.review_note || review.receipt.error_message || "Choose the transaction this receipt belongs to."}</p>
+              </div>
+              <button className="rounded-lg border border-line px-3 py-2 text-xs font-semibold text-muted hover:text-foreground" onClick={() => setReview(null)} type="button">Close</button>
+            </div>
+            <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto p-5 lg:grid-cols-2">
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">Forwarded email</h4>
+                <pre className="mt-3 max-h-[52vh] overflow-auto whitespace-pre-wrap rounded-xl border border-line bg-black/20 p-4 text-xs leading-5 text-muted">{review.body_text || "No plain-text receipt body was saved."}</pre>
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">Choose a card transaction</h4>
+                <p className="mt-1 text-xs text-muted">Manual matching uses the selected transaction’s amount and date. It does not modify the transaction.</p>
+                <input
+                  className="mt-3 min-h-10 w-full rounded-lg border border-line bg-transparent px-3 text-sm text-foreground outline-none focus:border-accent/60"
+                  onChange={(event) => setTransactionSearch(event.target.value)}
+                  placeholder="Search description, amount, date, or card"
+                  value={transactionSearch}
+                />
+                <div className="mt-3 max-h-[43vh] divide-y divide-line overflow-y-auto rounded-xl border border-line">
+                  {reviewTransactions.length ? reviewTransactions.map((transaction) => (
+                    <div className="flex items-center justify-between gap-3 p-3" key={transaction.id}>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{transaction.description}</p>
+                        <p className="mt-1 text-xs text-muted">{transaction.transaction_date} · {transaction.issuer} · •••• {transaction.account_last_four}{transaction.pending ? " · Pending" : ""}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3">
+                        <span className="text-sm font-semibold text-foreground">{formatReceiptTotal(transaction.amount, "USD")}</span>
+                        <button
+                          className="rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-[#07100f] disabled:opacity-50"
+                          disabled={matchingTransactionId !== null}
+                          onClick={() => void manuallyMatchReceipt(transaction)}
+                          type="button"
+                        >
+                          {matchingTransactionId === transaction.id ? "Matching..." : "Match"}
+                        </button>
+                      </div>
+                    </div>
+                  )) : <p className="p-4 text-sm text-muted">No matching transactions in the recent purchase list.</p>}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
