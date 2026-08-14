@@ -2212,11 +2212,14 @@ export function LiveBankValues({
   async function copyAdjustedReserveValue(
     accountKey: SnapshotAccountKey,
     adjustedValue: number,
+    reserveTarget: number,
   ) {
     setRegisterError("");
 
     try {
-      await navigator.clipboard.writeText((adjustedValue - 500).toFixed(2));
+      await navigator.clipboard.writeText(
+        (reserveTarget - adjustedValue).toFixed(2),
+      );
       setCopiedAdjustedAccount(accountKey);
       window.setTimeout(() => {
         setCopiedAdjustedAccount((current) =>
@@ -2893,7 +2896,19 @@ export function LiveBankValues({
                               disabled={!snapshot}
                               label="Copy Chase Checking adjusted total minus $500"
                               onClick={() =>
-                                copyAdjustedReserveValue(account.key, adjusted)
+                                copyAdjustedReserveValue(account.key, adjusted, -500)
+                              }
+                            />
+                          ) : null}
+                          {account.key === "chase_savings" ? (
+                            <AdjustedReserveCopyButton
+                              copied={
+                                copiedAdjustedAccount === "chase_savings"
+                              }
+                              disabled={!snapshot}
+                              label="Copy $30,000 minus Chase Savings adjusted total"
+                              onClick={() =>
+                                copyAdjustedReserveValue(account.key, adjusted, 30_000)
                               }
                             />
                           ) : null}
