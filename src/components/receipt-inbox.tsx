@@ -17,6 +17,7 @@ type ReceiptEmail = {
   parser: string;
   status: "received" | "processed" | "parsed" | "matched" | "review" | "failed";
   error_message: string;
+  review_note: string;
   receipt_order: {
     vendor_key: string;
     merchant_name: string;
@@ -43,6 +44,7 @@ export function ReceiptInbox() {
   const [forwardingFromAddress, setForwardingFromAddress] = useState("");
   const [savingAddress, setSavingAddress] = useState(false);
   const [retryingReceiptId, setRetryingReceiptId] = useState<number | null>(null);
+  const [deletingReceiptId, setDeletingReceiptId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
 
@@ -124,6 +126,29 @@ export function ReceiptInbox() {
     }
   }
 
+  async function deleteReceipt(receipt: ReceiptEmail) {
+    if (!window.confirm("Delete this forwarded receipt record? This will not delete an attached order or card transaction.")) return;
+    setDeletingReceiptId(receipt.id);
+    setError("");
+    setStatus("");
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/receipt-emails/${receipt.id}`, {
+        method: "DELETE",
+        cache: "no-store",
+      });
+      const data = await response.json().catch(() => null) as { message?: string } | null;
+      if (!response.ok) {
+        throw new Error(data?.message || "The receipt could not be deleted.");
+      }
+      setReceipts((current) => current.filter((item) => item.id !== receipt.id));
+      setStatus("Receipt deleted.");
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "The receipt could not be deleted.");
+    } finally {
+      setDeletingReceiptId(null);
+    }
+  }
+
   return (
     <section className="surface overflow-hidden rounded-2xl">
       <div className="border-b border-white/10 p-5 sm:p-6">
@@ -168,7 +193,7 @@ export function ReceiptInbox() {
               </p>
               <p className="mt-1 truncate text-xs text-muted">{receipt.sender || "Unknown sender"}{receipt.received_at ? ` · ${new Date(receipt.received_at).toLocaleString()}` : ""}</p>
               {receipt.receipt_order ? <p className="mt-1 text-xs text-muted">Order {receipt.receipt_order.external_order_id} · {receipt.receipt_order.items.length} item{receipt.receipt_order.items.length === 1 ? "" : "s"}</p> : null}
-              {receipt.error_message ? <p className="mt-1 text-xs text-amber-300">{receipt.error_message}</p> : null}
+              {receipt.review_note || receipt.error_message ? <p className="mt-1 text-xs text-amber-300">{receipt.review_note || receipt.error_message}</p> : null}
             </div>
             <div className="flex shrink-0 items-center gap-3">
               {receipt.status === "parsed" && receipt.receipt_order ? (
@@ -181,6 +206,14 @@ export function ReceiptInbox() {
                   {retryingReceiptId === receipt.id ? "Retrying..." : "Retry matching"}
                 </button>
               ) : null}
+              <button
+                className="rounded-lg border border-rose-300/35 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:border-rose-300 hover:bg-rose-300/10 disabled:opacity-50"
+                disabled={deletingReceiptId !== null || retryingReceiptId !== null}
+                onClick={() => void deleteReceipt(receipt)}
+                type="button"
+              >
+                {deletingReceiptId === receipt.id ? "Deleting..." : "Delete receipt"}
+              </button>
               <span className={`text-xs font-semibold ${receipt.status === "matched" ? "text-accent" : receipt.status === "failed" ? "text-rose-300" : "text-amber-300"}`}>
                 {statusLabel(receipt.status)}
               </span>
