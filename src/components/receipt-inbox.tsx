@@ -296,12 +296,19 @@ export function ReceiptInbox() {
               ) : null}
               {(["review", "failed", "parsed"] as ReceiptEmail["status"][]).includes(receipt.status) ? (
                 <button
-                  className="rounded-lg border border-accent/40 px-3 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent/10 disabled:opacity-50"
+                  aria-label={openingReviewId === receipt.id ? "Opening receipt review" : "Review receipt"}
+                  className="flex size-9 items-center justify-center rounded-lg border border-accent/40 text-accent transition hover:border-accent hover:bg-accent/10 disabled:opacity-50"
                   disabled={openingReviewId !== null || deletingReceiptId !== null || retryingReceiptId !== null}
                   onClick={() => void openReview(receipt)}
+                  title="Review receipt"
                   type="button"
                 >
-                  {openingReviewId === receipt.id ? "Opening..." : "Review receipt"}
+                  {openingReviewId === receipt.id ? <span className="text-xs">...</span> : (
+                    <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" strokeLinecap="round" strokeLinejoin="round" />
+                      <circle cx="12" cy="12" r="2.5" />
+                    </svg>
+                  )}
                 </button>
               ) : null}
               <button
