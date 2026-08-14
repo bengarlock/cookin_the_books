@@ -23,6 +23,7 @@ type ReceiptEmail = {
     merchant_name: string;
     external_order_id: string;
     total_amount: string;
+    currency: string;
     items: { id: number; name: string; quantity: number }[];
   } | null;
 };
@@ -36,6 +37,19 @@ function statusLabel(status: ReceiptEmail["status"]) {
     review: "Needs review",
     failed: "Failed",
   }[status];
+}
+
+function formatReceiptTotal(amount: string, currency: string) {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return amount;
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currency || "USD",
+    }).format(value);
+  } catch {
+    return amount;
+  }
 }
 
 export function ReceiptInbox() {
@@ -192,7 +206,7 @@ export function ReceiptInbox() {
                 {receipt.receipt_order?.merchant_name || receipt.subject || "Receipt email"}
               </p>
               <p className="mt-1 truncate text-xs text-muted">{receipt.sender || "Unknown sender"}{receipt.received_at ? ` · ${new Date(receipt.received_at).toLocaleString()}` : ""}</p>
-              {receipt.receipt_order ? <p className="mt-1 text-xs text-muted">Order {receipt.receipt_order.external_order_id} · {receipt.receipt_order.items.length} item{receipt.receipt_order.items.length === 1 ? "" : "s"}</p> : null}
+              {receipt.receipt_order ? <p className="mt-1 text-xs text-muted">Order {receipt.receipt_order.external_order_id} · {formatReceiptTotal(receipt.receipt_order.total_amount, receipt.receipt_order.currency)} · {receipt.receipt_order.items.length} item{receipt.receipt_order.items.length === 1 ? "" : "s"}</p> : null}
               {receipt.review_note || receipt.error_message ? <p className="mt-1 text-xs text-amber-300">{receipt.review_note || receipt.error_message}</p> : null}
             </div>
             <div className="flex shrink-0 items-center gap-3">
