@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { APP_BASE_PATH } from "@/lib/config";
 
@@ -76,6 +76,7 @@ export function ReceiptInbox() {
   const [retryingReceiptId, setRetryingReceiptId] = useState<number | null>(null);
   const [deletingReceiptId, setDeletingReceiptId] = useState<number | null>(null);
   const [confirmingDeleteReceiptId, setConfirmingDeleteReceiptId] = useState<number | null>(null);
+  const deleteConfirmationButtonRef = useRef<HTMLButtonElement | null>(null);
   const [openingReviewId, setOpeningReviewId] = useState<number | null>(null);
   const [matchingTransactionId, setMatchingTransactionId] = useState<number | null>(null);
   const [review, setReview] = useState<ReceiptReview | null>(null);
@@ -114,6 +115,19 @@ export function ReceiptInbox() {
       window.clearInterval(interval);
     };
   }, []);
+
+  useEffect(() => {
+    if (confirmingDeleteReceiptId === null) return;
+
+    function cancelDeleteConfirmation(event: PointerEvent) {
+      const button = deleteConfirmationButtonRef.current;
+      if (button && event.target instanceof Node && button.contains(event.target)) return;
+      setConfirmingDeleteReceiptId(null);
+    }
+
+    document.addEventListener("pointerdown", cancelDeleteConfirmation);
+    return () => document.removeEventListener("pointerdown", cancelDeleteConfirmation);
+  }, [confirmingDeleteReceiptId]);
 
   async function saveForwardingAddress() {
     setSavingAddress(true);
@@ -314,8 +328,11 @@ export function ReceiptInbox() {
               ) : null}
               <button
                 aria-label={deletingReceiptId === receipt.id ? "Deleting receipt" : confirmingDeleteReceiptId === receipt.id ? "Confirm delete receipt" : "Delete receipt"}
-                className="flex h-9 w-24 items-center justify-center rounded-lg border border-rose-300/35 text-rose-200 transition hover:border-rose-300 hover:bg-rose-300/10 disabled:opacity-50"
+                className="flex size-9 items-center justify-center rounded-lg border border-rose-300/35 text-rose-200 transition hover:border-rose-300 hover:bg-rose-300/10 disabled:opacity-50"
                 disabled={deletingReceiptId !== null || retryingReceiptId !== null}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) setConfirmingDeleteReceiptId(null);
+                }}
                 onClick={() => {
                   if (confirmingDeleteReceiptId === receipt.id) {
                     void deleteReceipt(receipt);
@@ -323,10 +340,15 @@ export function ReceiptInbox() {
                   }
                   setConfirmingDeleteReceiptId(receipt.id);
                 }}
+                ref={confirmingDeleteReceiptId === receipt.id ? deleteConfirmationButtonRef : undefined}
                 title={confirmingDeleteReceiptId === receipt.id ? "Click again to delete receipt" : "Delete receipt"}
                 type="button"
               >
-                {deletingReceiptId === receipt.id ? <span className="text-xs">...</span> : confirmingDeleteReceiptId === receipt.id ? <span className="text-xs font-semibold">Confirm</span> : (
+                {deletingReceiptId === receipt.id ? <span className="text-xs">...</span> : confirmingDeleteReceiptId === receipt.id ? (
+                  <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path d="m5 12 4 4L19 6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : (
                   <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
                     <path d="M4 7h16M10 11v6m4-6v6M9 7l1-2h4l1 2m-9 0 1 13h10l1-13" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
