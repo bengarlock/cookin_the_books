@@ -1264,7 +1264,6 @@ function AccountTransactionList({
                   </p>
                 ) : null}
                     <AmazonOrderDetails orders={transaction.amazon_orders || []} />
-                <ReceiptOrderDetails orders={transaction.receipt_orders || []} />
                 {transaction.related_transactions?.length ? (
                   <div className="mt-2 space-y-1.5">
                     {transaction.related_transactions.map((related) => (
@@ -1300,6 +1299,9 @@ function AccountTransactionList({
                     </button>
                   </div>
                 ) : null}
+                </div>
+                <div className="col-span-2 min-w-0">
+                  <ReceiptOrderDetails orders={transaction.receipt_orders || []} />
                 </div>
                 {editingTransactionId === transaction.id ? (
                   <div className="col-span-2 mt-3 cursor-default" data-transaction-editor>
