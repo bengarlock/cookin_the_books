@@ -301,11 +301,15 @@ export function ReceiptInbox() {
             <div className="flex shrink-0 items-center gap-3">
               {receipt.status === "parsed" && receipt.receipt_order ? (
                 <button
-                  className="min-w-32 rounded-lg border border-accent/40 px-3 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent/10 disabled:opacity-50"
+                  className="inline-flex min-w-32 items-center justify-center gap-1.5 rounded-lg border border-accent/40 px-3 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent/10 disabled:opacity-50"
                   disabled={retryingReceiptId !== null}
                   onClick={() => void retryMatching(receipt)}
                   type="button"
                 >
+                  <svg aria-hidden="true" className={`size-3.5 ${retryingReceiptId === receipt.id ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                    <path d="M20 11a8 8 0 1 0 2 5.5" strokeLinecap="round" />
+                    <path d="M20 4v7h-7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                   {retryingReceiptId === receipt.id ? "Retrying..." : "Retry matching"}
                 </button>
               ) : null}
@@ -365,6 +369,13 @@ export function ReceiptInbox() {
                   <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
                     <path d="M12 3 2.8 20h18.4L12 3Z" strokeLinecap="round" strokeLinejoin="round" />
                     <path d="M12 9v4m0 4h.01" strokeLinecap="round" />
+                  </svg>
+                </span>
+              ) : receipt.status === "parsed" ? (
+                <span aria-label="Parsed; awaiting a transaction" className="flex size-8 items-center justify-center rounded-full border border-accent/35 text-accent" title="Parsed; awaiting a transaction">
+                  <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="8.5" />
+                    <path d="M12 7.5V12l3 2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
               ) : (
