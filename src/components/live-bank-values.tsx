@@ -1263,7 +1263,6 @@ function AccountTransactionList({
                     {transaction.note}
                   </p>
                 ) : null}
-                    <AmazonOrderDetails orders={transaction.amazon_orders || []} />
                 {transaction.related_transactions?.length ? (
                   <div className="mt-2 space-y-1.5">
                     {transaction.related_transactions.map((related) => (
@@ -1299,6 +1298,9 @@ function AccountTransactionList({
                     </button>
                   </div>
                 ) : null}
+                </div>
+                <div className="col-span-2 min-w-0">
+                  <AmazonOrderDetails orders={transaction.amazon_orders || []} />
                 </div>
                 <div className="col-span-2 min-w-0">
                   <ReceiptOrderDetails orders={transaction.receipt_orders || []} />
