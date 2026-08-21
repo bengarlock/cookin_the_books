@@ -9,7 +9,13 @@ import { getPortfolioApiBaseUrl } from "@/lib/server-config";
 
 export const getBudgetPlanSettings = cache(async (): Promise<BudgetPlanSettings> => {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
-  if (!token) return { budget_offset: "0.00", next_payday_override: null };
+  if (!token) {
+    return {
+      budget_offset: "0.00",
+      next_payday_override: null,
+      navigation_preferences: {},
+    };
+  }
 
   try {
     const response = await fetch(
@@ -23,10 +29,18 @@ export const getBudgetPlanSettings = cache(async (): Promise<BudgetPlanSettings>
       },
     );
     if (!response.ok) {
-      return { budget_offset: "0.00", next_payday_override: null };
+      return {
+        budget_offset: "0.00",
+        next_payday_override: null,
+        navigation_preferences: {},
+      };
     }
     return (await response.json()) as BudgetPlanSettings;
   } catch {
-    return { budget_offset: "0.00", next_payday_override: null };
+    return {
+      budget_offset: "0.00",
+      next_payday_override: null,
+      navigation_preferences: {},
+    };
   }
 });
