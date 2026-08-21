@@ -5,6 +5,7 @@ import {
   AUTH_COOKIE_NAME,
   LEGACY_AUTH_COOKIE_NAMES,
 } from "@/lib/auth";
+import { getAuthCookieScope } from "@/lib/auth-cookie-options";
 import {
   getPortfolioApiBaseUrl,
   PortfolioApiConfigurationError,
@@ -64,25 +65,24 @@ export async function POST(request: Request) {
     }
 
     const response = NextResponse.json({ authenticated: true });
+    const cookieScope = getAuthCookieScope();
     response.cookies.set(AUTH_COOKIE_NAME, data.token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: AUTH_COOKIE_MAX_AGE,
       path: "/",
       priority: "high",
-      ...(process.env.NODE_ENV === "production" ? { domain: ".bengarlock.com" } : {}),
+      ...cookieScope,
     });
     LEGACY_AUTH_COOKIE_NAMES.filter((name) => name !== AUTH_COOKIE_NAME).forEach(
       (name) => {
         response.cookies.set(name, "", {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
           sameSite: "lax",
           maxAge: 0,
           path: "/",
           priority: "high",
-          ...(process.env.NODE_ENV === "production" ? { domain: ".bengarlock.com" } : {}),
+          ...cookieScope,
         });
       },
     );

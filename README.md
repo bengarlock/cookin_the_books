@@ -147,6 +147,8 @@ Next.js to receive the configured base path.
 | --- | --- |
 | `NEXT_PUBLIC_API_BASE_URL` | Optional public API base URL for future direct browser requests |
 | `PORTFOLIO_API_BASE_URL` | Preferred server-only base URL for `portfolio_database` |
+| `AUTH_COOKIE_SECURE` | Optional cookie security override; defaults to `true` in production |
+| `AUTH_COOKIE_DOMAIN` | Optional cookie domain override; set empty for host-only staging cookies |
 | `PORTFOLIO_WEBSOCKET_BASE_URL` | Optional Channels/Daphne WebSocket origin; derived from the API URL when omitted |
 | `AUTH_COOKIE_NAME` | Name of the HTTP-only backend-token cookie |
 | `AUTH_COOKIE_MAX_AGE_SECONDS` | Browser cookie lifetime in seconds |
