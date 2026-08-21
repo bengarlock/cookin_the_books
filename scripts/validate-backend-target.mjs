@@ -11,6 +11,7 @@ loadEnvConfig(process.cwd(), mode === "development");
 
 const apiUrl = process.env.PORTFOLIO_API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
 const websocketUrl = process.env.PORTFOLIO_WEBSOCKET_BASE_URL;
+const allowInsecureApiBaseUrl = process.env.ALLOW_INSECURE_API_BASE_URL === "true";
 
 if (!apiUrl) {
   throw new Error("PORTFOLIO_API_BASE_URL must be configured.");
@@ -44,10 +45,12 @@ if (mode === "development") {
   if (isLoopback(api.hostname)) {
     throw new Error("Production cannot start with a loopback API backend.");
   }
-  if (api.protocol !== "https:") {
-    throw new Error("Production must use an HTTPS API backend.");
+  if (api.protocol !== "https:" && !allowInsecureApiBaseUrl) {
+    throw new Error(
+      "Production must use an HTTPS API backend unless ALLOW_INSECURE_API_BASE_URL=true is explicitly configured for staging.",
+    );
   }
-  if (websocket && websocket.protocol !== "wss:") {
+  if (websocket && websocket.protocol !== "wss:" && !allowInsecureApiBaseUrl) {
     throw new Error("Production must use a secure WSS WebSocket backend.");
   }
 }
