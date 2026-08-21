@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { extractApiErrorMessage } from "@/lib/api-error-message";
 import { AUTH_COOKIE_NAME, LEGACY_AUTH_COOKIE_NAMES } from "@/lib/auth";
+import { getAuthCookieScope } from "@/lib/auth-cookie-options";
 import {
   AUTH_INVALIDATED_HEADER,
   isBackendInvalidTokenResponse,
@@ -12,13 +13,13 @@ import {
 type JsonPayload = Record<string, unknown> | unknown[] | string | number | boolean | null;
 
 function clearAuthCookie(response: NextResponse) {
+  const cookieScope = getAuthCookieScope();
   [AUTH_COOKIE_NAME, ...LEGACY_AUTH_COOKIE_NAMES].forEach((name) => response.cookies.set(name, "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: 0,
     path: "/",
-    ...(process.env.NODE_ENV === "production" ? { domain: ".bengarlock.com" } : {}),
+    ...cookieScope,
   }));
 }
 
