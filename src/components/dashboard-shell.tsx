@@ -11,6 +11,10 @@ import { DashboardHeader } from "@/components/dashboard-header";
 import { APP_BASE_PATH } from "@/lib/config";
 import { isExpenseDateRange } from "@/lib/expense-date-range";
 
+type NavigationPreferences = {
+  budget_expanded?: boolean;
+};
+
 type IconProps = {
   className?: string;
 };
@@ -361,7 +365,13 @@ function isNavigationSectionActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function DashboardShell({ children }: { children: ReactNode }) {
+export function DashboardShell({
+  children,
+  initialNavigationPreferences = {},
+}: {
+  children: ReactNode;
+  initialNavigationPreferences?: NavigationPreferences;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const budgetRange = isExpenseDateRange({
@@ -378,13 +388,24 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     budgetParentHref,
   );
   const [isBudgetExpanded, setIsBudgetExpanded] = useState(
-    isBudgetSectionActive,
+    initialNavigationPreferences.budget_expanded ?? isBudgetSectionActive,
   );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   function budgetHref(href: string) {
     if (href === "/dashboard/budget/goals" || !budgetRange) return href;
     return `${href}?${new URLSearchParams(budgetRange)}`;
+  }
+
+  function setBudgetNavigationExpanded(expanded: boolean) {
+    setIsBudgetExpanded(expanded);
+    void fetch(`${APP_BASE_PATH}/api/budget-plan-settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        navigation_preferences: { budget_expanded: expanded },
+      }),
+    }).catch(() => undefined);
   }
 
   return (
@@ -449,7 +470,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                     href={budgetHref(item.href)}
                     prefetch={false}
                     onClick={() => {
-                      setIsBudgetExpanded(true);
+                      setBudgetNavigationExpanded(true);
                       setIsMobileMenuOpen(false);
                     }}
                     className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
@@ -475,7 +496,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                         ? "Collapse Budget pages"
                         : "Expand Budget pages"
                     }
-                    onClick={() => setIsBudgetExpanded((expanded) => !expanded)}
+                    onClick={() =>
+                      setBudgetNavigationExpanded(!isBudgetExpanded)
+                    }
                     className={`grid size-10 shrink-0 place-items-center rounded-xl border text-sm transition ${
                       isBudgetSectionActive
                         ? "border-accent/15 bg-accent/10 text-accent"

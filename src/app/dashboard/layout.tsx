@@ -5,6 +5,7 @@ import { AuthInvalidationBoundary } from "@/components/auth-invalidation-boundar
 import { DashboardShell } from "@/components/dashboard-shell";
 import { LiveSnapshotProvider } from "@/components/live-snapshot-provider";
 import { verifyPortfolioSession } from "@/lib/auth";
+import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
 import { getLatestBankValueSnapshot } from "@/lib/snapshots";
 
 export default async function DashboardLayout({
@@ -12,9 +13,10 @@ export default async function DashboardLayout({
 }: {
   children: ReactNode;
 }) {
-  const [session, latestSnapshot] = await Promise.all([
+  const [session, latestSnapshot, budgetPlanSettings] = await Promise.all([
     verifyPortfolioSession(),
     getLatestBankValueSnapshot(),
+    getBudgetPlanSettings(),
   ]);
 
   if (!session.authenticated) {
@@ -28,7 +30,11 @@ export default async function DashboardLayout({
   return (
     <LiveSnapshotProvider initialSnapshot={latestSnapshot}>
       <AuthInvalidationBoundary />
-      <DashboardShell>{children}</DashboardShell>
+      <DashboardShell
+        initialNavigationPreferences={budgetPlanSettings.navigation_preferences}
+      >
+        {children}
+      </DashboardShell>
     </LiveSnapshotProvider>
   );
 }
