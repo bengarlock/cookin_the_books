@@ -7,14 +7,12 @@ import { RecurringExpenses } from "@/components/recurring-expenses";
 import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
 import { getDashboardPendingCardTransactions } from "@/lib/dashboard-pending-card-transactions";
 import { getExpenseCategories } from "@/lib/expense-categories";
-import {
-  allTimeExpenseDateRange,
-  expenseDateRangeFromSearchParams,
-} from "@/lib/expense-date-range";
-import { getExpenseTransactions } from "@/lib/expense-transactions";
+import { expenseDateRangeFromSearchParams } from "@/lib/expense-date-range";
 import { getIncomeEntries } from "@/lib/income-entries";
 import { getIncomeTransactions } from "@/lib/income-transactions";
 import { getPendingTransactions } from "@/lib/pending-transactions";
+import { planExpenseTransactionRanges } from "@/lib/plan-expense-date-ranges";
+import { getPlanExpenseTransactions } from "@/lib/plan-expense-transactions";
 
 export const metadata: Metadata = {
   title: "Budget",
@@ -36,6 +34,7 @@ async function BudgetPlanContent({
   searchParams,
 }: BudgetPageProps) {
   const initialRange = expenseDateRangeFromSearchParams(await searchParams);
+  const transactionRanges = planExpenseTransactionRanges(initialRange);
   const [
     budgetPlanSettings,
     expenseCategories,
@@ -47,7 +46,7 @@ async function BudgetPlanContent({
   ] = await Promise.all([
     getBudgetPlanSettings(),
     getExpenseCategories(),
-    getExpenseTransactions(allTimeExpenseDateRange()),
+    getPlanExpenseTransactions(transactionRanges),
     getIncomeEntries(),
     getIncomeTransactions(),
     getDashboardPendingCardTransactions(),

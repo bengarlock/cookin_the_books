@@ -128,6 +128,27 @@ export type ExpenseTransaction = Pick<
   receipt_orders?: ReceiptOrder[];
 };
 
+export type PlanExpenseTransaction = Pick<
+  ExpenseTransaction,
+  | "id"
+  | "issuer"
+  | "account_last_four"
+  | "transaction_date"
+  | "description"
+  | "amount"
+  | "transaction_type"
+  | "category"
+  | "category_source"
+  | "split"
+  | "include"
+  | "pending"
+  | "plaid_category_primary"
+  | "plaid_category_detailed"
+  | "plaid_counterparty_name"
+  | "plaid_counterparty_entity_id"
+  | "related_transaction_ids"
+>;
+
 export type TransactionOrderDetails = {
   amazon_orders: AmazonOrder[];
   receipt_orders: ReceiptOrder[];

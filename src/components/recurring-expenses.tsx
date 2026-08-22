@@ -10,15 +10,13 @@ import {
   categorizedExpenseAverages,
   categorizedExpenseCategories,
 } from "@/lib/categorized-expense-averages";
+import type { CategorizedExpenseTransaction } from "@/lib/categorized-expense-averages";
 import type { ExpenseCategory } from "@/lib/expense-category-types";
 import {
   formatExpenseDateRange,
   type ExpenseDateRange,
 } from "@/lib/expense-date-range";
-import type {
-  ExpenseTransaction,
-  IncomeTransaction,
-} from "@/lib/credit-card-transaction-types";
+import type { IncomeTransaction } from "@/lib/credit-card-transaction-types";
 import type { IncomeEntry } from "@/lib/income-entry-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import {
@@ -56,7 +54,7 @@ export function RecurringExpenses({
   incomeTransactions: IncomeTransaction[];
   pendingTransactions: PendingTransaction[];
   initialRange: ExpenseDateRange;
-  transactions: ExpenseTransaction[];
+  transactions: CategorizedExpenseTransaction[];
 }) {
   const dateRange = initialRange;
   const { snapshot } = useLiveSnapshot();
