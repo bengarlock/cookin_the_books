@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
+import { BudgetLoading } from "@/components/budget-loading";
 import { LiveBankValues } from "@/components/live-bank-values";
 import { RecurringExpenses } from "@/components/recurring-expenses";
 import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
@@ -18,11 +20,21 @@ export const metadata: Metadata = {
   title: "Budget",
 };
 
-export default async function BudgetPage({
-  searchParams,
-}: {
+type BudgetPageProps = {
   searchParams: Promise<{ start?: string | string[]; end?: string | string[] }>;
-}) {
+};
+
+export default function BudgetPage({ searchParams }: BudgetPageProps) {
+  return (
+    <Suspense fallback={<BudgetLoading />}>
+      <BudgetPlanContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function BudgetPlanContent({
+  searchParams,
+}: BudgetPageProps) {
   const initialRange = expenseDateRangeFromSearchParams(await searchParams);
   const [
     budgetPlanSettings,
