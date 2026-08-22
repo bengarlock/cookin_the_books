@@ -468,7 +468,7 @@ export function DashboardShell({
                 <div className="flex items-center gap-2">
                   <Link
                     href={budgetHref(item.href)}
-                    prefetch={null}
+                    prefetch
                     onClick={() => {
                       setBudgetNavigationExpanded(true);
                       setIsMobileMenuOpen(false);
@@ -522,7 +522,7 @@ export function DashboardShell({
                     return (
                       <Link
                         href={budgetHref(child.href)}
-                        prefetch={false}
+                        prefetch={child.href === "/dashboard/budget/income"}
                         onClick={() => setIsMobileMenuOpen(false)}
                         className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition lg:ml-8 lg:w-[calc(100%-2rem)] ${
                           isNavigationItemActive(pathname, child.href)

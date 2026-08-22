@@ -11,6 +11,11 @@ const budgetLinks = [
   { href: "/dashboard/budget/goals", label: "Goals" },
 ];
 
+const fullyPrefetchedBudgetHrefs = new Set([
+  "/dashboard/budget",
+  "/dashboard/budget/income",
+]);
+
 export function BudgetNavigation() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -40,7 +45,7 @@ export function BudgetNavigation() {
               : `${link.href}?${dateRangeQuery}`
           }
           key={link.href}
-          prefetch={link.href === "/dashboard/budget" ? null : false}
+          prefetch={fullyPrefetchedBudgetHrefs.has(link.href)}
         >
           {link.label}
         </Link>
