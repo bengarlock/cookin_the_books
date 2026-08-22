@@ -40,7 +40,7 @@ export function BudgetNavigation() {
               : `${link.href}?${dateRangeQuery}`
           }
           key={link.href}
-          prefetch={false}
+          prefetch={link.href === "/dashboard/budget" ? null : false}
         >
           {link.label}
         </Link>
