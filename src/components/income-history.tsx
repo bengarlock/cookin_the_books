@@ -514,7 +514,7 @@ export function IncomeHistory({
   }
 
   return (
-    <div className="mt-8 space-y-5">
+    <div className="mt-6 space-y-5">
       {error ? (
         <p
           className="rounded-xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
