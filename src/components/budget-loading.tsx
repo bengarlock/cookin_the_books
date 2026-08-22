@@ -1,6 +1,10 @@
 export function BudgetLoading() {
   return (
-    <div className="mt-10 animate-pulse space-y-8">
+    <div
+      aria-label="Loading budget plan"
+      className="mt-10 animate-pulse space-y-8"
+      role="status"
+    >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <div

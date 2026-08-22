@@ -25,8 +25,13 @@ function storedRange() {
   }
 }
 
-export function BudgetDateRangePicker() {
-  const pathname = usePathname();
+export function BudgetDateRangePicker({
+  pathnameOverride,
+}: {
+  pathnameOverride?: string;
+} = {}) {
+  const currentPathname = usePathname();
+  const pathname = pathnameOverride ?? currentPathname;
   const router = useRouter();
   const searchParams = useSearchParams();
   const isGoalsPage = pathname === goalsPath;
