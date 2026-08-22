@@ -1,27 +1,8 @@
 import { AVERAGE_DAYS_PER_MONTH } from "./expense-averages";
 import type { ExpenseDateRange } from "./expense-date-range";
-import type { ExpenseTransaction } from "./credit-card-transaction-types";
+import type { PlanExpenseTransaction } from "./credit-card-transaction-types";
 
-export type CategorizedExpenseTransaction = Pick<
-  ExpenseTransaction,
-  | "id"
-  | "issuer"
-  | "account_last_four"
-  | "transaction_date"
-  | "description"
-  | "amount"
-  | "transaction_type"
-  | "category"
-  | "category_source"
-  | "split"
-  | "include"
-  | "pending"
-  | "plaid_category_primary"
-  | "plaid_category_detailed"
-  | "plaid_counterparty_name"
-  | "plaid_counterparty_entity_id"
-  | "related_transaction_ids"
->;
+export type CategorizedExpenseTransaction = PlanExpenseTransaction;
 
 export type SupplementalCategorizedExpense = {
   amount: string;
