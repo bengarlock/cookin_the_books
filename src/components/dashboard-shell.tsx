@@ -468,7 +468,7 @@ export function DashboardShell({
                 <div className="flex items-center gap-2">
                   <Link
                     href={budgetHref(item.href)}
-                    prefetch={false}
+                    prefetch={null}
                     onClick={() => {
                       setBudgetNavigationExpanded(true);
                       setIsMobileMenuOpen(false);
