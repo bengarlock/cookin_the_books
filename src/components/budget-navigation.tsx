@@ -16,8 +16,13 @@ const fullyPrefetchedBudgetHrefs = new Set([
   "/dashboard/budget/income",
 ]);
 
-export function BudgetNavigation() {
-  const pathname = usePathname();
+export function BudgetNavigation({
+  activePathname,
+}: {
+  activePathname?: string;
+} = {}) {
+  const currentPathname = usePathname();
+  const pathname = activePathname ?? currentPathname;
   const searchParams = useSearchParams();
   const dateRangeQuery = new URLSearchParams();
   const start = searchParams.get("start");

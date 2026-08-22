@@ -147,8 +147,13 @@ function DataFreshnessIndicator({
   );
 }
 
-export function DashboardHeader() {
-  const pathname = usePathname();
+export function DashboardHeader({
+  pathnameOverride,
+}: {
+  pathnameOverride?: string;
+} = {}) {
+  const currentPathname = usePathname();
+  const pathname = pathnameOverride ?? currentPathname;
   const router = useRouter();
   const { snapshot, setSnapshot } = useLiveSnapshot();
   const [currentDate, setCurrentDate] = useState(() => new Date());

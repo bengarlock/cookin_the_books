@@ -2,13 +2,23 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import type { ReactNode } from "react";
-import { useState } from "react";
+import {
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
+import { BudgetDateRangePicker } from "@/components/budget-date-range-picker";
+import { BudgetLoading } from "@/components/budget-loading";
+import { BudgetNavigation } from "@/components/budget-navigation";
 import { LogoutButton } from "@/components/logout-button";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { APP_BASE_PATH } from "@/lib/config";
+import {
+  budgetPlanNavigationSource,
+  isBudgetPlanNavigationPending,
+} from "@/lib/budget-plan-navigation";
 import { isExpenseDateRange } from "@/lib/expense-date-range";
 
 type NavigationPreferences = {
@@ -365,6 +375,18 @@ function isNavigationSectionActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function BudgetPlanLoadingShell() {
+  return (
+    <div className="w-full">
+      <section className="mb-6">
+        <BudgetNavigation activePathname={budgetParentHref} />
+      </section>
+      <BudgetDateRangePicker pathnameOverride={budgetParentHref} />
+      <BudgetLoading />
+    </div>
+  );
+}
+
 export function DashboardShell({
   children,
   initialNavigationPreferences = {},
@@ -391,6 +413,12 @@ export function DashboardShell({
     initialNavigationPreferences.budget_expanded ?? isBudgetSectionActive,
   );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [planNavigationSourcePathname, setPlanNavigationSourcePathname] =
+    useState<string | null>(null);
+  const isPlanNavigationPending = isBudgetPlanNavigationPending({
+    currentPathname: pathname,
+    sourcePathname: planNavigationSourcePathname,
+  });
 
   function budgetHref(href: string) {
     if (href === "/dashboard/budget/goals" || !budgetRange) return href;
@@ -408,8 +436,40 @@ export function DashboardShell({
     }).catch(() => undefined);
   }
 
+  function handleNavigationCapture(event: ReactMouseEvent<HTMLDivElement>) {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      !(event.target instanceof Element)
+    ) {
+      return;
+    }
+
+    const anchor = event.target.closest("a");
+    if (!anchor || anchor.target === "_blank" || anchor.hasAttribute("download")) {
+      return;
+    }
+
+    const destination = new URL(anchor.href, window.location.href);
+    if (destination.origin !== window.location.origin) return;
+
+    setPlanNavigationSourcePathname(
+      budgetPlanNavigationSource({
+        appBasePath: APP_BASE_PATH,
+        currentPathname: pathname,
+        destinationPathname: destination.pathname,
+      }),
+    );
+  }
+
   return (
-    <div className="app-backdrop min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
+    <div
+      className="app-backdrop min-h-screen lg:grid lg:grid-cols-[260px_1fr]"
+      onClickCapture={handleNavigationCapture}
+    >
       <aside className="dashboard-sidebar border-b border-white/10 bg-black/15 px-5 py-5 backdrop-blur lg:fixed lg:inset-y-0 lg:w-[260px] lg:border-r lg:border-b-0 lg:px-6 lg:py-7">
         <div className="flex items-center justify-between lg:block">
           <div className="flex items-center gap-3">
@@ -576,10 +636,16 @@ export function DashboardShell({
       </aside>
 
       <div className="min-w-0 lg:col-start-2">
-        <DashboardHeader />
+        <DashboardHeader
+          pathnameOverride={
+            isPlanNavigationPending ? budgetParentHref : undefined
+          }
+        />
 
         <main className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
+          <div className="mx-auto w-full max-w-7xl">
+            {isPlanNavigationPending ? <BudgetPlanLoadingShell /> : children}
+          </div>
         </main>
       </div>
     </div>
