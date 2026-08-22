@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import { BudgetDateRangePicker } from "@/components/budget-date-range-picker";
+import { BudgetLoading } from "@/components/budget-loading";
 import { BudgetNavigation } from "@/components/budget-navigation";
 
 export default function BudgetLayout({
@@ -14,7 +15,7 @@ export default function BudgetLayout({
         <BudgetNavigation />
       </section>
       <BudgetDateRangePicker />
-      {children}
+      <Suspense fallback={<BudgetLoading />}>{children}</Suspense>
     </div>
   );
 }
