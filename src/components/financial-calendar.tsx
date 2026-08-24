@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { APP_BASE_PATH } from "@/lib/config";
 import {
@@ -109,6 +109,7 @@ export function FinancialCalendar({
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const days = useMemo(() => monthCalendarDays(visibleMonth), [visibleMonth]);
   const todayKey = localDateKey(new Date());
   const visibleReminders = reminders.filter(
@@ -118,6 +119,19 @@ export function FinancialCalendar({
     .filter((reminder) => !reminder.is_completed)
     .sort((left, right) => left.due_date.localeCompare(right.due_date))
     .slice(0, 5);
+
+  useEffect(() => {
+    if (deletingId === null) return;
+
+    function cancelDeleteConfirmation(event: PointerEvent) {
+      if (!deleteButtonRef.current?.contains(event.target as Node)) {
+        setDeletingId(null);
+      }
+    }
+
+    document.addEventListener("pointerdown", cancelDeleteConfirmation);
+    return () => document.removeEventListener("pointerdown", cancelDeleteConfirmation);
+  }, [deletingId]);
 
   function selectReminder(reminder: FinancialReminder) {
     setSelectedId(reminder.id);
@@ -538,15 +552,41 @@ export function FinancialCalendar({
                       : "Complete"}
                   </button>
                   <button
+                    ref={deleteButtonRef}
                     type="button"
                     onClick={() => void deleteReminder(selectedId)}
-                    className={`w-24 rounded-xl border px-3 py-2.5 text-sm transition ${
+                    aria-label={
                       deletingId === selectedId
-                        ? "border-red-400/50 bg-red-400/15 text-red-100"
-                        : "border-red-400/20 text-red-200/75 hover:border-red-400/40 hover:text-red-100"
+                        ? "Confirm delete reminder"
+                        : "Delete reminder"
+                    }
+                    title={
+                      deletingId === selectedId
+                        ? "Click again to delete"
+                        : "Delete reminder"
+                    }
+                    className={`flex size-10 items-center justify-center rounded-xl border border-white/10 transition ${
+                      deletingId === selectedId
+                        ? "text-red-400"
+                        : "text-white/45 hover:border-red-400/30 hover:text-red-300"
                     }`}
                   >
-                    {deletingId === selectedId ? "Confirm" : "Delete"}
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="size-5"
+                    >
+                      <path d="M3 6h18" />
+                      <path d="M8 6V4h8v2" />
+                      <path d="M19 6l-1 14H6L5 6" />
+                      <path d="M10 11v5" />
+                      <path d="M14 11v5" />
+                    </svg>
                   </button>
                 </>
               ) : null}
