@@ -437,12 +437,17 @@ export function FinancialCalendar({
                   <path d="M12 16h.01" />
                 </svg>
               </div>
-              <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+              <button
+                type="button"
+                onClick={() => startNewReminder(todayKey)}
+                aria-label="Create reminder for today"
+                className="mt-4 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-slate-950 transition hover:brightness-110"
+              >
                 Create
-              </p>
+              </button>
               <h2 className="mt-1 text-xl font-semibold text-white">Select a date</h2>
               <p className="mt-2 max-w-64 text-sm leading-6 text-white/45">
-                Choose a date on the calendar to create a financial reminder.
+                Choose a date on the calendar, or create a reminder for today.
               </p>
             </div>
           ) : (
