@@ -13,7 +13,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
           App settings
         </h1>
         <p className="mt-3 max-w-2xl text-sm text-muted">
-          Manage your appearance, connected services, and background data sync.
+          Manage your appearance, reminders, connected services, and background data sync.
         </p>
       </section>
       <SettingsNavigation />

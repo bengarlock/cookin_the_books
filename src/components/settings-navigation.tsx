@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const settingsLinks = [
   { href: "/dashboard/settings/appearance", label: "Appearance" },
+  { href: "/dashboard/settings/notifications", label: "Notifications" },
   { href: "/dashboard/settings/amazon-data", label: "Amazon data" },
   { href: "/dashboard/settings/receipts", label: "Receipts" },
   { href: "/dashboard/settings/categories", label: "Categories" },

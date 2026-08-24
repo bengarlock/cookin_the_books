@@ -14,6 +14,8 @@ export const getBudgetPlanSettings = cache(async (): Promise<BudgetPlanSettings>
       budget_offset: "0.00",
       next_payday_override: null,
       navigation_preferences: {},
+      financial_reminder_email: "",
+      account_email: "",
     };
   }
 
@@ -33,6 +35,8 @@ export const getBudgetPlanSettings = cache(async (): Promise<BudgetPlanSettings>
         budget_offset: "0.00",
         next_payday_override: null,
         navigation_preferences: {},
+        financial_reminder_email: "",
+        account_email: "",
       };
     }
     return (await response.json()) as BudgetPlanSettings;
@@ -41,6 +45,8 @@ export const getBudgetPlanSettings = cache(async (): Promise<BudgetPlanSettings>
       budget_offset: "0.00",
       next_payday_override: null,
       navigation_preferences: {},
+      financial_reminder_email: "",
+      account_email: "",
     };
   }
 });
