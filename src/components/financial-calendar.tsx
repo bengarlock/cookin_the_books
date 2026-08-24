@@ -172,14 +172,10 @@ export function FinancialCalendar({
           left.due_date.localeCompare(right.due_date),
         );
       });
-      setSelectedId(saved.id);
-      setForm(formFromReminder(saved));
+      const today = new Date();
+      startNewReminder(localDateKey(today));
       setVisibleMonth(
-        new Date(
-          localDateFromKey(saved.due_date).getFullYear(),
-          localDateFromKey(saved.due_date).getMonth(),
-          1,
-        ),
+        new Date(today.getFullYear(), today.getMonth(), 1),
       );
     } catch (saveError) {
       setError(
