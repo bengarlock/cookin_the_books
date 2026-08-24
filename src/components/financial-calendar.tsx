@@ -8,6 +8,10 @@ import {
   localDateKey,
   monthCalendarDays,
 } from "@/lib/financial-reminder-dates";
+import {
+  isValidCurrencyInput,
+  normalizeCurrencyInput,
+} from "@/lib/form-input-normalization";
 import type {
   FinancialReminder,
   FinancialReminderPayload,
@@ -96,20 +100,40 @@ function errorMessage(payload: unknown) {
 
 export function FinancialCalendar({
   initialReminders,
+  initialSelectedId = null,
 }: {
   initialReminders: FinancialReminder[];
+  initialSelectedId?: number | null;
 }) {
+  const initialSelectedReminder =
+    initialReminders.find((reminder) => reminder.id === initialSelectedId) ?? null;
   const [reminders, setReminders] = useState(initialReminders);
   const [visibleMonth, setVisibleMonth] = useState(
-    () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    () => {
+      const initialDate = initialSelectedReminder
+        ? localDateFromKey(initialSelectedReminder.due_date)
+        : new Date();
+      return new Date(initialDate.getFullYear(), initialDate.getMonth(), 1);
+    },
   );
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>(() => emptyForm());
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [selectedId, setSelectedId] = useState<number | null>(
+    initialSelectedReminder?.id ?? null,
+  );
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    initialSelectedReminder?.due_date ?? null,
+  );
+  const [form, setForm] = useState<FormState>(() =>
+    initialSelectedReminder
+      ? formFromReminder(initialSelectedReminder)
+      : emptyForm(),
+  );
+  const [showCompleted, setShowCompleted] = useState(
+    Boolean(initialSelectedReminder?.is_completed),
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const [amountError, setAmountError] = useState("");
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const days = useMemo(() => monthCalendarDays(visibleMonth), [visibleMonth]);
   const todayKey = localDateKey(new Date());
@@ -140,6 +164,7 @@ export function FinancialCalendar({
     setForm(formFromReminder(reminder));
     setDeletingId(null);
     setError("");
+    setAmountError("");
   }
 
   function startNewReminder(dueDate: string) {
@@ -148,6 +173,7 @@ export function FinancialCalendar({
     setForm(emptyForm(dueDate));
     setDeletingId(null);
     setError("");
+    setAmountError("");
   }
 
   function clearEditor() {
@@ -156,6 +182,7 @@ export function FinancialCalendar({
     setForm(emptyForm());
     setDeletingId(null);
     setError("");
+    setAmountError("");
   }
 
   async function saveReminder(event: FormEvent<HTMLFormElement>) {
@@ -165,7 +192,11 @@ export function FinancialCalendar({
       setError("Choose email, home page, or both for this reminder.");
       return;
     }
-    const amount = form.amount.replace(/[$,\s]/g, "");
+    const amount = normalizeCurrencyInput(form.amount);
+    if (amount === null) {
+      setAmountError("Enter no more than 2 decimal places.");
+      return;
+    }
     const payload: FinancialReminderPayload = {
       title: form.title.trim(),
       amount: amount || null,
@@ -474,6 +505,9 @@ export function FinancialCalendar({
             <label className="block text-sm text-white/65">
               Name
               <input
+                autoComplete="off"
+                data-1p-ignore
+                data-op-ignore
                 required
                 maxLength={150}
                 value={form.title}
@@ -483,16 +517,47 @@ export function FinancialCalendar({
               />
             </label>
             <div className="grid grid-cols-2 gap-3">
-              <label className="block text-sm text-white/65">
-                Amount
-                <input
-                  inputMode="decimal"
-                  value={form.amount}
-                  onChange={(event) => setForm({ ...form, amount: event.target.value })}
-                  placeholder="0.00"
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-white outline-none transition placeholder:text-white/25 focus:border-accent/60"
-                />
-              </label>
+              <div>
+                <label
+                  htmlFor="financial-reminder-amount"
+                  className="block text-sm text-white/65"
+                >
+                  Amount
+                  <input
+                    id="financial-reminder-amount"
+                    inputMode="decimal"
+                    value={form.amount}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (!isValidCurrencyInput(value)) {
+                        setAmountError("Enter no more than 2 decimal places.");
+                        return;
+                      }
+                      setAmountError("");
+                      setForm({ ...form, amount: value });
+                    }}
+                    aria-invalid={Boolean(amountError)}
+                    aria-describedby={
+                      amountError ? "financial-reminder-amount-error" : undefined
+                    }
+                    placeholder="0.00"
+                    className={`mt-1.5 w-full rounded-xl border bg-black/20 px-3 py-2.5 text-white outline-none transition placeholder:text-white/25 ${
+                      amountError
+                        ? "border-red-400/70 focus:border-red-400"
+                        : "border-white/10 focus:border-accent/60"
+                    }`}
+                  />
+                </label>
+                {amountError ? (
+                  <span
+                    id="financial-reminder-amount-error"
+                    role="alert"
+                    className="mt-1.5 block text-xs text-red-300"
+                  >
+                    {amountError}
+                  </span>
+                ) : null}
+              </div>
               <label className="block text-sm text-white/65">
                 Due date
                 <input
