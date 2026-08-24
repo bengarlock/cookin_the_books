@@ -535,7 +535,7 @@ export function FinancialCalendar({
                 disabled={isSaving}
                 className="min-w-28 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
               >
-                {isSaving ? "Saving…" : selectedId === null ? "Save reminder" : "Save changes"}
+                {isSaving ? "Saving…" : selectedId === null ? "Save reminder" : "Save"}
               </button>
               {selectedId !== null ? (
                 <>
