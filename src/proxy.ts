@@ -18,8 +18,10 @@ function withoutBasePath(pathname: string) {
 
 function loginRedirect(request: NextRequest, pathname: string) {
   const loginUrl = request.nextUrl.clone();
+  const destination = `${pathname}${request.nextUrl.search}`;
   loginUrl.pathname = "/login";
-  loginUrl.searchParams.set("next", pathname);
+  loginUrl.search = "";
+  loginUrl.searchParams.set("next", destination);
   return NextResponse.redirect(loginUrl);
 }
 
