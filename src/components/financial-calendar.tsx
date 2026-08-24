@@ -417,7 +417,7 @@ export function FinancialCalendar({
                 maxLength={150}
                 value={form.title}
                 onChange={(event) => setForm({ ...form, title: event.target.value })}
-                placeholder="Property taxes"
+                placeholder="Reminder name"
                 className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-white outline-none transition placeholder:text-white/25 focus:border-accent/60"
               />
             </label>
@@ -428,7 +428,7 @@ export function FinancialCalendar({
                   inputMode="decimal"
                   value={form.amount}
                   onChange={(event) => setForm({ ...form, amount: event.target.value })}
-                  placeholder="2,815.88"
+                  placeholder="0.00"
                   className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-white outline-none transition placeholder:text-white/25 focus:border-accent/60"
                 />
               </label>
@@ -508,7 +508,7 @@ export function FinancialCalendar({
                 rows={3}
                 value={form.notes}
                 onChange={(event) => setForm({ ...form, notes: event.target.value })}
-                placeholder="Payment link, account details, or anything useful…"
+                placeholder="Add optional notes"
                 className="mt-1.5 w-full resize-y rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-white outline-none transition placeholder:text-white/25 focus:border-accent/60"
               />
             </label>
