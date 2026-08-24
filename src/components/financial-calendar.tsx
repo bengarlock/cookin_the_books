@@ -104,6 +104,7 @@ export function FinancialCalendar({
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   );
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(() => emptyForm());
   const [showCompleted, setShowCompleted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -135,14 +136,24 @@ export function FinancialCalendar({
 
   function selectReminder(reminder: FinancialReminder) {
     setSelectedId(reminder.id);
+    setSelectedDate(reminder.due_date);
     setForm(formFromReminder(reminder));
     setDeletingId(null);
     setError("");
   }
 
-  function startNewReminder(dueDate = localDateKey(new Date())) {
+  function startNewReminder(dueDate: string) {
     setSelectedId(null);
+    setSelectedDate(dueDate);
     setForm(emptyForm(dueDate));
+    setDeletingId(null);
+    setError("");
+  }
+
+  function clearEditor() {
+    setSelectedId(null);
+    setSelectedDate(null);
+    setForm(emptyForm());
     setDeletingId(null);
     setError("");
   }
@@ -187,7 +198,7 @@ export function FinancialCalendar({
         );
       });
       const today = new Date();
-      startNewReminder(localDateKey(today));
+      clearEditor();
       setVisibleMonth(
         new Date(today.getFullYear(), today.getMonth(), 1),
       );
@@ -245,7 +256,7 @@ export function FinancialCalendar({
         throw new Error(errorMessage(data));
       }
       setReminders((current) => current.filter((item) => item.id !== reminderId));
-      startNewReminder();
+      clearEditor();
     } catch (deleteError) {
       setError(
         deleteError instanceof Error
@@ -292,26 +303,17 @@ export function FinancialCalendar({
               }).format(visibleMonth)}
             </h2>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                setVisibleMonth(
-                  new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-                )
-              }
-              className="rounded-xl border border-white/10 px-3 py-2 text-sm text-white/70 transition hover:border-white/20 hover:text-white"
-            >
-              Today
-            </button>
-            <button
-              type="button"
-              onClick={() => startNewReminder()}
-              className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-slate-950 transition hover:brightness-110"
-            >
-              New reminder
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() =>
+              setVisibleMonth(
+                new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+              )
+            }
+            className="rounded-xl border border-white/10 px-3 py-2 text-sm text-white/70 transition hover:border-white/20 hover:text-white"
+          >
+            Today
+          </button>
         </div>
 
         <div className="overflow-x-auto">
@@ -331,6 +333,7 @@ export function FinancialCalendar({
                 const dayReminders = visibleReminders.filter(
                   (reminder) => reminder.due_date === day.dateKey,
                 );
+                const isSelectedDate = selectedDate === day.dateKey;
                 return (
                   <div
                     key={day.dateKey}
@@ -347,9 +350,12 @@ export function FinancialCalendar({
                         );
                       }}
                       aria-label={`Create reminder on ${friendlyDate(day.dateKey)}`}
-                      className={`mb-1 flex size-7 items-center justify-center rounded-full text-xs transition hover:bg-white/10 ${
-                        day.dateKey === todayKey
-                          ? "bg-accent font-bold text-slate-950"
+                      aria-pressed={isSelectedDate}
+                      className={`mb-1 flex size-7 items-center justify-center rounded-full text-xs transition hover:bg-accent/20 hover:text-accent hover:ring-1 hover:ring-accent/40 ${
+                        isSelectedDate
+                          ? "bg-accent font-bold text-slate-950 ring-2 ring-accent/30 ring-offset-2 ring-offset-slate-950"
+                          : day.dateKey === todayKey
+                            ? "font-bold text-accent ring-1 ring-inset ring-accent/60"
                           : day.isCurrentMonth
                             ? "text-white/75"
                             : "text-white/30"
@@ -399,6 +405,40 @@ export function FinancialCalendar({
 
       <aside className="space-y-6">
         <section className="surface rounded-2xl p-5">
+          {selectedDate === null ? (
+            <div className="flex min-h-48 flex-col items-center justify-center py-6 text-center">
+              <div className="flex size-11 items-center justify-center rounded-full border border-accent/25 bg-accent/10 text-accent">
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="size-5"
+                >
+                  <path d="M6 3v3" />
+                  <path d="M18 3v3" />
+                  <path d="M4 8h16" />
+                  <rect x="3" y="5" width="18" height="16" rx="2" />
+                  <path d="M8 12h.01" />
+                  <path d="M12 12h.01" />
+                  <path d="M16 12h.01" />
+                  <path d="M8 16h.01" />
+                  <path d="M12 16h.01" />
+                </svg>
+              </div>
+              <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+                Create
+              </p>
+              <h2 className="mt-1 text-xl font-semibold text-white">Select a date</h2>
+              <p className="mt-2 max-w-64 text-sm leading-6 text-white/45">
+                Choose a date on the calendar to create a financial reminder.
+              </p>
+            </div>
+          ) : (
+            <>
           <div className="mb-5 flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
@@ -408,15 +448,13 @@ export function FinancialCalendar({
                 {selectedId === null ? "Financial reminder" : "Edit reminder"}
               </h2>
             </div>
-            {selectedId !== null ? (
-              <button
-                type="button"
-                onClick={() => startNewReminder()}
-                className="text-sm text-white/50 transition hover:text-white"
-              >
-                Clear
-              </button>
-            ) : null}
+            <button
+              type="button"
+              onClick={clearEditor}
+              className="text-sm text-white/50 transition hover:text-white"
+            >
+              Clear
+            </button>
           </div>
 
           <form onSubmit={saveReminder} className="space-y-4">
@@ -592,6 +630,8 @@ export function FinancialCalendar({
               ) : null}
             </div>
           </form>
+            </>
+          )}
         </section>
 
         <section className="surface rounded-2xl p-5">
