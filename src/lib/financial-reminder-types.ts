@@ -4,7 +4,9 @@ export type ReminderRecurrence =
   | "weekly"
   | "monthly"
   | "quarterly"
-  | "yearly";
+  | "yearly"
+  | "custom";
+export type CustomRecurrenceType = "month_day" | "interval_days";
 
 export type FinancialReminder = {
   id: number;
@@ -15,6 +17,8 @@ export type FinancialReminder = {
   reminder_lead_days: number;
   reminder_cadence: ReminderCadence;
   recurrence_frequency: ReminderRecurrence;
+  custom_recurrence_type: CustomRecurrenceType | null;
+  custom_recurrence_value: number | null;
   email_enabled: boolean;
   homepage_enabled: boolean;
   is_completed: boolean;
@@ -34,6 +38,8 @@ export type FinancialReminderPayload = Pick<
   | "reminder_lead_days"
   | "reminder_cadence"
   | "recurrence_frequency"
+  | "custom_recurrence_type"
+  | "custom_recurrence_value"
   | "email_enabled"
   | "homepage_enabled"
 >;
