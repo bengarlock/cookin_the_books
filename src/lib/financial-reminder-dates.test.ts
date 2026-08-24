@@ -1,10 +1,39 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  calendarReminderOccurrences,
   isHomepageReminderActive,
   localDateKey,
   monthCalendarDays,
+  nextFinancialReminderDate,
 } from "./financial-reminder-dates";
+import type { FinancialReminder } from "./financial-reminder-types";
+
+function reminder(
+  overrides: Partial<FinancialReminder> = {},
+): FinancialReminder {
+  return {
+    id: 1,
+    title: "Hulu",
+    amount: "20.25",
+    due_date: "2026-09-13",
+    notes: "",
+    reminder_lead_days: 7,
+    reminder_cadence: "once",
+    recurrence_frequency: "monthly",
+    custom_recurrence_type: null,
+    custom_recurrence_value: null,
+    email_enabled: true,
+    homepage_enabled: true,
+    is_completed: false,
+    completed_at: null,
+    active_on_homepage: false,
+    days_until_due: 20,
+    created_at: "2026-08-24T00:00:00Z",
+    updated_at: "2026-08-24T00:00:00Z",
+    ...overrides,
+  };
+}
 
 describe("financial reminder dates", () => {
   it("builds a stable six-week month grid", () => {
@@ -28,5 +57,52 @@ describe("financial reminder dates", () => {
     expect(isHomepageReminderActive(reminder, new Date(2026, 9, 12))).toBe(true);
     expect(isHomepageReminderActive(reminder, new Date(2026, 9, 11))).toBe(false);
     expect(isHomepageReminderActive(reminder, new Date(2026, 10, 12))).toBe(false);
+  });
+
+  it("projects monthly reminders into future calendar months", () => {
+    const occurrences = calendarReminderOccurrences(
+      [reminder()],
+      "2026-10-01",
+      "2026-10-31",
+    );
+    expect(occurrences).toHaveLength(1);
+    expect(occurrences[0]).toMatchObject({
+      dueDate: "2026-10-13",
+      projected: true,
+    });
+  });
+
+  it("does not project completed reminders", () => {
+    expect(
+      calendarReminderOccurrences(
+        [reminder({ is_completed: true })],
+        "2026-10-01",
+        "2026-10-31",
+      ),
+    ).toEqual([]);
+  });
+
+  it("supports custom intervals in days", () => {
+    const next = nextFinancialReminderDate(
+      reminder({
+        due_date: "2026-09-13",
+        recurrence_frequency: "custom",
+        custom_recurrence_type: "interval_days",
+        custom_recurrence_value: 10,
+      }),
+    );
+    expect(next && localDateKey(next)).toBe("2026-09-23");
+  });
+
+  it("supports a custom day of the month and clamps short months", () => {
+    const next = nextFinancialReminderDate(
+      reminder({
+        due_date: "2027-01-15",
+        recurrence_frequency: "custom",
+        custom_recurrence_type: "month_day",
+        custom_recurrence_value: 31,
+      }),
+    );
+    expect(next && localDateKey(next)).toBe("2027-02-28");
   });
 });

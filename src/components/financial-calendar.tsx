@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { APP_BASE_PATH } from "@/lib/config";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import {
+  calendarReminderOccurrences,
   localDateFromKey,
   localDateKey,
   monthCalendarDays,
@@ -15,6 +16,7 @@ import {
   normalizeCurrencyInput,
 } from "@/lib/form-input-normalization";
 import type {
+  CustomRecurrenceType,
   FinancialReminder,
   FinancialReminderPayload,
   ReminderCadence,
@@ -35,6 +37,7 @@ const recurrenceOptions: Array<{ value: ReminderRecurrence; label: string }> = [
   { value: "monthly", label: "Monthly" },
   { value: "quarterly", label: "Every 3 months" },
   { value: "yearly", label: "Yearly" },
+  { value: "custom", label: "Custom" },
 ];
 
 type FormState = {
@@ -45,6 +48,8 @@ type FormState = {
   leadDays: string;
   cadence: ReminderCadence;
   recurrence: ReminderRecurrence;
+  customRecurrenceType: CustomRecurrenceType;
+  customRecurrenceValue: string;
   emailEnabled: boolean;
   homepageEnabled: boolean;
 };
@@ -58,6 +63,8 @@ function emptyForm(dueDate = localDateKey(new Date())): FormState {
     leadDays: "7",
     cadence: "once",
     recurrence: "none",
+    customRecurrenceType: "month_day",
+    customRecurrenceValue: String(localDateFromKey(dueDate).getDate()),
     emailEnabled: false,
     homepageEnabled: true,
   };
@@ -72,6 +79,11 @@ function formFromReminder(reminder: FinancialReminder): FormState {
     leadDays: String(reminder.reminder_lead_days),
     cadence: reminder.reminder_cadence,
     recurrence: reminder.recurrence_frequency,
+    customRecurrenceType: reminder.custom_recurrence_type ?? "month_day",
+    customRecurrenceValue: String(
+      reminder.custom_recurrence_value ??
+        localDateFromKey(reminder.due_date).getDate(),
+    ),
     emailEnabled: reminder.email_enabled,
     homepageEnabled: reminder.homepage_enabled,
   };
@@ -100,7 +112,16 @@ function timingLabel(reminder: FinancialReminder) {
   return `Due ${Math.abs(reminder.days_until_due)} days ago`;
 }
 
-function recurrenceLabel(recurrence: ReminderRecurrence) {
+function recurrenceLabel(
+  recurrence: ReminderRecurrence,
+  customType?: CustomRecurrenceType | null,
+  customValue?: number | null,
+) {
+  if (recurrence === "custom" && customValue) {
+    return customType === "interval_days"
+      ? `every ${customValue} day${customValue === 1 ? "" : "s"}`
+      : `monthly on day ${customValue}`;
+  }
   return (
     recurrenceOptions
       .find((option) => option.value === recurrence)
@@ -176,8 +197,21 @@ export function FinancialCalendar({
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const days = useMemo(() => monthCalendarDays(visibleMonth), [visibleMonth]);
   const todayKey = localDateKey(new Date());
-  const visibleReminders = reminders.filter(
-    (reminder) => showCompleted || !reminder.is_completed,
+  const visibleReminders = useMemo(
+    () =>
+      reminders.filter((reminder) => showCompleted || !reminder.is_completed),
+    [reminders, showCompleted],
+  );
+  const calendarOccurrences = useMemo(
+    () =>
+      days.length
+        ? calendarReminderOccurrences(
+            visibleReminders,
+            days[0].dateKey,
+            days[days.length - 1].dateKey,
+          )
+        : [],
+    [days, visibleReminders],
   );
   const upcoming = [...reminders]
     .filter((reminder) => !reminder.is_completed)
@@ -202,9 +236,12 @@ export function FinancialCalendar({
     return () => document.removeEventListener("pointerdown", cancelDeleteConfirmation);
   }, [deletingId]);
 
-  function selectReminder(reminder: FinancialReminder) {
+  function selectReminder(
+    reminder: FinancialReminder,
+    occurrenceDate = reminder.due_date,
+  ) {
     setSelectedId(reminder.id);
-    setSelectedDate(reminder.due_date);
+    setSelectedDate(occurrenceDate);
     setForm(formFromReminder(reminder));
     setDeletingId(null);
     setError("");
@@ -232,6 +269,8 @@ export function FinancialCalendar({
       title: suggestion.title,
       amount: suggestion.amount,
       recurrence: suggestion.recurrence_frequency,
+      customRecurrenceType: "month_day",
+      customRecurrenceValue: String(dueDate.getDate()),
     });
     setVisibleMonth(new Date(dueDate.getFullYear(), dueDate.getMonth(), 1));
     setDeletingId(null);
@@ -306,6 +345,10 @@ export function FinancialCalendar({
       reminder_lead_days: Number(form.leadDays),
       reminder_cadence: form.cadence,
       recurrence_frequency: form.recurrence,
+      custom_recurrence_type:
+        form.recurrence === "custom" ? form.customRecurrenceType : null,
+      custom_recurrence_value:
+        form.recurrence === "custom" ? Number(form.customRecurrenceValue) : null,
       email_enabled: form.emailEnabled,
       homepage_enabled: form.homepageEnabled,
     };
@@ -546,8 +589,8 @@ export function FinancialCalendar({
             </div>
             <div className="grid grid-cols-7">
               {days.map((day) => {
-                const dayReminders = visibleReminders.filter(
-                  (reminder) => reminder.due_date === day.dateKey,
+                const dayReminders = calendarOccurrences.filter(
+                  (occurrence) => occurrence.dueDate === day.dateKey,
                 );
                 const isSelectedDate = selectedDate === day.dateKey;
                 return (
@@ -588,21 +631,26 @@ export function FinancialCalendar({
                       </span>
                     </button>
                     <div className="pointer-events-none relative z-10 mt-9 space-y-1 px-2 pb-2">
-                      {dayReminders.map((reminder) => (
+                      {dayReminders.map((occurrence) => (
                         <button
                           type="button"
-                          key={reminder.id}
-                          onClick={() => selectReminder(reminder)}
+                          key={occurrence.key}
+                          onClick={() =>
+                            selectReminder(occurrence.reminder, occurrence.dueDate)
+                          }
                           className={`pointer-events-auto block w-full truncate rounded-md border px-2 py-1 text-left text-[11px] font-medium transition ${
-                            reminder.is_completed
+                            occurrence.reminder.is_completed
                               ? "border-white/5 bg-white/[0.03] text-white/30 line-through"
-                              : selectedId === reminder.id
+                              : selectedId === occurrence.reminder.id &&
+                                  selectedDate === occurrence.dueDate
                                 ? "border-accent/50 bg-accent/20 text-accent"
+                                : occurrence.projected
+                                  ? "border-dashed border-sky-300/20 bg-sky-300/[0.06] text-sky-100/70 hover:border-sky-300/40"
                                 : "border-sky-400/15 bg-sky-400/10 text-sky-100 hover:border-sky-400/35"
                           }`}
-                          title={`${reminder.title}${reminder.amount ? ` — ${currency(reminder.amount)}` : ""}`}
+                          title={`${occurrence.reminder.title}${occurrence.reminder.amount ? ` — ${currency(occurrence.reminder.amount)}` : ""}${occurrence.projected ? " · Projected occurrence" : ""}`}
                         >
-                          {reminder.title}
+                          {occurrence.reminder.title}
                         </button>
                       ))}
                     </div>
@@ -623,7 +671,9 @@ export function FinancialCalendar({
             />
             Show completed
           </label>
-          <p className="text-xs text-white/40">Select a date to start a reminder there.</p>
+          <p className="text-xs text-white/40">
+            Select a date to start a reminder. Dashed reminders are projected.
+          </p>
         </div>
       </section>
 
@@ -770,14 +820,20 @@ export function FinancialCalendar({
                 ))}
               </select>
             </label>
-            <label className="block text-sm text-white/65">
-              Repeats
+            <div className="block text-sm text-white/65">
+              <label htmlFor="financial-reminder-recurrence">Repeats</label>
               <select
+                id="financial-reminder-recurrence"
                 value={form.recurrence}
                 onChange={(event) =>
                   setForm({
                     ...form,
                     recurrence: event.target.value as ReminderRecurrence,
+                    customRecurrenceValue:
+                      event.target.value === "custom" &&
+                      form.recurrence !== "custom"
+                        ? String(localDateFromKey(form.dueDate).getDate())
+                        : form.customRecurrenceValue,
                   })
                 }
                 className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-white outline-none transition focus:border-accent/60"
@@ -788,12 +844,75 @@ export function FinancialCalendar({
                   </option>
                 ))}
               </select>
-              {form.recurrence !== "none" ? (
-                <span className="mt-1.5 block text-xs leading-5 text-white/40">
-                  Completing this reminder creates its next occurrence.
+              {form.recurrence === "custom" ? (
+                <span className="mt-3 grid gap-3 rounded-xl border border-white/10 bg-white/[0.025] p-3">
+                  <span className="block">
+                    <span className="block text-xs font-medium text-white/55">
+                      Custom schedule
+                    </span>
+                    <select
+                      aria-label="Custom recurrence type"
+                      value={form.customRecurrenceType}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          customRecurrenceType: event.target
+                            .value as CustomRecurrenceType,
+                          customRecurrenceValue:
+                            event.target.value === "month_day"
+                              ? String(localDateFromKey(form.dueDate).getDate())
+                              : "1",
+                        })
+                      }
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-white outline-none transition focus:border-accent/60"
+                    >
+                      <option value="month_day">Specific day each month</option>
+                      <option value="interval_days">Every number of days</option>
+                    </select>
+                  </span>
+                  <span className="block">
+                    <span className="block text-xs font-medium text-white/55">
+                      {form.customRecurrenceType === "month_day"
+                        ? "Day of month"
+                        : "Repeat every (days)"}
+                    </span>
+                    <input
+                      aria-label={
+                        form.customRecurrenceType === "month_day"
+                          ? "Day of month"
+                          : "Repeat every number of days"
+                      }
+                      required
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={
+                        form.customRecurrenceType === "month_day" ? 31 : 3650
+                      }
+                      value={form.customRecurrenceValue}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          customRecurrenceValue: event.target.value,
+                        })
+                      }
+                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-white outline-none transition focus:border-accent/60"
+                    />
+                    {form.customRecurrenceType === "month_day" ? (
+                      <span className="mt-1.5 block text-xs leading-5 text-white/35">
+                        Shorter months use their last available day.
+                      </span>
+                    ) : null}
+                  </span>
                 </span>
               ) : null}
-            </label>
+              {form.recurrence !== "none" ? (
+                <span className="mt-1.5 block text-xs leading-5 text-white/40">
+                  Future dates appear as projections. Completing this reminder
+                  creates its next actionable occurrence.
+                </span>
+              ) : null}
+            </div>
             <label className="block text-sm text-white/65">
               Email cadence
               <select
@@ -939,7 +1058,11 @@ export function FinancialCalendar({
                     <span className="mt-0.5 block text-xs text-white/45">
                       {friendlyDate(reminder.due_date)} · {timingLabel(reminder)}
                       {reminder.recurrence_frequency !== "none"
-                        ? ` · Repeats ${recurrenceLabel(reminder.recurrence_frequency)}`
+                        ? ` · Repeats ${recurrenceLabel(
+                            reminder.recurrence_frequency,
+                            reminder.custom_recurrence_type,
+                            reminder.custom_recurrence_value,
+                          )}`
                         : ""}
                     </span>
                   </span>

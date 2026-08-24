@@ -1,12 +1,14 @@
 import type { ExpenseTransaction } from "./credit-card-transaction-types";
 import type { ReminderRecurrence } from "./financial-reminder-types";
 
+type SuggestedRecurrence = Exclude<ReminderRecurrence, "none" | "custom">;
+
 export type RecurringExpenseSuggestion = {
   id: string;
   title: string;
   amount: string;
   due_date: string;
-  recurrence_frequency: Exclude<ReminderRecurrence, "none">;
+  recurrence_frequency: SuggestedRecurrence;
   occurrence_count: number;
   last_occurrence_date: string;
 };
@@ -30,7 +32,7 @@ type ExistingReminder = {
 };
 
 type CadenceDefinition = {
-  recurrence: Exclude<ReminderRecurrence, "none">;
+  recurrence: SuggestedRecurrence;
   minimumDays: number;
   maximumDays: number;
   expectedDays: number;
@@ -168,7 +170,7 @@ function addMonths(value: string, months: number) {
   return dateKey(target);
 }
 
-function nextOccurrence(value: string, recurrence: Exclude<ReminderRecurrence, "none">) {
+function nextOccurrence(value: string, recurrence: SuggestedRecurrence) {
   if (recurrence === "weekly") {
     const next = utcDate(value);
     next.setUTCDate(next.getUTCDate() + 7);
@@ -182,7 +184,7 @@ function nextOccurrence(value: string, recurrence: Exclude<ReminderRecurrence, "
 
 function nextDueDate(
   lastOccurrence: string,
-  recurrence: Exclude<ReminderRecurrence, "none">,
+  recurrence: SuggestedRecurrence,
   today: string,
 ) {
   let next = nextOccurrence(lastOccurrence, recurrence);

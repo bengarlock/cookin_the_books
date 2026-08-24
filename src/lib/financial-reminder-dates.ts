@@ -33,6 +33,101 @@ export function monthCalendarDays(month: Date): CalendarDay[] {
   });
 }
 
+function addMonths(value: Date, months: number, preferredDay?: number) {
+  const monthIndex = value.getMonth() + months;
+  const year = value.getFullYear() + Math.floor(monthIndex / 12);
+  const month = ((monthIndex % 12) + 12) % 12;
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  return new Date(year, month, Math.min(preferredDay ?? value.getDate(), lastDay));
+}
+
+export function nextFinancialReminderDate(
+  reminder: Pick<
+    FinancialReminder,
+    | "due_date"
+    | "recurrence_frequency"
+    | "custom_recurrence_type"
+    | "custom_recurrence_value"
+  >,
+  currentDate = localDateFromKey(reminder.due_date),
+) {
+  switch (reminder.recurrence_frequency) {
+    case "none":
+      return null;
+    case "weekly": {
+      const next = new Date(currentDate);
+      next.setDate(next.getDate() + 7);
+      return next;
+    }
+    case "monthly":
+      return addMonths(currentDate, 1);
+    case "quarterly":
+      return addMonths(currentDate, 3);
+    case "yearly":
+      return addMonths(currentDate, 12);
+    case "custom":
+      if (
+        reminder.custom_recurrence_type === "interval_days" &&
+        reminder.custom_recurrence_value
+      ) {
+        const next = new Date(currentDate);
+        next.setDate(next.getDate() + reminder.custom_recurrence_value);
+        return next;
+      }
+      if (
+        reminder.custom_recurrence_type === "month_day" &&
+        reminder.custom_recurrence_value
+      ) {
+        return addMonths(currentDate, 1, reminder.custom_recurrence_value);
+      }
+      return null;
+  }
+}
+
+export type CalendarReminderOccurrence = {
+  key: string;
+  dueDate: string;
+  reminder: FinancialReminder;
+  projected: boolean;
+};
+
+export function calendarReminderOccurrences(
+  reminders: FinancialReminder[],
+  rangeStart: string,
+  rangeEnd: string,
+) {
+  const occurrences: CalendarReminderOccurrence[] = [];
+  for (const reminder of reminders) {
+    if (reminder.due_date >= rangeStart && reminder.due_date <= rangeEnd) {
+      occurrences.push({
+        key: `reminder-${reminder.id}`,
+        dueDate: reminder.due_date,
+        reminder,
+        projected: false,
+      });
+    }
+    if (reminder.is_completed || reminder.recurrence_frequency === "none") continue;
+
+    let current = localDateFromKey(reminder.due_date);
+    for (let index = 0; index < 20_000; index += 1) {
+      const next = nextFinancialReminderDate(reminder, current);
+      if (!next) break;
+      const dueDate = localDateKey(next);
+      if (dueDate > rangeEnd) break;
+      if (dueDate >= rangeStart) {
+        occurrences.push({
+          key: `projected-${reminder.id}-${dueDate}`,
+          dueDate,
+          reminder,
+          projected: true,
+        });
+      }
+      current = next;
+    }
+  }
+  return occurrences;
+}
+
 export function isHomepageReminderActive(
   reminder: Pick<
     FinancialReminder,
