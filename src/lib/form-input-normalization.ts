@@ -6,6 +6,10 @@ export function normalizeCurrencyInput(value: string) {
   return parenthesized ? `-${normalized}` : normalized;
 }
 
+export function isValidCurrencyInput(value: string) {
+  return normalizeCurrencyInput(value) !== null;
+}
+
 export function normalizeDateInput(value: string) {
   const trimmed = value.trim();
   const isoMatch = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(trimmed);
