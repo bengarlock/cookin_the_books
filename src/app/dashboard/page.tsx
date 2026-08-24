@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 
 import { LiveBankValues } from "@/components/live-bank-values";
+import { HomepageFinancialReminders } from "@/components/homepage-financial-reminders";
 import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
 import { getDashboardPendingCardTransactions } from "@/lib/dashboard-pending-card-transactions";
 import { getExpenseCategories } from "@/lib/expense-categories";
 import { getFinancialGoals } from "@/lib/financial-goals";
+import { getFinancialReminders } from "@/lib/financial-reminders";
 import { getIncomeEntries } from "@/lib/income-entries";
 import { getPendingTransactions } from "@/lib/pending-transactions";
 import { getTransactionSelectorSummary } from "@/lib/transaction-selector-summary";
@@ -21,6 +23,7 @@ export default async function DashboardPage() {
     pendingCardTransactions,
     expenseCategories,
     pendingTransactions,
+    financialReminders,
   ] = await Promise.all([
     getBudgetPlanSettings(),
     getFinancialGoals(),
@@ -28,6 +31,7 @@ export default async function DashboardPage() {
     getDashboardPendingCardTransactions(),
     getExpenseCategories(),
     getPendingTransactions(),
+    getFinancialReminders(),
   ]);
   const needsGoalTransactions = financialGoals.some(
     (goal) =>
@@ -42,6 +46,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="w-full">
+      <HomepageFinancialReminders reminders={financialReminders} />
       <LiveBankValues
         initialBudgetPlanSettings={budgetPlanSettings}
         initialFinancialGoals={financialGoals}

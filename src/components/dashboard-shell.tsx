@@ -38,6 +38,7 @@ const navigation: Array<{
 }> = [
   { name: "Overview", href: "/dashboard", icon: OverviewIcon },
   { name: "Accounts", href: "/dashboard/accounts", icon: AccountsIcon },
+  { name: "Calendar", href: "/dashboard/calendar", icon: CalendarIcon },
   { name: "Budget", href: "/dashboard/budget", icon: BudgetIcon },
   {
     name: "Income",
@@ -118,6 +119,28 @@ function AccountsIcon(props: IconProps) {
         d="M12 3.75 4.75 7.5h14.5L12 3.75Z"
         stroke="currentColor"
         strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </NavIconFrame>
+  );
+}
+
+function CalendarIcon(props: IconProps) {
+  return (
+    <NavIconFrame {...props}>
+      <rect
+        x="4.5"
+        y="5.5"
+        width="15"
+        height="14"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M8 3.75v3.5m8-3.5v3.5M4.5 9.5h15M8 13h2m4 0h2m-8 3h2m4 0h2"
+        stroke="currentColor"
+        strokeLinecap="round"
         strokeWidth="1.7"
       />
     </NavIconFrame>
