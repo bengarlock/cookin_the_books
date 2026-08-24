@@ -1,13 +1,19 @@
 import type { Metadata } from "next";
 
 import { FinancialCalendar } from "@/components/financial-calendar";
+import { parseFinancialReminderId } from "@/lib/financial-reminder-links";
 import { getFinancialReminders } from "@/lib/financial-reminders";
 
 export const metadata: Metadata = {
   title: "Calendar",
 };
 
-export default async function CalendarPage() {
+export default async function CalendarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ reminder?: string | string[] }>;
+}) {
+  const { reminder } = await searchParams;
   const reminders = await getFinancialReminders();
   return (
     <div className="w-full">
@@ -20,7 +26,10 @@ export default async function CalendarPage() {
           Keep due dates, payment amounts, and the reminders you need in one place.
         </p>
       </header>
-      <FinancialCalendar initialReminders={reminders} />
+      <FinancialCalendar
+        initialReminders={reminders}
+        initialSelectedId={parseFinancialReminderId(reminder)}
+      />
     </div>
   );
 }

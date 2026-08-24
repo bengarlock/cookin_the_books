@@ -100,17 +100,36 @@ function errorMessage(payload: unknown) {
 
 export function FinancialCalendar({
   initialReminders,
+  initialSelectedId = null,
 }: {
   initialReminders: FinancialReminder[];
+  initialSelectedId?: number | null;
 }) {
+  const initialSelectedReminder =
+    initialReminders.find((reminder) => reminder.id === initialSelectedId) ?? null;
   const [reminders, setReminders] = useState(initialReminders);
   const [visibleMonth, setVisibleMonth] = useState(
-    () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    () => {
+      const initialDate = initialSelectedReminder
+        ? localDateFromKey(initialSelectedReminder.due_date)
+        : new Date();
+      return new Date(initialDate.getFullYear(), initialDate.getMonth(), 1);
+    },
   );
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>(() => emptyForm());
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [selectedId, setSelectedId] = useState<number | null>(
+    initialSelectedReminder?.id ?? null,
+  );
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    initialSelectedReminder?.due_date ?? null,
+  );
+  const [form, setForm] = useState<FormState>(() =>
+    initialSelectedReminder
+      ? formFromReminder(initialSelectedReminder)
+      : emptyForm(),
+  );
+  const [showCompleted, setShowCompleted] = useState(
+    Boolean(initialSelectedReminder?.is_completed),
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState("");
