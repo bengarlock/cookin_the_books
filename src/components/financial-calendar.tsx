@@ -16,6 +16,7 @@ import type {
   FinancialReminder,
   FinancialReminderPayload,
   ReminderCadence,
+  ReminderRecurrence,
 } from "@/lib/financial-reminder-types";
 
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -26,6 +27,13 @@ const cadenceOptions: Array<{ value: ReminderCadence; label: string }> = [
   { value: "weekly", label: "Weekly, plus on the due date" },
   { value: "monthly", label: "Every 30 days, plus on the due date" },
 ];
+const recurrenceOptions: Array<{ value: ReminderRecurrence; label: string }> = [
+  { value: "none", label: "Does not repeat" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Every 3 months" },
+  { value: "yearly", label: "Yearly" },
+];
 
 type FormState = {
   title: string;
@@ -34,6 +42,7 @@ type FormState = {
   notes: string;
   leadDays: string;
   cadence: ReminderCadence;
+  recurrence: ReminderRecurrence;
   emailEnabled: boolean;
   homepageEnabled: boolean;
 };
@@ -46,6 +55,7 @@ function emptyForm(dueDate = localDateKey(new Date())): FormState {
     notes: "",
     leadDays: "7",
     cadence: "once",
+    recurrence: "none",
     emailEnabled: false,
     homepageEnabled: true,
   };
@@ -59,6 +69,7 @@ function formFromReminder(reminder: FinancialReminder): FormState {
     notes: reminder.notes,
     leadDays: String(reminder.reminder_lead_days),
     cadence: reminder.reminder_cadence,
+    recurrence: reminder.recurrence_frequency,
     emailEnabled: reminder.email_enabled,
     homepageEnabled: reminder.homepage_enabled,
   };
@@ -85,6 +96,14 @@ function timingLabel(reminder: FinancialReminder) {
   if (reminder.days_until_due === 1) return "Due tomorrow";
   if (reminder.days_until_due > 1) return `Due in ${reminder.days_until_due} days`;
   return `Due ${Math.abs(reminder.days_until_due)} days ago`;
+}
+
+function recurrenceLabel(recurrence: ReminderRecurrence) {
+  return (
+    recurrenceOptions
+      .find((option) => option.value === recurrence)
+      ?.label.toLocaleLowerCase() ?? recurrence
+  );
 }
 
 function errorMessage(payload: unknown) {
@@ -204,6 +223,7 @@ export function FinancialCalendar({
       notes: form.notes.trim(),
       reminder_lead_days: Number(form.leadDays),
       reminder_cadence: form.cadence,
+      recurrence_frequency: form.recurrence,
       email_enabled: form.emailEnabled,
       homepage_enabled: form.homepageEnabled,
     };
@@ -258,9 +278,17 @@ export function FinancialCalendar({
       const data = (await response.json()) as FinancialReminder | unknown;
       if (!response.ok) throw new Error(errorMessage(data));
       const updated = data as FinancialReminder;
-      setReminders((current) =>
-        current.map((item) => (item.id === updated.id ? updated : item)),
+      const refreshedResponse = await fetch(
+        `${APP_BASE_PATH}/api/financial-reminders`,
+        { cache: "no-store" },
       );
+      if (refreshedResponse.ok) {
+        setReminders((await refreshedResponse.json()) as FinancialReminder[]);
+      } else {
+        setReminders((current) =>
+          current.map((item) => (item.id === updated.id ? updated : item)),
+        );
+      }
       if (selectedId === updated.id) setForm(formFromReminder(updated));
     } catch (updateError) {
       setError(
@@ -586,6 +614,30 @@ export function FinancialCalendar({
               </select>
             </label>
             <label className="block text-sm text-white/65">
+              Repeats
+              <select
+                value={form.recurrence}
+                onChange={(event) =>
+                  setForm({
+                    ...form,
+                    recurrence: event.target.value as ReminderRecurrence,
+                  })
+                }
+                className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-white outline-none transition focus:border-accent/60"
+              >
+                {recurrenceOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {form.recurrence !== "none" ? (
+                <span className="mt-1.5 block text-xs leading-5 text-white/40">
+                  Completing this reminder creates its next occurrence.
+                </span>
+              ) : null}
+            </label>
+            <label className="block text-sm text-white/65">
               Email cadence
               <select
                 value={form.cadence}
@@ -729,6 +781,9 @@ export function FinancialCalendar({
                     </span>
                     <span className="mt-0.5 block text-xs text-white/45">
                       {friendlyDate(reminder.due_date)} · {timingLabel(reminder)}
+                      {reminder.recurrence_frequency !== "none"
+                        ? ` · Repeats ${recurrenceLabel(reminder.recurrence_frequency)}`
+                        : ""}
                     </span>
                   </span>
                   {reminder.amount ? (

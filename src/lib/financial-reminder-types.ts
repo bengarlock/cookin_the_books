@@ -1,4 +1,10 @@
 export type ReminderCadence = "once" | "daily" | "weekly" | "monthly";
+export type ReminderRecurrence =
+  | "none"
+  | "weekly"
+  | "monthly"
+  | "quarterly"
+  | "yearly";
 
 export type FinancialReminder = {
   id: number;
@@ -8,6 +14,7 @@ export type FinancialReminder = {
   notes: string;
   reminder_lead_days: number;
   reminder_cadence: ReminderCadence;
+  recurrence_frequency: ReminderRecurrence;
   email_enabled: boolean;
   homepage_enabled: boolean;
   is_completed: boolean;
@@ -26,6 +33,7 @@ export type FinancialReminderPayload = Pick<
   | "notes"
   | "reminder_lead_days"
   | "reminder_cadence"
+  | "recurrence_frequency"
   | "email_enabled"
   | "homepage_enabled"
 >;
