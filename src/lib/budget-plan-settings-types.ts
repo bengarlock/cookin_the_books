@@ -7,6 +7,7 @@ export type BudgetPlanSettings = {
   };
   financial_reminder_email?: string;
   financial_reminder_notifications_enabled?: boolean;
+  dismissed_financial_reminder_suggestions?: string[];
   account_email?: string;
   created_at?: string;
   updated_at?: string;

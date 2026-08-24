@@ -16,6 +16,7 @@ export const getBudgetPlanSettings = cache(async (): Promise<BudgetPlanSettings>
       navigation_preferences: {},
       financial_reminder_email: "",
       financial_reminder_notifications_enabled: true,
+      dismissed_financial_reminder_suggestions: [],
       account_email: "",
     };
   }
@@ -38,6 +39,7 @@ export const getBudgetPlanSettings = cache(async (): Promise<BudgetPlanSettings>
         navigation_preferences: {},
         financial_reminder_email: "",
         financial_reminder_notifications_enabled: true,
+        dismissed_financial_reminder_suggestions: [],
         account_email: "",
       };
     }
@@ -49,6 +51,7 @@ export const getBudgetPlanSettings = cache(async (): Promise<BudgetPlanSettings>
       navigation_preferences: {},
       financial_reminder_email: "",
       financial_reminder_notifications_enabled: true,
+      dismissed_financial_reminder_suggestions: [],
       account_email: "",
     };
   }
