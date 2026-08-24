@@ -337,9 +337,7 @@ export function FinancialCalendar({
                 return (
                   <div
                     key={day.dateKey}
-                    className={`min-h-28 border-r border-b border-white/[0.07] p-2 last:border-r-0 ${
-                      day.isCurrentMonth ? "bg-white/[0.015]" : "bg-black/10"
-                    }`}
+                    className="relative min-h-28 overflow-hidden border-r border-b border-white/[0.07] last:border-r-0"
                   >
                     <button
                       type="button"
@@ -351,25 +349,35 @@ export function FinancialCalendar({
                       }}
                       aria-label={`Create reminder on ${friendlyDate(day.dateKey)}`}
                       aria-pressed={isSelectedDate}
-                      className={`mb-1 flex size-7 items-center justify-center rounded-full text-xs transition hover:bg-accent/20 hover:text-accent hover:ring-1 hover:ring-accent/40 ${
+                      className={`absolute inset-0 z-0 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/70 ${
                         isSelectedDate
-                          ? "bg-accent font-bold text-slate-950 ring-2 ring-accent/30 ring-offset-2 ring-offset-slate-950"
+                          ? "bg-accent/10 ring-1 ring-inset ring-accent/50"
                           : day.dateKey === todayKey
-                            ? "font-bold text-accent ring-1 ring-inset ring-accent/60"
+                            ? "bg-accent/[0.035] ring-1 ring-inset ring-accent/25 hover:bg-accent/10 hover:ring-accent/45"
                           : day.isCurrentMonth
-                            ? "text-white/75"
-                            : "text-white/30"
+                            ? "bg-white/[0.015] hover:bg-accent/[0.07] hover:ring-1 hover:ring-inset hover:ring-accent/30"
+                            : "bg-black/10 hover:bg-accent/[0.05] hover:ring-1 hover:ring-inset hover:ring-accent/25"
                       }`}
                     >
-                      {day.date.getDate()}
+                      <span
+                        className={`absolute left-2 top-2 flex size-7 items-center justify-center text-xs transition ${
+                          isSelectedDate || day.dateKey === todayKey
+                            ? "font-bold text-accent"
+                            : day.isCurrentMonth
+                              ? "text-white/75"
+                              : "text-white/30"
+                        }`}
+                      >
+                        {day.date.getDate()}
+                      </span>
                     </button>
-                    <div className="space-y-1">
+                    <div className="pointer-events-none relative z-10 mt-9 space-y-1 px-2 pb-2">
                       {dayReminders.map((reminder) => (
                         <button
                           type="button"
                           key={reminder.id}
                           onClick={() => selectReminder(reminder)}
-                          className={`block w-full truncate rounded-md border px-2 py-1 text-left text-[11px] font-medium transition ${
+                          className={`pointer-events-auto block w-full truncate rounded-md border px-2 py-1 text-left text-[11px] font-medium transition ${
                             reminder.is_completed
                               ? "border-white/5 bg-white/[0.03] text-white/30 line-through"
                               : selectedId === reminder.id
@@ -429,12 +437,17 @@ export function FinancialCalendar({
                   <path d="M12 16h.01" />
                 </svg>
               </div>
-              <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+              <button
+                type="button"
+                onClick={() => startNewReminder(todayKey)}
+                aria-label="Create reminder for today"
+                className="mt-4 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-slate-950 transition hover:brightness-110"
+              >
                 Create
-              </p>
+              </button>
               <h2 className="mt-1 text-xl font-semibold text-white">Select a date</h2>
               <p className="mt-2 max-w-64 text-sm leading-6 text-white/45">
-                Choose a date on the calendar to create a financial reminder.
+                Choose a date on the calendar, or create a reminder for today.
               </p>
             </div>
           ) : (
