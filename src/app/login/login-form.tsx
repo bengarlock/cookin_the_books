@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { APP_BASE_PATH } from "@/lib/config";
+import { loginDestination } from "@/lib/login-destination";
 
 export function LoginForm() {
   const router = useRouter();
@@ -38,10 +39,7 @@ export function LoginForm() {
       }
 
       setSubmitPhase("loading-profile");
-      const nextPath = searchParams.get("next");
-      const destination =
-        nextPath?.startsWith("/dashboard") ? nextPath : "/dashboard";
-      router.replace(destination);
+      router.replace(loginDestination(searchParams.get("next")));
       router.refresh();
     } catch {
       setError("Unable to reach the application server.");
