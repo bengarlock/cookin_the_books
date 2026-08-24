@@ -486,6 +486,9 @@ export function FinancialCalendar({
             <label className="block text-sm text-white/65">
               Name
               <input
+                autoComplete="off"
+                data-1p-ignore
+                data-op-ignore
                 required
                 maxLength={150}
                 value={form.title}
