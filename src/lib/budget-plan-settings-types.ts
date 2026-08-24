@@ -6,6 +6,7 @@ export type BudgetPlanSettings = {
     budget_expanded?: boolean;
   };
   financial_reminder_email?: string;
+  financial_reminder_notifications_enabled?: boolean;
   account_email?: string;
   created_at?: string;
   updated_at?: string;
