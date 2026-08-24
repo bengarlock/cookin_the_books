@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { FinancialCalendar } from "@/components/financial-calendar";
+import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
 import { getExpenseTransactions } from "@/lib/expense-transactions";
 import {
   buildRecurringExpenseSuggestions,
@@ -20,15 +21,19 @@ export default async function CalendarPage({
 }) {
   const { reminder } = await searchParams;
   const suggestionRange = recurringExpenseSuggestionRange();
-  const [reminders, expenseTransactions] = await Promise.all([
+  const [reminders, expenseTransactions, settings] = await Promise.all([
     getFinancialReminders(),
     getExpenseTransactions(suggestionRange),
+    getBudgetPlanSettings(),
   ]);
+  const dismissedSuggestionIds =
+    settings.dismissed_financial_reminder_suggestions ?? [];
+  const dismissedSuggestions = new Set(dismissedSuggestionIds);
   const suggestions = buildRecurringExpenseSuggestions(
     expenseTransactions,
     reminders,
     suggestionRange.end,
-  );
+  ).filter((suggestion) => !dismissedSuggestions.has(suggestion.id));
   return (
     <div className="w-full">
       <header className="mb-6">
@@ -44,6 +49,7 @@ export default async function CalendarPage({
         initialReminders={reminders}
         initialSelectedId={parseFinancialReminderId(reminder)}
         initialSuggestions={suggestions}
+        initialDismissedSuggestionIds={dismissedSuggestionIds}
       />
     </div>
   );

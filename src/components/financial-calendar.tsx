@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { APP_BASE_PATH } from "@/lib/config";
+import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import {
   localDateFromKey,
   localDateKey,
@@ -107,25 +108,30 @@ function recurrenceLabel(recurrence: ReminderRecurrence) {
   );
 }
 
-function errorMessage(payload: unknown) {
-  if (!payload || typeof payload !== "object") return "The reminder could not be saved.";
+function errorMessage(
+  payload: unknown,
+  fallback = "The reminder could not be saved.",
+) {
+  if (!payload || typeof payload !== "object") return fallback;
   const record = payload as Record<string, unknown>;
   if (typeof record.message === "string") return record.message;
   for (const value of Object.values(record)) {
     if (typeof value === "string") return value;
     if (Array.isArray(value) && typeof value[0] === "string") return value[0];
   }
-  return "The reminder could not be saved.";
+  return fallback;
 }
 
 export function FinancialCalendar({
   initialReminders,
   initialSelectedId = null,
   initialSuggestions = [],
+  initialDismissedSuggestionIds = [],
 }: {
   initialReminders: FinancialReminder[];
   initialSelectedId?: number | null;
   initialSuggestions?: RecurringExpenseSuggestion[];
+  initialDismissedSuggestionIds?: string[];
 }) {
   const initialSelectedReminder =
     initialReminders.find((reminder) => reminder.id === initialSelectedId) ?? null;
@@ -160,6 +166,13 @@ export function FinancialCalendar({
     null,
   );
   const [usedSuggestionIds, setUsedSuggestionIds] = useState<string[]>([]);
+  const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState(
+    initialDismissedSuggestionIds,
+  );
+  const [dismissingSuggestionId, setDismissingSuggestionId] = useState<
+    string | null
+  >(null);
+  const [suggestionError, setSuggestionError] = useState("");
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const days = useMemo(() => monthCalendarDays(visibleMonth), [visibleMonth]);
   const todayKey = localDateKey(new Date());
@@ -171,7 +184,9 @@ export function FinancialCalendar({
     .sort((left, right) => left.due_date.localeCompare(right.due_date))
     .slice(0, 5);
   const availableSuggestions = initialSuggestions.filter(
-    (suggestion) => !usedSuggestionIds.includes(suggestion.id),
+    (suggestion) =>
+      !usedSuggestionIds.includes(suggestion.id) &&
+      !dismissedSuggestionIds.includes(suggestion.id),
   );
 
   useEffect(() => {
@@ -232,6 +247,43 @@ export function FinancialCalendar({
     setError("");
     setAmountError("");
     setSelectedSuggestionId(null);
+  }
+
+  async function dismissSuggestion(suggestionId: string) {
+    const nextDismissedSuggestionIds = Array.from(
+      new Set([...dismissedSuggestionIds, suggestionId]),
+    );
+    setDismissingSuggestionId(suggestionId);
+    setSuggestionError("");
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/budget-plan-settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dismissed_financial_reminder_suggestions: nextDismissedSuggestionIds,
+        }),
+      });
+      const data = (await response.json()) as BudgetPlanSettings | unknown;
+      if (!response.ok) {
+        throw new Error(
+          errorMessage(data, "The suggestion could not be dismissed."),
+        );
+      }
+      const saved = data as BudgetPlanSettings;
+      setDismissedSuggestionIds(
+        saved.dismissed_financial_reminder_suggestions ??
+          nextDismissedSuggestionIds,
+      );
+      if (selectedSuggestionId === suggestionId) clearEditor();
+    } catch (dismissError) {
+      setSuggestionError(
+        dismissError instanceof Error
+          ? dismissError.message
+          : "The suggestion could not be dismissed.",
+      );
+    } finally {
+      setDismissingSuggestionId(null);
+    }
   }
 
   async function saveReminder(event: FormEvent<HTMLFormElement>) {
@@ -398,16 +450,37 @@ export function FinancialCalendar({
                 <p className="mt-3 text-xs text-white/55">
                   Next expected {friendlyDate(suggestion.due_date)}
                 </p>
-                <button
-                  className="mt-3 rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent transition hover:bg-accent/15"
-                  onClick={() => reviewSuggestion(suggestion)}
-                  type="button"
-                >
-                  Review suggestion
-                </button>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    className="rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent transition hover:bg-accent/15"
+                    onClick={() => reviewSuggestion(suggestion)}
+                    type="button"
+                  >
+                    Review suggestion
+                  </button>
+                  <button
+                    aria-label={`Dismiss ${suggestion.title} suggestion`}
+                    className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-white/50 transition hover:border-white/20 hover:text-white/75 disabled:cursor-wait disabled:opacity-50"
+                    disabled={dismissingSuggestionId !== null}
+                    onClick={() => void dismissSuggestion(suggestion.id)}
+                    type="button"
+                  >
+                    {dismissingSuggestionId === suggestion.id
+                      ? "Dismissing…"
+                      : "Dismiss"}
+                  </button>
+                </div>
               </article>
             ))}
           </div>
+          {suggestionError ? (
+            <p
+              className="mt-3 rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-100"
+              role="alert"
+            >
+              {suggestionError}
+            </p>
+          ) : null}
         </section>
       ) : null}
 
