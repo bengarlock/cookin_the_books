@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 
 import { FinancialCalendar } from "@/components/financial-calendar";
+import { getExpenseTransactions } from "@/lib/expense-transactions";
+import {
+  buildRecurringExpenseSuggestions,
+  recurringExpenseSuggestionRange,
+} from "@/lib/financial-reminder-suggestions";
 import { parseFinancialReminderId } from "@/lib/financial-reminder-links";
 import { getFinancialReminders } from "@/lib/financial-reminders";
 
@@ -14,7 +19,16 @@ export default async function CalendarPage({
   searchParams: Promise<{ reminder?: string | string[] }>;
 }) {
   const { reminder } = await searchParams;
-  const reminders = await getFinancialReminders();
+  const suggestionRange = recurringExpenseSuggestionRange();
+  const [reminders, expenseTransactions] = await Promise.all([
+    getFinancialReminders(),
+    getExpenseTransactions(suggestionRange),
+  ]);
+  const suggestions = buildRecurringExpenseSuggestions(
+    expenseTransactions,
+    reminders,
+    suggestionRange.end,
+  );
   return (
     <div className="w-full">
       <header className="mb-6">
@@ -29,6 +43,7 @@ export default async function CalendarPage({
       <FinancialCalendar
         initialReminders={reminders}
         initialSelectedId={parseFinancialReminderId(reminder)}
+        initialSuggestions={suggestions}
       />
     </div>
   );

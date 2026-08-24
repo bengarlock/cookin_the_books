@@ -8,6 +8,7 @@ import {
   localDateKey,
   monthCalendarDays,
 } from "@/lib/financial-reminder-dates";
+import type { RecurringExpenseSuggestion } from "@/lib/financial-reminder-suggestions";
 import {
   isValidCurrencyInput,
   normalizeCurrencyInput,
@@ -120,9 +121,11 @@ function errorMessage(payload: unknown) {
 export function FinancialCalendar({
   initialReminders,
   initialSelectedId = null,
+  initialSuggestions = [],
 }: {
   initialReminders: FinancialReminder[];
   initialSelectedId?: number | null;
+  initialSuggestions?: RecurringExpenseSuggestion[];
 }) {
   const initialSelectedReminder =
     initialReminders.find((reminder) => reminder.id === initialSelectedId) ?? null;
@@ -153,6 +156,10 @@ export function FinancialCalendar({
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [amountError, setAmountError] = useState("");
+  const [selectedSuggestionId, setSelectedSuggestionId] = useState<string | null>(
+    null,
+  );
+  const [usedSuggestionIds, setUsedSuggestionIds] = useState<string[]>([]);
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const days = useMemo(() => monthCalendarDays(visibleMonth), [visibleMonth]);
   const todayKey = localDateKey(new Date());
@@ -163,6 +170,9 @@ export function FinancialCalendar({
     .filter((reminder) => !reminder.is_completed)
     .sort((left, right) => left.due_date.localeCompare(right.due_date))
     .slice(0, 5);
+  const availableSuggestions = initialSuggestions.filter(
+    (suggestion) => !usedSuggestionIds.includes(suggestion.id),
+  );
 
   useEffect(() => {
     if (deletingId === null) return;
@@ -184,12 +194,31 @@ export function FinancialCalendar({
     setDeletingId(null);
     setError("");
     setAmountError("");
+    setSelectedSuggestionId(null);
   }
 
   function startNewReminder(dueDate: string) {
     setSelectedId(null);
     setSelectedDate(dueDate);
     setForm(emptyForm(dueDate));
+    setDeletingId(null);
+    setError("");
+    setAmountError("");
+    setSelectedSuggestionId(null);
+  }
+
+  function reviewSuggestion(suggestion: RecurringExpenseSuggestion) {
+    const dueDate = localDateFromKey(suggestion.due_date);
+    setSelectedId(null);
+    setSelectedDate(suggestion.due_date);
+    setSelectedSuggestionId(suggestion.id);
+    setForm({
+      ...emptyForm(suggestion.due_date),
+      title: suggestion.title,
+      amount: suggestion.amount,
+      recurrence: suggestion.recurrence_frequency,
+    });
+    setVisibleMonth(new Date(dueDate.getFullYear(), dueDate.getMonth(), 1));
     setDeletingId(null);
     setError("");
     setAmountError("");
@@ -202,6 +231,7 @@ export function FinancialCalendar({
     setDeletingId(null);
     setError("");
     setAmountError("");
+    setSelectedSuggestionId(null);
   }
 
   async function saveReminder(event: FormEvent<HTMLFormElement>) {
@@ -248,6 +278,9 @@ export function FinancialCalendar({
           left.due_date.localeCompare(right.due_date),
         );
       });
+      if (selectedSuggestionId) {
+        setUsedSuggestionIds((current) => [...current, selectedSuggestionId]);
+      }
       const today = new Date();
       clearEditor();
       setVisibleMonth(
@@ -327,7 +360,58 @@ export function FinancialCalendar({
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+    <>
+      {availableSuggestions.length ? (
+        <section className="surface mb-6 rounded-2xl p-5 sm:p-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold">
+              Suggestions
+            </p>
+            <h2 className="mt-1 text-lg font-semibold text-white">
+              Recurring expenses you may want to track
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-white/50">
+              These are based on consistent merchant, amount, and timing patterns
+              in your transaction history. Review each suggestion before saving it.
+            </p>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {availableSuggestions.map((suggestion) => (
+              <article
+                className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4"
+                key={suggestion.id}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-semibold text-white">
+                      {suggestion.title}
+                    </h3>
+                    <p className="mt-1 text-xs text-white/45">
+                      {recurrenceLabel(suggestion.recurrence_frequency)} · Typical{" "}
+                      {currency(suggestion.amount)}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-gold/20 bg-gold/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-gold">
+                    {suggestion.occurrence_count} found
+                  </span>
+                </div>
+                <p className="mt-3 text-xs text-white/55">
+                  Next expected {friendlyDate(suggestion.due_date)}
+                </p>
+                <button
+                  className="mt-3 rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent transition hover:bg-accent/15"
+                  onClick={() => reviewSuggestion(suggestion)}
+                  type="button"
+                >
+                  Review suggestion
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
       <section className="surface overflow-hidden rounded-2xl">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-2">
@@ -799,6 +883,7 @@ export function FinancialCalendar({
           </div>
         </section>
       </aside>
-    </div>
+      </div>
+    </>
   );
 }
