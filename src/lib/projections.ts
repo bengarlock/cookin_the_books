@@ -28,6 +28,8 @@ import {
   type CategorizedExpenseTransaction,
   type SupplementalCategorizedExpense,
 } from "./categorized-expense-averages";
+import { financialCalendarProjectionTotals } from "./financial-reminder-dates";
+import type { FinancialReminder } from "./financial-reminder-types";
 
 const LIABILITY_ACCOUNTS: SnapshotAccountKey[] = [
   "chase_credit",
@@ -122,6 +124,9 @@ export type DateRangeProjection = {
   projectedNet: number;
   remainingPaydays: number;
   remainingDays: number;
+  calendarIncome: number;
+  calendarExpenses: number;
+  calendarEventCount: number;
 };
 
 export type UnemploymentRunwayProjection = {
@@ -387,6 +392,7 @@ export function projectDateRange({
   incomeEntries,
   incomeTransactions = [],
   categorizedTransactions,
+  financialReminders = [],
   supplementalExpenses,
   dateRange,
   expenseAverageDateRange,
@@ -396,6 +402,7 @@ export function projectDateRange({
   incomeEntries: IncomeEntry[];
   incomeTransactions?: IncomeTransaction[];
   categorizedTransactions: CategorizedExpenseTransaction[];
+  financialReminders?: FinancialReminder[];
   supplementalExpenses?: SupplementalCategorizedExpense[];
   dateRange: ExpenseDateRange;
   expenseAverageDateRange?: ExpenseDateRange;
@@ -433,14 +440,25 @@ export function projectDateRange({
     incomeEntries,
     currentDate,
   ).predictedNetPay;
-  const forecastIncome = remainingPaydays * predictedPaycheck;
+  const calendarRangeStart = dateRange.start > today ? dateRange.start : today;
+  const calendarTotals =
+    dateRange.end >= calendarRangeStart
+      ? financialCalendarProjectionTotals(
+          financialReminders,
+          calendarRangeStart,
+          dateRange.end,
+        )
+      : { income: 0, expenses: 0, eventCount: 0 };
+  const forecastIncome =
+    remainingPaydays * predictedPaycheck + calendarTotals.income;
   const forecastStart = dateRange.start > today ? dateRange.start : today;
   const remainingDays = Math.max(
     0,
     calendarDaysBetween(forecastStart, dateRange.end) -
       (forecastStart === today ? 1 : 0),
   );
-  const forecastExpenses = expenseAverages.daily * remainingDays;
+  const forecastExpenses =
+    expenseAverages.daily * remainingDays + calendarTotals.expenses;
   const projectedIncome = actualIncome + forecastIncome;
   const projectedExpenses = actualExpenseAverages.total + forecastExpenses;
 
@@ -454,6 +472,9 @@ export function projectDateRange({
     projectedNet: projectedIncome - projectedExpenses,
     remainingPaydays,
     remainingDays,
+    calendarIncome: calendarTotals.income,
+    calendarExpenses: calendarTotals.expenses,
+    calendarEventCount: calendarTotals.eventCount,
   };
 }
 

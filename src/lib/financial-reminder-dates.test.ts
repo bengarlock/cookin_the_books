@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   calendarReminderOccurrences,
   calendarDayTotalCents,
+  financialCalendarProjectionTotals,
   formatCalendarTotal,
   isHomepageReminderActive,
   localDateKey,
@@ -97,6 +98,25 @@ describe("financial reminder dates", () => {
     const occurrences = calendarReminderOccurrences([disabled], "2026-09-01", "2026-10-31");
     expect(occurrences.map((item) => item.dueDate)).toEqual(["2026-09-13", "2026-10-13"]);
     expect(calendarDayTotalCents(occurrences)).toBe(BigInt(-5100));
+  });
+
+  it("separates future calendar costs and payments for projections", () => {
+    const totals = financialCalendarProjectionTotals(
+      [
+        reminder({ id: 1, amount: "-125.50", is_enabled: false }),
+        reminder({ id: 2, amount: "+40.25", recurrence_frequency: "none" }),
+        reminder({ id: 3, amount: "-500.00", is_completed: true }),
+        reminder({ id: 4, amount: null }),
+      ],
+      "2026-09-13",
+      "2026-10-13",
+    );
+
+    expect(totals).toEqual({
+      income: 40.25,
+      expenses: 251,
+      eventCount: 3,
+    });
   });
 
   it("projects monthly reminders into future calendar months", () => {

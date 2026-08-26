@@ -18,6 +18,7 @@ import {
 } from "@/lib/expense-date-range";
 import type { IncomeTransaction } from "@/lib/credit-card-transaction-types";
 import type { IncomeEntry } from "@/lib/income-entry-types";
+import type { FinancialReminder } from "@/lib/financial-reminder-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import {
   projectDateRange,
@@ -45,6 +46,7 @@ export function RecurringExpenses({
   incomeEntries,
   incomeTransactions,
   pendingTransactions,
+  financialReminders,
   initialRange,
   transactions,
 }: {
@@ -53,6 +55,7 @@ export function RecurringExpenses({
   incomeEntries: IncomeEntry[];
   incomeTransactions: IncomeTransaction[];
   pendingTransactions: PendingTransaction[];
+  financialReminders: FinancialReminder[];
   initialRange: ExpenseDateRange;
   transactions: CategorizedExpenseTransaction[];
 }) {
@@ -88,8 +91,16 @@ export function RecurringExpenses({
         incomeTransactions,
         dateRange,
         nextPaydayOverride: budgetPlanSettings.next_payday_override,
+        financialReminders,
       }),
-    [budgetPlanSettings.next_payday_override, dateRange, incomeEntries, incomeTransactions, transactions],
+    [
+      budgetPlanSettings.next_payday_override,
+      dateRange,
+      financialReminders,
+      incomeEntries,
+      incomeTransactions,
+      transactions,
+    ],
   );
   const payCycleProjection = useMemo(
     () =>
@@ -134,7 +145,11 @@ export function RecurringExpenses({
       <section className="surface overflow-hidden rounded-2xl">
         <div className="border-b border-white/10 bg-white/[0.045] px-5 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold">Selected-period outlook</p>
-          <p className="mt-1 text-sm text-muted">Actual income and spending for {formatExpenseDateRange(dateRange)}, plus a forecast for any days still ahead.</p>
+          <p className="mt-1 text-sm text-muted">
+            Actual income and spending for {formatExpenseDateRange(dateRange)},
+            plus a forecast for days still ahead. Financial Calendar events with
+            amounts are included when they fall in that forecast period.
+          </p>
         </div>
         <BudgetTable
           rows={[

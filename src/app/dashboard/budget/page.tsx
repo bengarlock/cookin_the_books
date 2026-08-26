@@ -8,6 +8,7 @@ import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
 import { getDashboardPendingCardTransactions } from "@/lib/dashboard-pending-card-transactions";
 import { getExpenseCategories } from "@/lib/expense-categories";
 import { expenseDateRangeFromSearchParams } from "@/lib/expense-date-range";
+import { getFinancialReminders } from "@/lib/financial-reminders";
 import { getIncomeEntries } from "@/lib/income-entries";
 import { getIncomeTransactions } from "@/lib/income-transactions";
 import { getPendingTransactions } from "@/lib/pending-transactions";
@@ -43,6 +44,7 @@ async function BudgetPlanContent({
     incomeTransactions,
     pendingCardTransactions,
     pendingTransactions,
+    financialReminders,
   ] = await Promise.all([
     getBudgetPlanSettings(),
     getExpenseCategories(),
@@ -51,6 +53,7 @@ async function BudgetPlanContent({
     getIncomeTransactions(),
     getDashboardPendingCardTransactions(),
     getPendingTransactions(),
+    getFinancialReminders(),
   ]);
 
   return (
@@ -67,6 +70,7 @@ async function BudgetPlanContent({
         incomeEntries={incomeEntries}
         incomeTransactions={incomeTransactions}
         pendingTransactions={pendingTransactions}
+        financialReminders={financialReminders}
         initialRange={initialRange}
         transactions={expenseTransactions}
       />

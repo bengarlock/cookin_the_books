@@ -91,15 +91,51 @@ export type CalendarReminderOccurrence = {
   projected: boolean;
 };
 
+function financialReminderAmountCents(amount: string | null) {
+  if (!amount) return null;
+  const match = /^([+-]?)(\d+)(?:\.(\d{1,2}))?$/.exec(amount);
+  if (!match) return null;
+  const cents =
+    BigInt(match[2]) * BigInt(100) +
+    BigInt((match[3] ?? "").padEnd(2, "0"));
+  return match[1] === "-" ? -cents : cents;
+}
+
 // Sum integer cents so cancellation and zero-total visibility are exact.
 export function calendarDayTotalCents(occurrences: CalendarReminderOccurrence[]) {
   return occurrences.reduce((total, { reminder }) => {
-    if (reminder.is_completed || !reminder.amount) return total;
-    const match = /^([+-]?)(\d+)(?:\.(\d{1,2}))?$/.exec(reminder.amount);
-    if (!match) return total;
-    const cents = BigInt(match[2]) * BigInt(100) + BigInt((match[3] ?? "").padEnd(2, "0"));
-    return total + (match[1] === "-" ? -cents : cents);
+    if (reminder.is_completed) return total;
+    return total + (financialReminderAmountCents(reminder.amount) ?? BigInt(0));
   }, BigInt(0));
+}
+
+export function financialCalendarProjectionTotals(
+  reminders: FinancialReminder[],
+  rangeStart: string,
+  rangeEnd: string,
+) {
+  let incomeCents = BigInt(0);
+  let expenseCents = BigInt(0);
+  let eventCount = 0;
+
+  for (const { reminder } of calendarReminderOccurrences(
+    reminders,
+    rangeStart,
+    rangeEnd,
+  )) {
+    if (reminder.is_completed) continue;
+    const cents = financialReminderAmountCents(reminder.amount);
+    if (!cents) continue;
+    if (cents > BigInt(0)) incomeCents += cents;
+    if (cents < BigInt(0)) expenseCents -= cents;
+    eventCount += 1;
+  }
+
+  return {
+    income: Number(incomeCents) / 100,
+    expenses: Number(expenseCents) / 100,
+    eventCount,
+  };
 }
 
 export function formatCalendarTotal(cents: bigint) {

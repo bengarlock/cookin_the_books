@@ -7,6 +7,7 @@ import type { ExpenseEntry } from "./expense-entry-types";
 import type { PendingTransaction } from "./pending-transaction-types";
 import type { CreditCardTransaction } from "./credit-card-transaction-types";
 import type { CategorizedExpenseTransaction } from "./categorized-expense-averages";
+import type { FinancialReminder } from "./financial-reminder-types";
 import { remainingPaydaysInYear } from "./pay-cycle";
 import {
   classifyPaychecks,
@@ -64,6 +65,33 @@ function categorizedTransaction(
     plaid_counterparty_name: "Grocery store",
     plaid_counterparty_entity_id: "grocer",
     related_transaction_ids: [],
+    ...overrides,
+  };
+}
+
+function financialReminder(
+  overrides: Partial<FinancialReminder> = {},
+): FinancialReminder {
+  return {
+    id: 1,
+    title: "Future event",
+    amount: "-100.00",
+    due_date: "2026-07-01",
+    notes: "",
+    reminder_lead_days: 7,
+    reminder_cadence: "once",
+    recurrence_frequency: "none",
+    custom_recurrence_type: null,
+    custom_recurrence_value: null,
+    email_enabled: false,
+    homepage_enabled: false,
+    is_enabled: true,
+    is_completed: false,
+    completed_at: null,
+    active_on_homepage: false,
+    days_until_due: 4,
+    created_at: "2026-06-27T12:00:00Z",
+    updated_at: "2026-06-27T12:00:00Z",
     ...overrides,
   };
 }
@@ -342,6 +370,50 @@ describe("projectDateRange", () => {
     expect(result.forecastIncome).toBe(9000);
     expect(result.remainingDays).toBe(34);
     expect(result.projectedExpenses).toBeGreaterThan(result.actualExpenses);
+  });
+
+  it("adds future calendar costs and payments to their respective forecasts", () => {
+    const result = projectDateRange({
+      incomeEntries: [],
+      categorizedTransactions: [],
+      financialReminders: [
+        financialReminder({ id: 1, amount: "-1200.00", is_enabled: false }),
+        financialReminder({ id: 2, amount: "+250.00", due_date: "2026-07-15" }),
+        financialReminder({ id: 3, amount: "-800.00", due_date: "2026-08-01" }),
+      ],
+      dateRange: { start: "2026-06-01", end: "2026-07-31" },
+      currentDate: new Date(2026, 5, 27),
+    });
+
+    expect(result.calendarIncome).toBe(250);
+    expect(result.calendarExpenses).toBe(1200);
+    expect(result.calendarEventCount).toBe(2);
+    expect(result.forecastIncome).toBe(250);
+    expect(result.forecastExpenses).toBe(1200);
+    expect(result.projectedNet).toBe(-950);
+  });
+
+  it("includes today's open events and recurring occurrences but ignores completed and past entries", () => {
+    const result = projectDateRange({
+      incomeEntries: [],
+      categorizedTransactions: [],
+      financialReminders: [
+        financialReminder({
+          id: 1,
+          amount: "-25.00",
+          due_date: "2026-06-27",
+          recurrence_frequency: "weekly",
+        }),
+        financialReminder({ id: 2, amount: "-500.00", due_date: "2026-06-20" }),
+        financialReminder({ id: 3, amount: "+900.00", is_completed: true }),
+      ],
+      dateRange: { start: "2026-06-01", end: "2026-07-11" },
+      currentDate: new Date(2026, 5, 27),
+    });
+
+    expect(result.calendarExpenses).toBe(75);
+    expect(result.calendarIncome).toBe(0);
+    expect(result.calendarEventCount).toBe(3);
   });
 });
 

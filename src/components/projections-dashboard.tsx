@@ -15,6 +15,7 @@ import {
   formatExpenseDateRange,
   type ExpenseDateRange,
 } from "@/lib/expense-date-range";
+import type { FinancialReminder } from "@/lib/financial-reminder-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import {
   followingPayday,
@@ -151,6 +152,7 @@ export function ProjectionsDashboard({
   initialIncomeEntries,
   initialIncomeTransactions,
   initialPendingTransactions,
+  initialFinancialReminders,
 }: {
   initialBudgetPlanSettings: BudgetPlanSettings;
   initialCategorizedTransactions: ExpenseTransaction[];
@@ -158,6 +160,7 @@ export function ProjectionsDashboard({
   initialIncomeEntries: IncomeEntry[];
   initialIncomeTransactions: IncomeTransaction[];
   initialPendingTransactions: PendingTransaction[];
+  initialFinancialReminders: FinancialReminder[];
 }) {
   const { snapshot } = useLiveSnapshot();
   const pathname = usePathname();
@@ -215,12 +218,14 @@ export function ProjectionsDashboard({
         dateRange: initialRange,
         expenseAverageDateRange,
         nextPaydayOverride,
+        financialReminders: initialFinancialReminders,
       }),
     [
       initialCategorizedTransactions,
       expenseAverageDateRange,
       initialIncomeEntries,
       initialIncomeTransactions,
+      initialFinancialReminders,
       initialRange,
       nextPaydayOverride,
     ],
@@ -336,6 +341,10 @@ export function ProjectionsDashboard({
           description={
             `${formatCurrency(rangeProjection.actualIncome)} actual for ${formatExpenseDateRange(initialRange)} plus ${rangeProjection.remainingPaydays} forecast paycheck${
               rangeProjection.remainingPaydays === 1 ? "" : "s"
+            }${
+              rangeProjection.calendarIncome > 0
+                ? ` and ${formatCurrency(rangeProjection.calendarIncome)} in calendar payments`
+                : ""
             }.`
           }
         />
@@ -344,7 +353,11 @@ export function ProjectionsDashboard({
           value={formatCurrency(rangeProjection.projectedExpenses)}
           description={`${formatCurrency(rangeProjection.actualExpenses)} actual plus ${formatCurrency(
             rangeProjection.forecastExpenses,
-          )} forecast through the selected end date, using ${spendHistoryLabel.toLowerCase()}.`}
+          )} forecast through the selected end date${
+            rangeProjection.calendarExpenses > 0
+              ? `, including ${formatCurrency(rangeProjection.calendarExpenses)} in calendar expenses`
+              : ""
+          }, using ${spendHistoryLabel.toLowerCase()}.`}
           negative
         />
         <MetricCard
