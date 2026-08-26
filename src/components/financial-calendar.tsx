@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 
 import { APP_BASE_PATH } from "@/lib/config";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
+import { calendarDragPreviewPosition } from "@/lib/calendar-drag-feedback";
 import {
   calendarReminderOccurrences,
   calendarDayTotalCents,
@@ -183,6 +185,9 @@ export function FinancialCalendar({
   );
   const [isSaving, setIsSaving] = useState(false);
   const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [dragPreviewPosition, setDragPreviewPosition] = useState<
+    ReturnType<typeof calendarDragPreviewPosition> | null
+  >(null);
   const [dropDate, setDropDate] = useState<string | null>(null);
   const [moveId, setMoveId] = useState<number | null>(null);
   const [moveMessage, setMoveMessage] = useState("");
@@ -211,6 +216,13 @@ export function FinancialCalendar({
   >(null);
   const [suggestionError, setSuggestionError] = useState("");
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
+  const calendarGridRef = useRef<HTMLDivElement>(null);
+  const draggedReminder = reminders.find((reminder) => reminder.id === draggingId);
+  const dragDestinationLabel = !dropDate
+    ? "Move over a calendar date"
+    : dropDate === draggedReminder?.due_date
+      ? `Original date · ${friendlyDate(dropDate)}`
+      : `Move to ${friendlyDate(dropDate)}`;
   const days = useMemo(() => monthCalendarDays(visibleMonth), [visibleMonth]);
   const todayKey = localDateKey(new Date());
   const visibleReminders = useMemo(
@@ -305,7 +317,14 @@ export function FinancialCalendar({
     function resetDrag() {
       pointerDrag.current = null;
       setDraggingId(null);
+      setDragPreviewPosition(null);
       setDropDate(null);
+    }
+    function destinationAt(x: number, y: number) {
+      const target = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-calendar-date]");
+      return target && calendarGridRef.current?.contains(target)
+        ? target.dataset.calendarDate ?? null
+        : null;
     }
     function trackPointer(event: PointerEvent) {
       const drag = pointerDrag.current;
@@ -315,16 +334,18 @@ export function FinancialCalendar({
       suppressDragClick.current = true;
       setMoveId(null);
       setDraggingId(drag.id);
-      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-calendar-date]");
-      setDropDate(target?.dataset.calendarDate ?? null);
+      setDragPreviewPosition(calendarDragPreviewPosition(
+        event.clientX, event.clientY, window.innerWidth, window.innerHeight, event.pointerType,
+      ));
+      setDropDate(destinationAt(event.clientX, event.clientY));
     }
     function releasePointer(event: PointerEvent) {
       const drag = pointerDrag.current;
       if (!drag || event.pointerId !== drag.pointerId) return;
       resetDrag();
       if (!drag.active) return;
-      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-calendar-date]");
-      if (target?.dataset.calendarDate) void moveReminder(drag.id, target.dataset.calendarDate);
+      const destination = destinationAt(event.clientX, event.clientY);
+      if (destination) void moveReminder(drag.id, destination);
     }
     function resetClick() {
       suppressDragClick.current = false;
@@ -590,6 +611,28 @@ export function FinancialCalendar({
 
   return (
     <>
+      {draggedReminder && dragPreviewPosition ? createPortal(
+        <div
+          aria-hidden="true"
+          data-calendar-drag-preview
+          className="pointer-events-none fixed z-[100] flex select-none flex-col justify-center gap-1 overflow-hidden rounded-xl border-2 border-accent bg-panel px-3 py-2 text-foreground shadow-2xl ring-4 ring-accent/15"
+          style={dragPreviewPosition}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-accent" aria-hidden="true">⠿</span>
+            <span className="truncate text-sm font-semibold">{draggedReminder.title}</span>
+          </div>
+          {draggedReminder.amount ? (
+            <span className="text-xs font-medium tabular-nums text-muted">
+              {currency(draggedReminder.amount)}
+            </span>
+          ) : null}
+          <span className={`truncate text-xs font-semibold ${dropDate ? "text-accent" : "text-muted"}`}>
+            {dragDestinationLabel}
+          </span>
+        </div>,
+        document.body,
+      ) : null}
       {availableSuggestions.length ? (
         <section className="surface mb-6 rounded-2xl p-5 sm:p-6">
           <div>
@@ -713,7 +756,9 @@ export function FinancialCalendar({
           {moveId !== null ? (
             <span>Choose a destination date. <button type="button" className="text-accent underline" onClick={() => setMoveId(null)}>Cancel move</button></span>
           ) : "Drag saved entries to another date, or select an entry and choose Move on calendar."}
-          <p role="status" className="text-accent">{moveMessage}</p>
+          <p role="status" className="min-h-4 text-accent">
+            {draggingId === null ? moveMessage : dragDestinationLabel}
+          </p>
           {moveError ? <p role="alert" className="text-red-300">{moveError}</p> : null}
         </div>
         <div className="overflow-x-auto">
@@ -728,19 +773,31 @@ export function FinancialCalendar({
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7">
+            <div ref={calendarGridRef} className="grid grid-cols-7">
               {days.map((day) => {
                 const dayReminders = calendarOccurrences.filter(
                   (occurrence) => occurrence.dueDate === day.dateKey,
                 );
                 const isSelectedDate = selectedDate === day.dateKey;
                 const dayTotal = calendarDayTotalCents(dayReminders);
+                const isDropTarget = draggingId !== null && dropDate === day.dateKey;
                 return (
                   <div
                     key={day.dateKey}
                     data-calendar-date={day.dateKey}
-                    className={`relative min-h-28 overflow-hidden border-r border-b border-white/[0.07] last:border-r-0 ${dropDate === day.dateKey ? "bg-accent/20 ring-2 ring-inset ring-accent" : ""}`}
+                    data-drag-target={isDropTarget || undefined}
+                    className="relative min-h-28 overflow-hidden border-r border-b border-white/[0.07] last:border-r-0"
                   >
+                    {isDropTarget ? (
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 z-20 rounded-sm border-[3px] border-accent bg-accent/15"
+                      >
+                        <span className="absolute bottom-1 left-1 whitespace-nowrap rounded-md bg-accent px-2 py-0.5 text-[10px] font-bold text-background shadow-sm">
+                          {day.dateKey === draggedReminder?.due_date ? "Original date" : "Drop here"}
+                        </span>
+                      </div>
+                    ) : null}
                     <button
                       type="button"
                       disabled={isSaving}
@@ -791,7 +848,7 @@ export function FinancialCalendar({
                         {formatCalendarTotal(dayTotal)}
                       </span>
                     ) : null}
-                    <div className="pointer-events-none relative z-10 mt-9 space-y-1 px-2 pb-2">
+                    <div className="pointer-events-none relative z-10 mt-9 space-y-1 px-2 pb-7">
                       {dayReminders.map((occurrence) => (
                         <button
                           type="button"
@@ -815,7 +872,7 @@ export function FinancialCalendar({
                             }
                             selectReminder(occurrence.reminder, occurrence.dueDate);
                           }}
-                          className={`pointer-events-auto block w-full truncate rounded-md border px-2 py-1 text-left text-[11px] font-medium transition disabled:opacity-60 ${draggingId === occurrence.reminder.id ? "opacity-50" : ""} ${!occurrence.projected ? "select-none cursor-grab active:cursor-grabbing" : ""} ${
+                          className={`pointer-events-auto block w-full truncate rounded-md border px-2 py-1 text-left text-[11px] font-medium transition disabled:opacity-60 ${draggingId === occurrence.reminder.id && !occurrence.projected ? "opacity-30 border-dashed" : ""} ${!occurrence.projected ? "select-none cursor-grab active:cursor-grabbing" : ""} ${
                             occurrence.reminder.is_completed
                               ? "border-white/5 bg-white/[0.03] text-white/30 line-through"
                               : selectedId === occurrence.reminder.id &&
