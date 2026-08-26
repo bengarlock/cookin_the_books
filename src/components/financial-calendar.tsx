@@ -1000,8 +1000,14 @@ export function FinancialCalendar({
               </label>
               <p id="financial-reminder-enabled-help" className="mt-2 text-xs leading-5 text-white/50">
                 Turn off and save to pause email and home-page alerts. Dates, amounts, repeat schedules, and channel choices stay saved on the calendar.
+                {!form.isEnabled ? " Re-enable the reminder to edit its details." : ""}
               </p>
             </div>
+            <fieldset
+              disabled={!form.isEnabled}
+              aria-label="Reminder details"
+              className="space-y-4 disabled:opacity-50 disabled:[&_input]:cursor-not-allowed disabled:[&_select]:cursor-not-allowed disabled:[&_textarea]:cursor-not-allowed"
+            >
             <label className="block text-sm text-white/65">
               Name
               <input
@@ -1239,6 +1245,7 @@ export function FinancialCalendar({
                 className="mt-1.5 w-full resize-y rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-white outline-none transition placeholder:text-white/25 focus:border-accent/60"
               />
             </label>
+            </fieldset>
 
             {error ? (
               <p role="alert" className="rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-100">
@@ -1258,18 +1265,20 @@ export function FinancialCalendar({
                 <>
                   <button
                     type="button"
+                    disabled={!form.isEnabled}
                     onClick={() => { setMoveId(selectedId); setMoveError(""); setMoveMessage(""); }}
-                    className="rounded-xl border border-white/10 px-3 py-2.5 text-sm text-white/70 transition hover:border-accent/50"
+                    className="rounded-xl border border-white/10 px-3 py-2.5 text-sm text-white/70 transition hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Move on calendar
                   </button>
                   <button
                     type="button"
+                    disabled={!form.isEnabled}
                     onClick={() => {
                       const reminder = reminders.find((item) => item.id === selectedId);
                       if (reminder) void toggleCompleted(reminder);
                     }}
-                    className="min-w-24 rounded-xl border border-white/10 px-3 py-2.5 text-sm text-white/70 transition hover:border-white/20 hover:text-white"
+                    className="min-w-24 rounded-xl border border-white/10 px-3 py-2.5 text-sm text-white/70 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {reminders.find((item) => item.id === selectedId)?.is_completed
                       ? "Reopen"
@@ -1278,6 +1287,7 @@ export function FinancialCalendar({
                   <button
                     ref={deleteButtonRef}
                     type="button"
+                    disabled={!form.isEnabled}
                     onClick={() => void deleteReminder(selectedId)}
                     aria-label={
                       deletingId === selectedId
@@ -1289,7 +1299,7 @@ export function FinancialCalendar({
                         ? "Click again to delete"
                         : "Delete reminder"
                     }
-                    className={`flex size-10 items-center justify-center rounded-xl border border-white/10 transition ${
+                    className={`flex size-10 items-center justify-center rounded-xl border border-white/10 transition disabled:cursor-not-allowed disabled:opacity-50 ${
                       deletingId === selectedId
                         ? "text-red-400"
                         : "text-white/45 hover:border-red-400/30 hover:text-red-300"
