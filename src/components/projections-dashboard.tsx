@@ -278,6 +278,7 @@ export function ProjectionsDashboard({
 
       setBudgetPlanSettings(data as BudgetPlanSettings);
       setConfirmingFastForward(false);
+      router.refresh();
     } catch (error) {
       setFastForwardError(
         error instanceof Error

@@ -67,6 +67,7 @@ export function DateRangePicker({
   allTimeStart,
   availableYears,
   triggerClassName,
+  currentPayPeriodRange,
 }: {
   range: ExpenseDateRange;
   onApply: (range: ExpenseDateRange) => void;
@@ -74,6 +75,7 @@ export function DateRangePicker({
   allTimeStart?: string;
   availableYears?: number[];
   triggerClassName?: string;
+  currentPayPeriodRange?: ExpenseDateRange;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState(range);
@@ -253,6 +255,22 @@ export function DateRangePicker({
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {currentPayPeriodRange ? (
+                <button
+                  className={`${shortcutControlClass} col-span-2 sm:col-span-4`}
+                  onClick={() => {
+                    const end = parseLocalDate(currentPayPeriodRange.end);
+                    setDraft(currentPayPeriodRange);
+                    setVisibleMonth(
+                      new Date(end.getFullYear(), end.getMonth(), 1),
+                    );
+                    setSelectingEnd(false);
+                  }}
+                  type="button"
+                >
+                  Current Pay Period
+                </button>
+              ) : null}
               {[
                 { label: "Week", value: "week" as const },
                 { label: "Month", value: "month" as const },

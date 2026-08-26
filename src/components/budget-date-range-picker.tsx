@@ -10,8 +10,10 @@ import {
   isExpenseDateRange,
   type ExpenseDateRange,
 } from "@/lib/expense-date-range";
+import { currentPayPeriodDateRange } from "@/lib/pay-cycle";
 
 const goalsPath = "/dashboard/budget/goals";
+const projectionsPath = "/dashboard/budget/projections";
 const storageKey = "cookin-the-books:budget-date-range";
 
 function storedRange() {
@@ -27,14 +29,20 @@ function storedRange() {
 
 export function BudgetDateRangePicker({
   pathnameOverride,
+  nextPaydayOverride,
 }: {
   pathnameOverride?: string;
+  nextPaydayOverride?: string | null;
 } = {}) {
   const currentPathname = usePathname();
   const pathname = pathnameOverride ?? currentPathname;
   const router = useRouter();
   const searchParams = useSearchParams();
   const isGoalsPage = pathname === goalsPath;
+  const currentPayPeriodRange =
+    pathname === projectionsPath
+      ? currentPayPeriodDateRange(new Date(), nextPaydayOverride)
+      : undefined;
   const start = searchParams.get("start") || "";
   const end = searchParams.get("end") || "";
   const urlRange = useMemo(
@@ -78,6 +86,7 @@ export function BudgetDateRangePicker({
     <div className="mb-6 flex justify-center">
       <DateRangePicker
         dialogLabel="Select Budget date range"
+        currentPayPeriodRange={currentPayPeriodRange}
         onApply={applyRange}
         range={range}
         triggerClassName="inline-flex max-w-full items-center gap-2 rounded-xl border border-white/10 bg-black/15 px-4 py-2.5 text-center text-sm font-medium text-white/75 transition hover:border-accent/25 hover:text-accent"

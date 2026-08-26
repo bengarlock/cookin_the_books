@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  currentPayPeriodDateRange,
   followingPayday,
   getCurrentPayPeriod,
   getNextPayCycle,
@@ -113,6 +114,19 @@ describe("getNextPayCycle", () => {
     const period = getCurrentPayPeriod(localDate(2026, 7, 15));
     expectSameLocalDate(period.start, localDate(2026, 7, 15));
     expectSameLocalDate(period.end, localDate(2026, 7, 31));
+  });
+
+  it("formats the current pay period for date-range controls", () => {
+    expect(currentPayPeriodDateRange(localDate(2026, 7, 8))).toEqual({
+      start: "2026-07-01",
+      end: "2026-07-15",
+    });
+    expect(
+      currentPayPeriodDateRange(localDate(2026, 7, 8), "2026-07-20"),
+    ).toEqual({
+      start: "2026-07-15",
+      end: "2026-07-20",
+    });
   });
 
   it("excludes skipped paydays from the remaining yearly count", () => {

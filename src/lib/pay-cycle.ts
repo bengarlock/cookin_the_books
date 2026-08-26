@@ -115,6 +115,17 @@ export function getCurrentPayPeriod(
   return { start, end };
 }
 
+export function currentPayPeriodDateRange(
+  currentDate = new Date(),
+  nextPaydayOverride?: string | null,
+) {
+  const period = getCurrentPayPeriod(currentDate, nextPaydayOverride);
+  return {
+    start: localPaydayString(period.start),
+    end: localPaydayString(period.end),
+  };
+}
+
 export function localPaydayString(date: Date) {
   return [
     date.getFullYear(),
