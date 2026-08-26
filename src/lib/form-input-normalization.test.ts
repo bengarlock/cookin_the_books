@@ -26,6 +26,23 @@ describe("form input normalization", () => {
     }
   });
 
+  it("allows removing the minus sign when editing an existing calendar amount", () => {
+    const editing = { defaultToCost: false };
+    const normalizedOnBlur = normalizeFinancialReminderAmount("164.76", editing);
+    expect(normalizedOnBlur).toBe("+164.76");
+    expect(normalizeFinancialReminderAmount(normalizedOnBlur!, editing)).toBe("+164.76");
+    expect(normalizeFinancialReminderAmount("$1,541.00", editing)).toBe("+1541.00");
+  });
+
+  it("preserves explicit signs and optional amounts while editing", () => {
+    const editing = { defaultToCost: false };
+    expect(normalizeFinancialReminderAmount("-164.76", editing)).toBe("-164.76");
+    expect(normalizeFinancialReminderAmount("+164.76", editing)).toBe("+164.76");
+    expect(normalizeFinancialReminderAmount("(164.76)", editing)).toBe("-164.76");
+    expect(normalizeFinancialReminderAmount("0", editing)).toBe("0.00");
+    expect(normalizeFinancialReminderAmount("", editing)).toBe("");
+  });
+
   it("accepts pasted formatted currency", () => {
     expect(normalizeCurrencyInput("$1,541.00")).toBe("1541.00");
   });

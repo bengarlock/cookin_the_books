@@ -450,7 +450,9 @@ export function FinancialCalendar({
       setError("Choose email, home page, or both for this reminder.");
       return;
     }
-    const amount = normalizeFinancialReminderAmount(form.amount);
+    const amount = normalizeFinancialReminderAmount(form.amount, {
+      defaultToCost: selectedId === null,
+    });
     if (amount === null) {
       setAmountError("Enter a valid amount with no more than 2 decimal places.");
       return;
@@ -944,7 +946,9 @@ export function FinancialCalendar({
                       setForm({ ...form, amount: value });
                     }}
                     onBlur={() => {
-                      const normalized = normalizeFinancialReminderAmount(form.amount);
+                      const normalized = normalizeFinancialReminderAmount(form.amount, {
+                        defaultToCost: selectedId === null,
+                      });
                       if (normalized !== null) setForm((current) => ({ ...current, amount: normalized }));
                       else setAmountError("Enter a valid amount with no more than 2 decimal places.");
                     }}
@@ -961,7 +965,9 @@ export function FinancialCalendar({
                   />
                 </label>
                 <p id="financial-reminder-amount-help" className="mt-1.5 text-xs leading-5 text-white/45">
-                  Costs default to negative. Use + for incoming payments.
+                  {selectedId === null
+                    ? "Costs default to negative. Use + for incoming payments."
+                    : "Use - for costs. Remove - or use + for incoming payments."}
                 </p>
                 {amountError ? (
                   <span

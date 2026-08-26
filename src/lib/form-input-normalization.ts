@@ -10,8 +10,11 @@ export function isValidCurrencyInput(value: string) {
   return normalizeCurrencyInput(value) !== null;
 }
 
-// Calendar entry is cost-first: only an explicit + denotes incoming money.
-export function normalizeFinancialReminderAmount(value: string) {
+// New entries default to costs; edits honor removal of an existing minus sign.
+export function normalizeFinancialReminderAmount(
+  value: string,
+  { defaultToCost = true }: { defaultToCost?: boolean } = {},
+) {
   const trimmed = value.trim();
   if (!trimmed) return "";
   const parenthesized = /^\([^()]+\)$/.test(trimmed);
@@ -24,7 +27,10 @@ export function normalizeFinancialReminderAmount(value: string) {
   if (integer.length > 16) return null;
   const decimal = `${integer}.${fraction.padEnd(2, "0")}`;
   if (decimal === "0.00") return decimal;
-  return `${!parenthesized && normalized.startsWith("+") ? "+" : "-"}${decimal}`;
+  const positive = !parenthesized && (
+    normalized.startsWith("+") || (!defaultToCost && !normalized.startsWith("-"))
+  );
+  return `${positive ? "+" : "-"}${decimal}`;
 }
 
 export function normalizeDateInput(value: string) {
