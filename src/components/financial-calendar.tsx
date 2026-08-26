@@ -6,15 +6,14 @@ import { APP_BASE_PATH } from "@/lib/config";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import {
   calendarReminderOccurrences,
+  calendarDayTotalCents,
+  formatCalendarTotal,
   localDateFromKey,
   localDateKey,
   monthCalendarDays,
 } from "@/lib/financial-reminder-dates";
 import type { RecurringExpenseSuggestion } from "@/lib/financial-reminder-suggestions";
-import {
-  isValidCurrencyInput,
-  normalizeCurrencyInput,
-} from "@/lib/form-input-normalization";
+import { normalizeFinancialReminderAmount } from "@/lib/form-input-normalization";
 import type {
   CustomRecurrenceType,
   FinancialReminder,
@@ -73,7 +72,10 @@ function emptyForm(dueDate = localDateKey(new Date())): FormState {
 function formFromReminder(reminder: FinancialReminder): FormState {
   return {
     title: reminder.title,
-    amount: reminder.amount ?? "",
+    amount:
+      reminder.amount && Number(reminder.amount) > 0
+        ? `+${reminder.amount}`
+        : reminder.amount ?? "",
     dueDate: reminder.due_date,
     notes: reminder.notes,
     leadDays: String(reminder.reminder_lead_days),
@@ -180,6 +182,20 @@ export function FinancialCalendar({
     Boolean(initialSelectedReminder?.is_completed),
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [dropDate, setDropDate] = useState<string | null>(null);
+  const [moveId, setMoveId] = useState<number | null>(null);
+  const [moveMessage, setMoveMessage] = useState("");
+  const [moveError, setMoveError] = useState("");
+  const mutationInFlight = useRef(false);
+  const pointerDrag = useRef<{
+    id: number;
+    pointerId: number;
+    x: number;
+    y: number;
+    active: boolean;
+  } | null>(null);
+  const suppressDragClick = useRef(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [amountError, setAmountError] = useState("");
@@ -236,10 +252,108 @@ export function FinancialCalendar({
     return () => document.removeEventListener("pointerdown", cancelDeleteConfirmation);
   }, [deletingId]);
 
+  useEffect(() => {
+    if (moveId === null) return;
+    function cancelMove(event: KeyboardEvent) {
+      if (event.key === "Escape") setMoveId(null);
+    }
+    document.addEventListener("keydown", cancelMove);
+    return () => document.removeEventListener("keydown", cancelMove);
+  }, [moveId]);
+
+  async function moveReminder(reminderId: number, dueDate: string) {
+    const reminder = reminders.find((item) => item.id === reminderId);
+    if (!reminder || mutationInFlight.current) return;
+    setMoveId(null);
+    if (reminder.due_date === dueDate) {
+      setMoveError("");
+      setMoveMessage(`${reminder.title} is already on ${friendlyDate(dueDate)}.`);
+      return;
+    }
+    mutationInFlight.current = true;
+    setIsSaving(true);
+    setMoveError("");
+    setMoveMessage(`Moving ${reminder.title}…`);
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/financial-reminders/${reminderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ due_date: dueDate }),
+      });
+      const data: unknown = await response.json();
+      if (!response.ok) throw new Error(errorMessage(data, "The reminder could not be moved."));
+      const saved = data as FinancialReminder;
+      setReminders((current) => current.map((item) => item.id === saved.id ? saved : item));
+      if (selectedId === reminderId) {
+        setSelectedDate(saved.due_date);
+        // Preserve unsaved name, amount, and notes in the open editor.
+        setForm((current) => ({ ...current, dueDate: saved.due_date }));
+      }
+      setMoveMessage(`${saved.title} moved to ${friendlyDate(saved.due_date)}.`);
+    } catch (moveFailure) {
+      setMoveMessage("");
+      setMoveError(moveFailure instanceof Error ? moveFailure.message : "The reminder could not be moved.");
+    } finally {
+      mutationInFlight.current = false;
+      setIsSaving(false);
+    }
+  }
+
+  // Listen on the document so fast drags and releases outside the tile are
+  // handled even when the pointer leaves the source before capture begins.
+  useEffect(() => {
+    function resetDrag() {
+      pointerDrag.current = null;
+      setDraggingId(null);
+      setDropDate(null);
+    }
+    function trackPointer(event: PointerEvent) {
+      const drag = pointerDrag.current;
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      if (!drag.active && Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 6) return;
+      drag.active = true;
+      suppressDragClick.current = true;
+      setMoveId(null);
+      setDraggingId(drag.id);
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-calendar-date]");
+      setDropDate(target?.dataset.calendarDate ?? null);
+    }
+    function releasePointer(event: PointerEvent) {
+      const drag = pointerDrag.current;
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      resetDrag();
+      if (!drag.active) return;
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-calendar-date]");
+      if (target?.dataset.calendarDate) void moveReminder(drag.id, target.dataset.calendarDate);
+    }
+    function resetClick() {
+      suppressDragClick.current = false;
+    }
+    function cancelOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") resetDrag();
+    }
+    document.addEventListener("pointerdown", resetClick, true);
+    document.addEventListener("pointermove", trackPointer);
+    document.addEventListener("pointerup", releasePointer);
+    document.addEventListener("pointercancel", resetDrag);
+    document.addEventListener("keydown", cancelOnEscape);
+    window.addEventListener("blur", resetDrag);
+    return () => {
+      document.removeEventListener("pointerdown", resetClick, true);
+      document.removeEventListener("pointermove", trackPointer);
+      document.removeEventListener("pointerup", releasePointer);
+      document.removeEventListener("pointercancel", resetDrag);
+      document.removeEventListener("keydown", cancelOnEscape);
+      window.removeEventListener("blur", resetDrag);
+    };
+  });
+
   function selectReminder(
     reminder: FinancialReminder,
     occurrenceDate = reminder.due_date,
   ) {
+    if (mutationInFlight.current) return;
+    setMoveId(null);
     setSelectedId(reminder.id);
     setSelectedDate(occurrenceDate);
     setForm(formFromReminder(reminder));
@@ -250,6 +364,8 @@ export function FinancialCalendar({
   }
 
   function startNewReminder(dueDate: string) {
+    if (mutationInFlight.current) return;
+    setMoveId(null);
     setSelectedId(null);
     setSelectedDate(dueDate);
     setForm(emptyForm(dueDate));
@@ -279,6 +395,7 @@ export function FinancialCalendar({
   }
 
   function clearEditor() {
+    setMoveId(null);
     setSelectedId(null);
     setSelectedDate(null);
     setForm(emptyForm());
@@ -327,14 +444,15 @@ export function FinancialCalendar({
 
   async function saveReminder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (mutationInFlight.current) return;
     setError("");
     if (!form.emailEnabled && !form.homepageEnabled) {
       setError("Choose email, home page, or both for this reminder.");
       return;
     }
-    const amount = normalizeCurrencyInput(form.amount);
+    const amount = normalizeFinancialReminderAmount(form.amount);
     if (amount === null) {
-      setAmountError("Enter no more than 2 decimal places.");
+      setAmountError("Enter a valid amount with no more than 2 decimal places.");
       return;
     }
     const payload: FinancialReminderPayload = {
@@ -352,6 +470,7 @@ export function FinancialCalendar({
       email_enabled: form.emailEnabled,
       homepage_enabled: form.homepageEnabled,
     };
+    mutationInFlight.current = true;
     setIsSaving(true);
     try {
       const response = await fetch(
@@ -388,11 +507,15 @@ export function FinancialCalendar({
           : "The reminder could not be saved.",
       );
     } finally {
+      mutationInFlight.current = false;
       setIsSaving(false);
     }
   }
 
   async function toggleCompleted(reminder: FinancialReminder) {
+    if (mutationInFlight.current) return;
+    mutationInFlight.current = true;
+    setIsSaving(true);
     setError("");
     try {
       const response = await fetch(
@@ -424,14 +547,20 @@ export function FinancialCalendar({
           ? updateError.message
           : "The reminder could not be updated.",
       );
+    } finally {
+      mutationInFlight.current = false;
+      setIsSaving(false);
     }
   }
 
   async function deleteReminder(reminderId: number) {
+    if (mutationInFlight.current) return;
     if (deletingId !== reminderId) {
       setDeletingId(reminderId);
       return;
     }
+    mutationInFlight.current = true;
+    setIsSaving(true);
     setError("");
     try {
       const response = await fetch(
@@ -451,6 +580,9 @@ export function FinancialCalendar({
           : "The reminder could not be deleted.",
       );
       setDeletingId(null);
+    } finally {
+      mutationInFlight.current = false;
+      setIsSaving(false);
     }
   }
 
@@ -575,6 +707,13 @@ export function FinancialCalendar({
           </button>
         </div>
 
+        <div className="px-5 py-2 text-xs text-white/55">
+          {moveId !== null ? (
+            <span>Choose a destination date. <button type="button" className="text-accent underline" onClick={() => setMoveId(null)}>Cancel move</button></span>
+          ) : "Drag saved entries to another date, or select an entry and choose Move on calendar."}
+          <p role="status" className="text-accent">{moveMessage}</p>
+          {moveError ? <p role="alert" className="text-red-300">{moveError}</p> : null}
+        </div>
         <div className="overflow-x-auto">
           <div className="min-w-[720px]">
             <div className="grid grid-cols-7 border-b border-white/10 bg-white/[0.025]">
@@ -593,20 +732,31 @@ export function FinancialCalendar({
                   (occurrence) => occurrence.dueDate === day.dateKey,
                 );
                 const isSelectedDate = selectedDate === day.dateKey;
+                const dayTotal = calendarDayTotalCents(dayReminders);
                 return (
                   <div
                     key={day.dateKey}
-                    className="relative min-h-28 overflow-hidden border-r border-b border-white/[0.07] last:border-r-0"
+                    data-calendar-date={day.dateKey}
+                    className={`relative min-h-28 overflow-hidden border-r border-b border-white/[0.07] last:border-r-0 ${dropDate === day.dateKey ? "bg-accent/20 ring-2 ring-inset ring-accent" : ""}`}
                   >
                     <button
                       type="button"
+                      disabled={isSaving}
                       onClick={() => {
+                        if (suppressDragClick.current) {
+                          suppressDragClick.current = false;
+                          return;
+                        }
+                        if (moveId !== null) {
+                          void moveReminder(moveId, day.dateKey);
+                          return;
+                        }
                         startNewReminder(day.dateKey);
                         setVisibleMonth(
                           new Date(day.date.getFullYear(), day.date.getMonth(), 1),
                         );
                       }}
-                      aria-label={`Create reminder on ${friendlyDate(day.dateKey)}`}
+                      aria-label={`${moveId === null ? "Create reminder on" : "Move reminder to"} ${friendlyDate(day.dateKey)}`}
                       aria-pressed={isSelectedDate}
                       className={`absolute inset-0 z-0 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/70 ${
                         isSelectedDate
@@ -630,15 +780,40 @@ export function FinancialCalendar({
                         {day.date.getDate()}
                       </span>
                     </button>
+                    {dayTotal !== BigInt(0) ? (
+                      <span
+                        aria-label={`Daily total ${formatCalendarTotal(dayTotal)}`}
+                        title={`Daily total: ${formatCalendarTotal(dayTotal)}`}
+                        className={`pointer-events-none absolute right-2 top-3 z-10 max-w-[calc(100%-2.75rem)] truncate text-right text-[10px] font-semibold tabular-nums ${dayTotal < BigInt(0) ? "text-rose-300" : "text-emerald-300"}`}
+                      >
+                        {formatCalendarTotal(dayTotal)}
+                      </span>
+                    ) : null}
                     <div className="pointer-events-none relative z-10 mt-9 space-y-1 px-2 pb-2">
                       {dayReminders.map((occurrence) => (
                         <button
                           type="button"
                           key={occurrence.key}
-                          onClick={() =>
-                            selectReminder(occurrence.reminder, occurrence.dueDate)
-                          }
-                          className={`pointer-events-auto block w-full truncate rounded-md border px-2 py-1 text-left text-[11px] font-medium transition ${
+                          disabled={isSaving}
+                          draggable={false}
+                          style={{ touchAction: occurrence.projected ? "auto" : "none" }}
+                          onPointerDown={(event) => {
+                            suppressDragClick.current = false;
+                            if (occurrence.projected || mutationInFlight.current || event.button !== 0 || !event.isPrimary) return;
+                            pointerDrag.current = { id: occurrence.reminder.id, pointerId: event.pointerId, x: event.clientX, y: event.clientY, active: false };
+                          }}
+                          onClick={() => {
+                            if (suppressDragClick.current) {
+                              suppressDragClick.current = false;
+                              return;
+                            }
+                            if (moveId !== null) {
+                              void moveReminder(moveId, occurrence.dueDate);
+                              return;
+                            }
+                            selectReminder(occurrence.reminder, occurrence.dueDate);
+                          }}
+                          className={`pointer-events-auto block w-full truncate rounded-md border px-2 py-1 text-left text-[11px] font-medium transition disabled:opacity-60 ${draggingId === occurrence.reminder.id ? "opacity-50" : ""} ${!occurrence.projected ? "select-none cursor-grab active:cursor-grabbing" : ""} ${
                             occurrence.reminder.is_completed
                               ? "border-white/5 bg-white/[0.03] text-white/30 line-through"
                               : selectedId === occurrence.reminder.id &&
@@ -672,7 +847,7 @@ export function FinancialCalendar({
             Show completed
           </label>
           <p className="text-xs text-white/40">
-            Select a date to start a reminder. Dashed reminders are projected.
+            Totals include unpaid entries and projections. Dashed entries follow their recurring schedule.
           </p>
         </div>
       </section>
@@ -736,7 +911,8 @@ export function FinancialCalendar({
             </button>
           </div>
 
-          <form onSubmit={saveReminder} className="space-y-4">
+          <form onSubmit={saveReminder}>
+            <fieldset disabled={isSaving} className="space-y-4">
             <label className="block text-sm text-white/65">
               Name
               <input
@@ -764,16 +940,17 @@ export function FinancialCalendar({
                     value={form.amount}
                     onChange={(event) => {
                       const value = event.target.value;
-                      if (!isValidCurrencyInput(value)) {
-                        setAmountError("Enter no more than 2 decimal places.");
-                        return;
-                      }
                       setAmountError("");
                       setForm({ ...form, amount: value });
                     }}
+                    onBlur={() => {
+                      const normalized = normalizeFinancialReminderAmount(form.amount);
+                      if (normalized !== null) setForm((current) => ({ ...current, amount: normalized }));
+                      else setAmountError("Enter a valid amount with no more than 2 decimal places.");
+                    }}
                     aria-invalid={Boolean(amountError)}
                     aria-describedby={
-                      amountError ? "financial-reminder-amount-error" : undefined
+                      amountError ? "financial-reminder-amount-help financial-reminder-amount-error" : "financial-reminder-amount-help"
                     }
                     placeholder="0.00"
                     className={`mt-1.5 w-full rounded-xl border bg-black/20 px-3 py-2.5 text-white outline-none transition placeholder:text-white/25 ${
@@ -783,6 +960,9 @@ export function FinancialCalendar({
                     }`}
                   />
                 </label>
+                <p id="financial-reminder-amount-help" className="mt-1.5 text-xs leading-5 text-white/45">
+                  Costs default to negative. Use + for incoming payments.
+                </p>
                 {amountError ? (
                   <span
                     id="financial-reminder-amount-error"
@@ -985,6 +1165,13 @@ export function FinancialCalendar({
                 <>
                   <button
                     type="button"
+                    onClick={() => { setMoveId(selectedId); setMoveError(""); setMoveMessage(""); }}
+                    className="rounded-xl border border-white/10 px-3 py-2.5 text-sm text-white/70 transition hover:border-accent/50"
+                  >
+                    Move on calendar
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => {
                       const reminder = reminders.find((item) => item.id === selectedId);
                       if (reminder) void toggleCompleted(reminder);
@@ -1035,6 +1222,7 @@ export function FinancialCalendar({
                 </>
               ) : null}
             </div>
+            </fieldset>
           </form>
             </>
           )}

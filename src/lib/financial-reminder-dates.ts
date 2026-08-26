@@ -91,6 +91,24 @@ export type CalendarReminderOccurrence = {
   projected: boolean;
 };
 
+// Sum integer cents so cancellation and zero-total visibility are exact.
+export function calendarDayTotalCents(occurrences: CalendarReminderOccurrence[]) {
+  return occurrences.reduce((total, { reminder }) => {
+    if (reminder.is_completed || !reminder.amount) return total;
+    const match = /^([+-]?)(\d+)(?:\.(\d{1,2}))?$/.exec(reminder.amount);
+    if (!match) return total;
+    const cents = BigInt(match[2]) * BigInt(100) + BigInt((match[3] ?? "").padEnd(2, "0"));
+    return total + (match[1] === "-" ? -cents : cents);
+  }, BigInt(0));
+}
+
+export function formatCalendarTotal(cents: bigint) {
+  const magnitude = cents < BigInt(0) ? -cents : cents;
+  const dollars = (magnitude / BigInt(100)).toLocaleString("en-US");
+  const fraction = String(magnitude % BigInt(100)).padStart(2, "0");
+  return `${cents < BigInt(0) ? "-" : cents > BigInt(0) ? "+" : ""}$${dollars}.${fraction}`;
+}
+
 export function calendarReminderOccurrences(
   reminders: FinancialReminder[],
   rangeStart: string,

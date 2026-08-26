@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   calendarReminderOccurrences,
+  calendarDayTotalCents,
+  formatCalendarTotal,
   isHomepageReminderActive,
   localDateKey,
   monthCalendarDays,
@@ -36,6 +38,33 @@ function reminder(
 }
 
 describe("financial reminder dates", () => {
+  it("nets daily costs and payments without rounding errors or completed entries", () => {
+    const occurrences = calendarReminderOccurrences([
+      reminder({ id: 1, amount: "-0.10" }),
+      reminder({ id: 2, amount: "-0.20" }),
+      reminder({ id: 3, amount: "0.30" }),
+      reminder({ id: 4, amount: null }),
+      reminder({ id: 5, amount: "-900.00", is_completed: true }),
+    ], "2026-09-13", "2026-09-13");
+    expect(calendarDayTotalCents(occurrences)).toBe(BigInt(0));
+    expect(calendarDayTotalCents([])).toBe(BigInt(0));
+    expect(calendarDayTotalCents(occurrences.slice(0, 2))).toBe(BigInt(-30));
+  });
+
+  it("includes projections and recalculates their dates after moving a saved entry", () => {
+    const moved = reminder({ amount: "-25.50", due_date: "2026-09-20" });
+    const occurrences = calendarReminderOccurrences([moved], "2026-09-01", "2026-10-31");
+    expect(occurrences.map((item) => item.dueDate)).toEqual(["2026-09-20", "2026-10-20"]);
+    expect(calendarDayTotalCents(occurrences.filter((item) => item.projected))).toBe(BigInt(-2550));
+  });
+
+  it("formats signed daily totals exactly even above JavaScript's safe integer limit", () => {
+    expect(formatCalendarTotal(BigInt(-125050))).toBe("-$1,250.50");
+    expect(formatCalendarTotal(BigInt(125050))).toBe("+$1,250.50");
+    expect(formatCalendarTotal(BigInt(0))).toBe("$0.00");
+    expect(formatCalendarTotal(BigInt("999999999999999999"))).toBe("+$9,999,999,999,999,999.99");
+  });
+
   it("builds a stable six-week month grid", () => {
     const days = monthCalendarDays(new Date(2026, 10, 1));
     expect(days).toHaveLength(42);

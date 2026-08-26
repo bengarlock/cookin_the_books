@@ -4,9 +4,28 @@ import {
   isValidCurrencyInput,
   normalizeCurrencyInput,
   normalizeDateInput,
+  normalizeFinancialReminderAmount,
 } from "./form-input-normalization";
 
 describe("form input normalization", () => {
+  it("defaults calendar amounts to costs and supports explicit incoming payments", () => {
+    expect(normalizeFinancialReminderAmount("$1,541.00")).toBe("-1541.00");
+    expect(normalizeFinancialReminderAmount("-25")).toBe("-25.00");
+    expect(normalizeFinancialReminderAmount("+$1,541.00")).toBe("+1541.00");
+    expect(normalizeFinancialReminderAmount("(25.50)")).toBe("-25.50");
+    expect(normalizeFinancialReminderAmount(".5")).toBe("-0.50");
+    expect(normalizeFinancialReminderAmount("00025.5")).toBe("-25.50");
+    expect(normalizeFinancialReminderAmount("-0")).toBe("0.00");
+    expect(normalizeFinancialReminderAmount("")).toBe("");
+    expect(normalizeFinancialReminderAmount("9999999999999999.99")).toBe("-9999999999999999.99");
+  });
+
+  it("rejects incomplete, malformed, overprecise, and oversized calendar amounts", () => {
+    for (const value of ["+", "-", ".", "-.", "1.234", "1e3", "(-25)", "(+25)", "25)", "NaN", "10000000000000000"]) {
+      expect(normalizeFinancialReminderAmount(value)).toBeNull();
+    }
+  });
+
   it("accepts pasted formatted currency", () => {
     expect(normalizeCurrencyInput("$1,541.00")).toBe("1541.00");
   });

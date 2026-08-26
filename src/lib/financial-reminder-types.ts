@@ -11,6 +11,7 @@ export type CustomRecurrenceType = "month_day" | "interval_days";
 export type FinancialReminder = {
   id: number;
   title: string;
+  // Signed dollars: negative costs, positive incoming payments.
   amount: string | null;
   due_date: string;
   notes: string;
