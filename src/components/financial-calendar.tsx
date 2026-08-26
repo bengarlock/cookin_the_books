@@ -51,6 +51,7 @@ type FormState = {
   recurrence: ReminderRecurrence;
   customRecurrenceType: CustomRecurrenceType;
   customRecurrenceValue: string;
+  isEnabled: boolean;
   emailEnabled: boolean;
   homepageEnabled: boolean;
 };
@@ -66,6 +67,7 @@ function emptyForm(dueDate = localDateKey(new Date())): FormState {
     recurrence: "none",
     customRecurrenceType: "month_day",
     customRecurrenceValue: String(localDateFromKey(dueDate).getDate()),
+    isEnabled: true,
     emailEnabled: false,
     homepageEnabled: true,
   };
@@ -88,6 +90,7 @@ function formFromReminder(reminder: FinancialReminder): FormState {
       reminder.custom_recurrence_value ??
         localDateFromKey(reminder.due_date).getDate(),
     ),
+    isEnabled: reminder.is_enabled !== false,
     emailEnabled: reminder.email_enabled,
     homepageEnabled: reminder.homepage_enabled,
   };
@@ -242,7 +245,7 @@ export function FinancialCalendar({
     [days, visibleReminders],
   );
   const upcoming = [...reminders]
-    .filter((reminder) => !reminder.is_completed)
+    .filter((reminder) => reminder.is_enabled !== false && !reminder.is_completed)
     .sort((left, right) => left.due_date.localeCompare(right.due_date))
     .slice(0, 5);
   const availableSuggestions = initialSuggestions.filter(
@@ -467,7 +470,7 @@ export function FinancialCalendar({
     event.preventDefault();
     if (mutationInFlight.current) return;
     setError("");
-    if (!form.emailEnabled && !form.homepageEnabled) {
+    if (form.isEnabled && !form.emailEnabled && !form.homepageEnabled) {
       setError("Choose email, home page, or both for this reminder.");
       return;
     }
@@ -490,6 +493,7 @@ export function FinancialCalendar({
         form.recurrence === "custom" ? form.customRecurrenceType : null,
       custom_recurrence_value:
         form.recurrence === "custom" ? Number(form.customRecurrenceValue) : null,
+      is_enabled: form.isEnabled,
       email_enabled: form.emailEnabled,
       homepage_enabled: form.homepageEnabled,
     };
@@ -878,12 +882,22 @@ export function FinancialCalendar({
                               : selectedId === occurrence.reminder.id &&
                                   selectedDate === occurrence.dueDate
                                 ? "border-accent/50 bg-accent/20 text-accent"
+                                : occurrence.reminder.is_enabled === false
+                                  ? `${occurrence.projected ? "border-dashed " : ""}border-white/10 bg-white/[0.025] text-white/45 hover:border-white/25`
                                 : occurrence.projected
                                   ? "border-dashed border-sky-300/20 bg-sky-300/[0.06] text-sky-100/70 hover:border-sky-300/40"
                                 : "border-sky-400/15 bg-sky-400/10 text-sky-100 hover:border-sky-400/35"
                           }`}
-                          title={`${occurrence.reminder.title}${occurrence.reminder.amount ? ` — ${currency(occurrence.reminder.amount)}` : ""}${occurrence.projected ? " · Projected occurrence" : ""}`}
+                          title={`${occurrence.reminder.title}${occurrence.reminder.amount ? ` — ${currency(occurrence.reminder.amount)}` : ""}${occurrence.projected ? " · Projected occurrence" : ""}${occurrence.reminder.is_enabled === false ? " · Reminders disabled" : ""}`}
                         >
+                          {occurrence.reminder.is_enabled === false ? (
+                            <>
+                              <svg aria-hidden="true" viewBox="0 0 12 12" fill="currentColor" className="mr-1 inline size-3 align-[-2px]">
+                                <path d="M3 2h2v8H3zm4 0h2v8H7z" />
+                              </svg>
+                              <span className="sr-only">Disabled </span>
+                            </>
+                          ) : null}
                           {occurrence.reminder.title}
                         </button>
                       ))}
@@ -972,6 +986,22 @@ export function FinancialCalendar({
 
           <form onSubmit={saveReminder}>
             <fieldset disabled={isSaving} className="space-y-4">
+            <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
+              <label className="flex items-center justify-between gap-3 text-sm font-medium text-white/85">
+                Reminder enabled
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={form.isEnabled}
+                  aria-describedby="financial-reminder-enabled-help"
+                  onChange={(event) => setForm({ ...form, isEnabled: event.target.checked })}
+                  className="size-5 accent-[var(--accent)]"
+                />
+              </label>
+              <p id="financial-reminder-enabled-help" className="mt-2 text-xs leading-5 text-white/50">
+                Turn off and save to pause email and home-page alerts. Dates, amounts, repeat schedules, and channel choices stay saved on the calendar.
+              </p>
+            </div>
             <label className="block text-sm text-white/65">
               Name
               <input

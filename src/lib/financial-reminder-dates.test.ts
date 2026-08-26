@@ -27,6 +27,7 @@ function reminder(
     custom_recurrence_value: null,
     email_enabled: true,
     homepage_enabled: true,
+    is_enabled: true,
     is_completed: false,
     completed_at: null,
     active_on_homepage: false,
@@ -80,12 +81,22 @@ describe("financial reminder dates", () => {
     const reminder = {
       due_date: "2026-11-11",
       homepage_enabled: true,
+      is_enabled: true,
       is_completed: false,
       reminder_lead_days: 30,
     };
     expect(isHomepageReminderActive(reminder, new Date(2026, 9, 12))).toBe(true);
     expect(isHomepageReminderActive(reminder, new Date(2026, 9, 11))).toBe(false);
     expect(isHomepageReminderActive(reminder, new Date(2026, 10, 12))).toBe(false);
+  });
+
+  it("pauses homepage alerts without removing disabled payments or projections", () => {
+    const disabled = reminder({ is_enabled: false, amount: "-25.50" });
+    expect(isHomepageReminderActive(disabled, new Date(2026, 8, 13))).toBe(false);
+    expect(isHomepageReminderActive({ ...disabled, is_enabled: true }, new Date(2026, 8, 13))).toBe(true);
+    const occurrences = calendarReminderOccurrences([disabled], "2026-09-01", "2026-10-31");
+    expect(occurrences.map((item) => item.dueDate)).toEqual(["2026-09-13", "2026-10-13"]);
+    expect(calendarDayTotalCents(occurrences)).toBe(BigInt(-5100));
   });
 
   it("projects monthly reminders into future calendar months", () => {

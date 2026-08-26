@@ -149,7 +149,7 @@ export function calendarReminderOccurrences(
 export function isHomepageReminderActive(
   reminder: Pick<
     FinancialReminder,
-    "due_date" | "homepage_enabled" | "is_completed" | "reminder_lead_days"
+    "due_date" | "homepage_enabled" | "is_enabled" | "is_completed" | "reminder_lead_days"
   >,
   today: Date,
 ) {
@@ -159,6 +159,7 @@ export function isHomepageReminderActive(
     (dueDate.getTime() - localToday.getTime()) / 86_400_000,
   );
   return (
+    reminder.is_enabled !== false &&
     reminder.homepage_enabled &&
     !reminder.is_completed &&
     daysUntilDue >= 0 &&

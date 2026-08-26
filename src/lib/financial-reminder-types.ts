@@ -22,6 +22,7 @@ export type FinancialReminder = {
   custom_recurrence_value: number | null;
   email_enabled: boolean;
   homepage_enabled: boolean;
+  is_enabled: boolean;
   is_completed: boolean;
   completed_at: string | null;
   active_on_homepage: boolean;
@@ -43,4 +44,5 @@ export type FinancialReminderPayload = Pick<
   | "custom_recurrence_value"
   | "email_enabled"
   | "homepage_enabled"
+  | "is_enabled"
 >;

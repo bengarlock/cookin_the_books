@@ -15,7 +15,7 @@ export function HomepageFinancialReminders({
   reminders: FinancialReminder[];
 }) {
   const active = reminders
-    .filter((reminder) => reminder.active_on_homepage)
+    .filter((reminder) => reminder.is_enabled !== false && reminder.active_on_homepage)
     .sort((left, right) => left.due_date.localeCompare(right.due_date));
   if (!active.length) return null;
 
