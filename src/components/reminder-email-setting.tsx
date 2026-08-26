@@ -123,7 +123,7 @@ export function ReminderEmailSetting({
         </h2>
         <p className="mt-1 text-sm text-muted">
           Pause or resume email and home page reminders without changing the
-          notification choices saved on individual reminders.
+          notification choices saved on individual calendar events.
         </p>
       </div>
 

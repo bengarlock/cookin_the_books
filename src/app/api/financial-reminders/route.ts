@@ -24,7 +24,7 @@ async function proxyRequest(method: "GET" | "POST", request?: Request) {
     },
   );
   return portfolioApiJsonResponse(response, {
-    message: "The financial reminder request failed.",
+    message: "The financial event request failed.",
   });
 }
 

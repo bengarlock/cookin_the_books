@@ -51,7 +51,7 @@ type FormState = {
   recurrence: ReminderRecurrence;
   customRecurrenceType: CustomRecurrenceType;
   customRecurrenceValue: string;
-  isEnabled: boolean;
+  remindersEnabled: boolean;
   emailEnabled: boolean;
   homepageEnabled: boolean;
 };
@@ -67,7 +67,7 @@ function emptyForm(dueDate = localDateKey(new Date())): FormState {
     recurrence: "none",
     customRecurrenceType: "month_day",
     customRecurrenceValue: String(localDateFromKey(dueDate).getDate()),
-    isEnabled: true,
+    remindersEnabled: true,
     emailEnabled: false,
     homepageEnabled: true,
   };
@@ -90,7 +90,7 @@ function formFromReminder(reminder: FinancialReminder): FormState {
       reminder.custom_recurrence_value ??
         localDateFromKey(reminder.due_date).getDate(),
     ),
-    isEnabled: reminder.is_enabled !== false,
+    remindersEnabled: reminder.is_enabled !== false,
     emailEnabled: reminder.email_enabled,
     homepageEnabled: reminder.homepage_enabled,
   };
@@ -138,7 +138,7 @@ function recurrenceLabel(
 
 function errorMessage(
   payload: unknown,
-  fallback = "The reminder could not be saved.",
+  fallback = "The event could not be saved.",
 ) {
   if (!payload || typeof payload !== "object") return fallback;
   const record = payload as Record<string, unknown>;
@@ -245,7 +245,7 @@ export function FinancialCalendar({
     [days, visibleReminders],
   );
   const upcoming = [...reminders]
-    .filter((reminder) => reminder.is_enabled !== false && !reminder.is_completed)
+    .filter((reminder) => !reminder.is_completed)
     .sort((left, right) => left.due_date.localeCompare(right.due_date))
     .slice(0, 5);
   const availableSuggestions = initialSuggestions.filter(
@@ -296,7 +296,7 @@ export function FinancialCalendar({
         body: JSON.stringify({ due_date: dueDate }),
       });
       const data: unknown = await response.json();
-      if (!response.ok) throw new Error(errorMessage(data, "The reminder could not be moved."));
+      if (!response.ok) throw new Error(errorMessage(data, "The event could not be moved."));
       const saved = data as FinancialReminder;
       setReminders((current) => current.map((item) => item.id === saved.id ? saved : item));
       if (selectedId === reminderId) {
@@ -307,7 +307,7 @@ export function FinancialCalendar({
       setMoveMessage(`${saved.title} moved to ${friendlyDate(saved.due_date)}.`);
     } catch (moveFailure) {
       setMoveMessage("");
-      setMoveError(moveFailure instanceof Error ? moveFailure.message : "The reminder could not be moved.");
+      setMoveError(moveFailure instanceof Error ? moveFailure.message : "The event could not be moved.");
     } finally {
       mutationInFlight.current = false;
       setIsSaving(false);
@@ -470,8 +470,8 @@ export function FinancialCalendar({
     event.preventDefault();
     if (mutationInFlight.current) return;
     setError("");
-    if (form.isEnabled && !form.emailEnabled && !form.homepageEnabled) {
-      setError("Choose email, home page, or both for this reminder.");
+    if (form.remindersEnabled && !form.emailEnabled && !form.homepageEnabled) {
+      setError("Choose email, home page, or both for event reminders.");
       return;
     }
     const amount = normalizeFinancialReminderAmount(form.amount, {
@@ -493,7 +493,7 @@ export function FinancialCalendar({
         form.recurrence === "custom" ? form.customRecurrenceType : null,
       custom_recurrence_value:
         form.recurrence === "custom" ? Number(form.customRecurrenceValue) : null,
-      is_enabled: form.isEnabled,
+      is_enabled: form.remindersEnabled,
       email_enabled: form.emailEnabled,
       homepage_enabled: form.homepageEnabled,
     };
@@ -531,7 +531,7 @@ export function FinancialCalendar({
       setError(
         saveError instanceof Error
           ? saveError.message
-          : "The reminder could not be saved.",
+          : "The event could not be saved.",
       );
     } finally {
       mutationInFlight.current = false;
@@ -572,7 +572,7 @@ export function FinancialCalendar({
       setError(
         updateError instanceof Error
           ? updateError.message
-          : "The reminder could not be updated.",
+          : "The event could not be updated.",
       );
     } finally {
       mutationInFlight.current = false;
@@ -604,7 +604,7 @@ export function FinancialCalendar({
       setError(
         deleteError instanceof Error
           ? deleteError.message
-          : "The reminder could not be deleted.",
+          : "The event could not be deleted.",
       );
       setDeletingId(null);
     } finally {
@@ -819,7 +819,7 @@ export function FinancialCalendar({
                           new Date(day.date.getFullYear(), day.date.getMonth(), 1),
                         );
                       }}
-                      aria-label={`${moveId === null ? "Create reminder on" : "Move reminder to"} ${friendlyDate(day.dateKey)}`}
+                      aria-label={`${moveId === null ? "Create event on" : "Move event to"} ${friendlyDate(day.dateKey)}`}
                       aria-pressed={isSelectedDate}
                       className={`absolute inset-0 z-0 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/70 ${
                         isSelectedDate
@@ -882,22 +882,12 @@ export function FinancialCalendar({
                               : selectedId === occurrence.reminder.id &&
                                   selectedDate === occurrence.dueDate
                                 ? "border-accent/50 bg-accent/20 text-accent"
-                                : occurrence.reminder.is_enabled === false
-                                  ? `${occurrence.projected ? "border-dashed " : ""}border-white/10 bg-white/[0.025] text-white/45 hover:border-white/25`
                                 : occurrence.projected
                                   ? "border-dashed border-sky-300/20 bg-sky-300/[0.06] text-sky-100/70 hover:border-sky-300/40"
                                 : "border-sky-400/15 bg-sky-400/10 text-sky-100 hover:border-sky-400/35"
                           }`}
-                          title={`${occurrence.reminder.title}${occurrence.reminder.amount ? ` — ${currency(occurrence.reminder.amount)}` : ""}${occurrence.projected ? " · Projected occurrence" : ""}${occurrence.reminder.is_enabled === false ? " · Reminders disabled" : ""}`}
+                          title={`${occurrence.reminder.title}${occurrence.reminder.amount ? ` — ${currency(occurrence.reminder.amount)}` : ""}${occurrence.projected ? " · Projected occurrence" : ""}`}
                         >
-                          {occurrence.reminder.is_enabled === false ? (
-                            <>
-                              <svg aria-hidden="true" viewBox="0 0 12 12" fill="currentColor" className="mr-1 inline size-3 align-[-2px]">
-                                <path d="M3 2h2v8H3zm4 0h2v8H7z" />
-                              </svg>
-                              <span className="sr-only">Disabled </span>
-                            </>
-                          ) : null}
                           {occurrence.reminder.title}
                         </button>
                       ))}
@@ -954,14 +944,14 @@ export function FinancialCalendar({
               <button
                 type="button"
                 onClick={() => startNewReminder(todayKey)}
-                aria-label="Create reminder for today"
+                aria-label="Create event for today"
                 className="mt-4 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-slate-950 transition hover:brightness-110"
               >
                 Create
               </button>
               <h2 className="mt-1 text-xl font-semibold text-white">Select a date</h2>
               <p className="mt-2 max-w-64 text-sm leading-6 text-white/45">
-                Choose a date on the calendar, or create a reminder for today.
+                Choose a date on the calendar, or create an event for today.
               </p>
             </div>
           ) : (
@@ -972,7 +962,7 @@ export function FinancialCalendar({
                 {selectedId === null ? "Create" : "Manage"}
               </p>
               <h2 className="mt-1 text-xl font-semibold text-white">
-                {selectedId === null ? "Financial reminder" : "Edit reminder"}
+                {selectedId === null ? "Financial event" : "Edit event"}
               </h2>
             </div>
             <button
@@ -986,28 +976,7 @@ export function FinancialCalendar({
 
           <form onSubmit={saveReminder}>
             <fieldset disabled={isSaving} className="space-y-4">
-            <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
-              <label className="flex items-center justify-between gap-3 text-sm font-medium text-white/85">
-                Reminder enabled
-                <input
-                  type="checkbox"
-                  role="switch"
-                  checked={form.isEnabled}
-                  aria-describedby="financial-reminder-enabled-help"
-                  onChange={(event) => setForm({ ...form, isEnabled: event.target.checked })}
-                  className="size-5 accent-[var(--accent)]"
-                />
-              </label>
-              <p id="financial-reminder-enabled-help" className="mt-2 text-xs leading-5 text-white/50">
-                Turn off and save to pause email and home-page alerts. Dates, amounts, repeat schedules, and channel choices stay saved on the calendar.
-                {!form.isEnabled ? " Re-enable the reminder to edit its details." : ""}
-              </p>
-            </div>
-            <fieldset
-              disabled={!form.isEnabled}
-              aria-label="Reminder details"
-              className="space-y-4 disabled:opacity-50 disabled:[&_input]:cursor-not-allowed disabled:[&_select]:cursor-not-allowed disabled:[&_textarea]:cursor-not-allowed"
-            >
+            <fieldset aria-label="Event details" className="space-y-4">
             <label className="block text-sm text-white/65">
               Name
               <input
@@ -1018,7 +987,7 @@ export function FinancialCalendar({
                 maxLength={150}
                 value={form.title}
                 onChange={(event) => setForm({ ...form, title: event.target.value })}
-                placeholder="Reminder name"
+                placeholder="Event name"
                 className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-white outline-none transition placeholder:text-white/25 focus:border-accent/60"
               />
             </label>
@@ -1083,22 +1052,6 @@ export function FinancialCalendar({
                 />
               </label>
             </div>
-            <label className="block text-sm text-white/65">
-              Reminder starts
-              <select
-                value={form.leadDays}
-                onChange={(event) => setForm({ ...form, leadDays: event.target.value })}
-                className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-white outline-none transition focus:border-accent/60"
-              >
-                {leadDayOptions.map((daysBefore) => (
-                  <option key={daysBefore} value={daysBefore}>
-                    {daysBefore === 0
-                      ? "On the due date"
-                      : `${daysBefore} day${daysBefore === 1 ? "" : "s"} before`}
-                  </option>
-                ))}
-              </select>
-            </label>
             <div className="block text-sm text-white/65">
               <label htmlFor="financial-reminder-recurrence">Repeats</label>
               <select
@@ -1187,11 +1140,58 @@ export function FinancialCalendar({
               ) : null}
               {form.recurrence !== "none" ? (
                 <span className="mt-1.5 block text-xs leading-5 text-white/40">
-                  Future dates appear as projections. Completing this reminder
+                  Future dates appear as projections. Completing this event
                   creates its next actionable occurrence.
                 </span>
               ) : null}
             </div>
+            <label className="block text-sm text-white/65">
+              Notes
+              <textarea
+                rows={3}
+                value={form.notes}
+                onChange={(event) => setForm({ ...form, notes: event.target.value })}
+                placeholder="Add optional notes"
+                className="mt-1.5 w-full resize-y rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-white outline-none transition placeholder:text-white/25 focus:border-accent/60"
+              />
+            </label>
+            </fieldset>
+            <section aria-label="Event reminders" className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
+              <label className="flex items-center justify-between gap-3 text-sm font-medium text-white/85">
+                Reminders enabled
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={form.remindersEnabled}
+                  aria-describedby="financial-reminder-enabled-help"
+                  onChange={(event) => setForm({ ...form, remindersEnabled: event.target.checked })}
+                  className="size-5 accent-[var(--accent)]"
+                />
+              </label>
+              <p id="financial-reminder-enabled-help" className="mt-2 text-xs leading-5 text-white/50">
+                Optional email and home-page alerts for this event. Turning reminders off does not change the event, its amount, or its repeat schedule. Save to apply.
+              </p>
+              <fieldset
+                disabled={!form.remindersEnabled}
+                aria-label="Reminder settings"
+                className="mt-4 space-y-4 disabled:opacity-50 disabled:[&_input]:cursor-not-allowed disabled:[&_select]:cursor-not-allowed"
+              >
+            <label className="block text-sm text-white/65">
+              Reminder starts
+              <select
+                value={form.leadDays}
+                onChange={(event) => setForm({ ...form, leadDays: event.target.value })}
+                className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-white outline-none transition focus:border-accent/60"
+              >
+                {leadDayOptions.map((daysBefore) => (
+                  <option key={daysBefore} value={daysBefore}>
+                    {daysBefore === 0
+                      ? "On the due date"
+                      : `${daysBefore} day${daysBefore === 1 ? "" : "s"} before`}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="block text-sm text-white/65">
               Email cadence
               <select
@@ -1235,17 +1235,8 @@ export function FinancialCalendar({
                 </label>
               </div>
             </fieldset>
-            <label className="block text-sm text-white/65">
-              Notes
-              <textarea
-                rows={3}
-                value={form.notes}
-                onChange={(event) => setForm({ ...form, notes: event.target.value })}
-                placeholder="Add optional notes"
-                className="mt-1.5 w-full resize-y rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-white outline-none transition placeholder:text-white/25 focus:border-accent/60"
-              />
-            </label>
-            </fieldset>
+              </fieldset>
+            </section>
 
             {error ? (
               <p role="alert" className="rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-100">
@@ -1259,13 +1250,12 @@ export function FinancialCalendar({
                 disabled={isSaving}
                 className="min-w-28 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
               >
-                {isSaving ? "Saving…" : selectedId === null ? "Save reminder" : "Save"}
+                {isSaving ? "Saving…" : selectedId === null ? "Save event" : "Save"}
               </button>
               {selectedId !== null ? (
                 <>
                   <button
                     type="button"
-                    disabled={!form.isEnabled}
                     onClick={() => { setMoveId(selectedId); setMoveError(""); setMoveMessage(""); }}
                     className="rounded-xl border border-white/10 px-3 py-2.5 text-sm text-white/70 transition hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -1273,7 +1263,6 @@ export function FinancialCalendar({
                   </button>
                   <button
                     type="button"
-                    disabled={!form.isEnabled}
                     onClick={() => {
                       const reminder = reminders.find((item) => item.id === selectedId);
                       if (reminder) void toggleCompleted(reminder);
@@ -1287,17 +1276,16 @@ export function FinancialCalendar({
                   <button
                     ref={deleteButtonRef}
                     type="button"
-                    disabled={!form.isEnabled}
                     onClick={() => void deleteReminder(selectedId)}
                     aria-label={
                       deletingId === selectedId
-                        ? "Confirm delete reminder"
-                        : "Delete reminder"
+                        ? "Confirm delete event"
+                        : "Delete event"
                     }
                     title={
                       deletingId === selectedId
                         ? "Click again to delete"
-                        : "Delete reminder"
+                        : "Delete event"
                     }
                     className={`flex size-10 items-center justify-center rounded-xl border border-white/10 transition disabled:cursor-not-allowed disabled:opacity-50 ${
                       deletingId === selectedId
@@ -1365,7 +1353,7 @@ export function FinancialCalendar({
                 </button>
               ))
             ) : (
-              <p className="text-sm text-white/45">No upcoming reminders yet.</p>
+              <p className="text-sm text-white/45">No upcoming events yet.</p>
             )}
           </div>
         </section>

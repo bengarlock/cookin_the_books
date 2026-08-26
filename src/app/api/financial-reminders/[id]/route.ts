@@ -30,7 +30,7 @@ export async function PATCH(
       cache: "no-store",
     });
     return portfolioApiJsonResponse(response, {
-      message: "The financial reminder update failed.",
+      message: "The financial event update failed.",
     });
   } catch {
     return NextResponse.json(
@@ -57,7 +57,7 @@ export async function DELETE(
     });
     if (response.status === 204) return new NextResponse(null, { status: 204 });
     return portfolioApiJsonResponse(response, {
-      message: "The financial reminder deletion failed.",
+      message: "The financial event deletion failed.",
     });
   } catch {
     return NextResponse.json(

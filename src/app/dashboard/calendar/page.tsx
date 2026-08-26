@@ -11,7 +11,7 @@ import { parseFinancialReminderId } from "@/lib/financial-reminder-links";
 import { getFinancialReminders } from "@/lib/financial-reminders";
 
 export const metadata: Metadata = {
-  title: "Calendar",
+  title: "Financial Calendar",
 };
 
 export default async function CalendarPage({
@@ -40,9 +40,9 @@ export default async function CalendarPage({
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">
           Calendar
         </p>
-        <h1 className="mt-2 text-3xl font-semibold text-white">Financial reminders</h1>
+        <h1 className="mt-2 text-3xl font-semibold text-white">Financial Calendar</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
-          Keep due dates, payment amounts, and the reminders you need in one place.
+          Track financial events, payments, and incoming funds in one place, with optional reminders.
         </p>
       </header>
       <FinancialCalendar

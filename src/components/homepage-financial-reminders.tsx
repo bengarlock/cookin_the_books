@@ -24,12 +24,12 @@ export function HomepageFinancialReminders({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-300/15 px-5 py-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-200/80">
-            Financial reminders
+            Financial Calendar
           </p>
           <h2 className="mt-1 text-lg font-semibold text-white">
             {active.length === 1
-              ? "One payment is coming up"
-              : `${active.length} payments are coming up`}
+              ? "One event is coming up"
+              : `${active.length} events are coming up`}
           </h2>
         </div>
         <Link
