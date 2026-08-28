@@ -7,6 +7,11 @@ import { APP_BASE_PATH } from "@/lib/config";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import { calendarDragPreviewPosition } from "@/lib/calendar-drag-feedback";
 import {
+  financialCalendarActivityCents,
+  financialCalendarDayActivityTotalCents,
+  type FinancialCalendarActivity,
+} from "@/lib/financial-calendar-activity";
+import {
   calendarReminderOccurrences,
   calendarDayTotalCents,
   formatCalendarTotal,
@@ -151,11 +156,13 @@ function errorMessage(
 }
 
 export function FinancialCalendar({
+  initialHistoricalActivity = [],
   initialReminders,
   initialSelectedId = null,
   initialSuggestions = [],
   initialDismissedSuggestionIds = [],
 }: {
+  initialHistoricalActivity?: FinancialCalendarActivity[];
   initialReminders: FinancialReminder[];
   initialSelectedId?: number | null;
   initialSuggestions?: RecurringExpenseSuggestion[];
@@ -244,6 +251,22 @@ export function FinancialCalendar({
         : [],
     [days, visibleReminders],
   );
+  const historicalActivityByDate = useMemo(() => {
+    const grouped = new Map<string, FinancialCalendarActivity[]>();
+    for (const activity of initialHistoricalActivity) {
+      grouped.set(activity.date, [...(grouped.get(activity.date) ?? []), activity]);
+    }
+    return grouped;
+  }, [initialHistoricalActivity]);
+  const selectedDayHistoricalActivity = selectedDate
+    ? historicalActivityByDate.get(selectedDate) ?? []
+    : [];
+  const selectedDayReminders = selectedDate
+    ? calendarOccurrences.filter((occurrence) => occurrence.dueDate === selectedDate)
+    : [];
+  const selectedDayTotal =
+    calendarDayTotalCents(selectedDayReminders) +
+    financialCalendarDayActivityTotalCents(selectedDayHistoricalActivity);
   const upcoming = [...reminders]
     .filter((reminder) => !reminder.is_completed)
     .sort((left, right) => left.due_date.localeCompare(right.due_date))
@@ -782,8 +805,24 @@ export function FinancialCalendar({
                 const dayReminders = calendarOccurrences.filter(
                   (occurrence) => occurrence.dueDate === day.dateKey,
                 );
+                const dayHistoricalActivity =
+                  historicalActivityByDate.get(day.dateKey) ?? [];
+                const visibleDayReminders = dayHistoricalActivity.length
+                  ? dayReminders.slice(0, 2)
+                  : dayReminders.slice(0, 4);
+                const visibleDayHistoricalActivity = dayHistoricalActivity.slice(
+                  0,
+                  4 - visibleDayReminders.length,
+                );
+                const hiddenEntryCount =
+                  dayReminders.length +
+                  dayHistoricalActivity.length -
+                  visibleDayReminders.length -
+                  visibleDayHistoricalActivity.length;
                 const isSelectedDate = selectedDate === day.dateKey;
-                const dayTotal = calendarDayTotalCents(dayReminders);
+                const dayTotal =
+                  calendarDayTotalCents(dayReminders) +
+                  financialCalendarDayActivityTotalCents(dayHistoricalActivity);
                 const isDropTarget = draggingId !== null && dropDate === day.dateKey;
                 return (
                   <div
@@ -843,7 +882,7 @@ export function FinancialCalendar({
                         {day.date.getDate()}
                       </span>
                     </button>
-                    {dayTotal !== BigInt(0) ? (
+                    {dayReminders.length || dayHistoricalActivity.length ? (
                       <span
                         aria-label={`Daily total ${formatCalendarTotal(dayTotal)}`}
                         title={`Daily total: ${formatCalendarTotal(dayTotal)}`}
@@ -853,7 +892,7 @@ export function FinancialCalendar({
                       </span>
                     ) : null}
                     <div className="pointer-events-none relative z-10 mt-9 space-y-1 px-2 pb-7">
-                      {dayReminders.map((occurrence) => (
+                      {visibleDayReminders.map((occurrence) => (
                         <button
                           type="button"
                           key={occurrence.key}
@@ -891,6 +930,29 @@ export function FinancialCalendar({
                           {occurrence.reminder.title}
                         </button>
                       ))}
+                      {visibleDayHistoricalActivity.map((activity) => {
+                        const activityCents = financialCalendarActivityCents(activity);
+                        return (
+                          <button
+                            type="button"
+                            key={activity.key}
+                            onClick={() => startNewReminder(activity.date)}
+                            className={`pointer-events-auto block w-full truncate rounded-md border px-2 py-1 text-left text-[11px] font-medium transition ${activity.kind === "income" ? "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100/80 hover:border-emerald-300/40" : "border-rose-300/20 bg-rose-300/[0.07] text-rose-100/80 hover:border-rose-300/40"}`}
+                            title={`${activity.title} — ${formatCalendarTotal(activityCents)}`}
+                          >
+                            {activity.title}
+                          </button>
+                        );
+                      })}
+                      {hiddenEntryCount > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => startNewReminder(day.dateKey)}
+                          className="pointer-events-auto block w-full px-2 py-0.5 text-left text-[10px] font-semibold text-white/45 transition hover:text-white/70"
+                        >
+                          +{hiddenEntryCount} more
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -910,7 +972,7 @@ export function FinancialCalendar({
             Show completed
           </label>
           <p className="text-xs text-white/40">
-            Totals include unpaid entries and projections. Dashed entries follow their recurring schedule.
+            Net totals include posted income, spend, unpaid entries, and projections. Dashed entries follow their recurring schedule.
           </p>
         </div>
       </section>
@@ -1318,6 +1380,63 @@ export function FinancialCalendar({
             </>
           )}
         </section>
+
+        {selectedDate ? (
+          <section className="surface rounded-2xl p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-white">Daily activity</h2>
+                <p className="mt-1 text-xs text-white/45">{friendlyDate(selectedDate)}</p>
+              </div>
+              <span
+                aria-label={`Daily net ${formatCalendarTotal(selectedDayTotal)}`}
+                className={`text-base font-semibold tabular-nums ${selectedDayTotal < BigInt(0) ? "text-rose-300" : selectedDayTotal > BigInt(0) ? "text-emerald-300" : "text-white/55"}`}
+              >
+                {formatCalendarTotal(selectedDayTotal)}
+              </span>
+            </div>
+            <div className="mt-3 space-y-2">
+              {selectedDayHistoricalActivity.map((activity) => {
+                const cents = financialCalendarActivityCents(activity);
+                return (
+                  <div
+                    className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2.5"
+                    key={activity.key}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm text-white">{activity.title}</span>
+                      <span className="mt-0.5 block text-[11px] capitalize text-white/40">Posted {activity.kind}</span>
+                    </span>
+                    <span className={`shrink-0 text-sm font-semibold tabular-nums ${cents < BigInt(0) ? "text-rose-300" : "text-emerald-300"}`}>
+                      {formatCalendarTotal(cents)}
+                    </span>
+                  </div>
+                );
+              })}
+              {selectedDayReminders.map((occurrence) => (
+                <button
+                  type="button"
+                  key={occurrence.key}
+                  onClick={() => selectReminder(occurrence.reminder, occurrence.dueDate)}
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-sky-300/15 bg-sky-300/[0.04] px-3 py-2.5 text-left transition hover:border-sky-300/30"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm text-white">{occurrence.reminder.title}</span>
+                    <span className="mt-0.5 block text-[11px] text-white/40">{occurrence.projected ? "Projected event" : "Scheduled event"}</span>
+                  </span>
+                  {occurrence.reminder.amount ? (
+                    <span className="shrink-0 text-sm font-semibold tabular-nums text-sky-200">
+                      {currency(occurrence.reminder.amount)}
+                    </span>
+                  ) : null}
+                </button>
+              ))}
+              {!selectedDayHistoricalActivity.length && !selectedDayReminders.length ? (
+                <p className="text-sm text-white/45">No posted or scheduled activity for this day.</p>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
 
         <section className="surface rounded-2xl p-5">
           <h2 className="text-base font-semibold text-white">Coming up</h2>

@@ -2,13 +2,17 @@ import type { Metadata } from "next";
 
 import { FinancialCalendar } from "@/components/financial-calendar";
 import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
+import { allTimeExpenseDateRange } from "@/lib/expense-date-range";
 import { getExpenseTransactions } from "@/lib/expense-transactions";
+import { financialCalendarActivities } from "@/lib/financial-calendar-activity";
 import {
   buildRecurringExpenseSuggestions,
   recurringExpenseSuggestionRange,
 } from "@/lib/financial-reminder-suggestions";
 import { parseFinancialReminderId } from "@/lib/financial-reminder-links";
 import { getFinancialReminders } from "@/lib/financial-reminders";
+import { getIncomeEntries } from "@/lib/income-entries";
+import { getIncomeTransactions } from "@/lib/income-transactions";
 
 export const metadata: Metadata = {
   title: "Financial Calendar",
@@ -21,16 +25,29 @@ export default async function CalendarPage({
 }) {
   const { reminder } = await searchParams;
   const suggestionRange = recurringExpenseSuggestionRange();
-  const [reminders, expenseTransactions, settings] = await Promise.all([
+  const [
+    reminders,
+    historicalExpenseTransactions,
+    incomeTransactions,
+    incomeEntries,
+    settings,
+  ] = await Promise.all([
     getFinancialReminders(),
-    getExpenseTransactions(suggestionRange),
+    getExpenseTransactions(allTimeExpenseDateRange()),
+    getIncomeTransactions(),
+    getIncomeEntries(),
     getBudgetPlanSettings(),
   ]);
+  const suggestionTransactions = historicalExpenseTransactions.filter(
+    (transaction) =>
+      transaction.transaction_date >= suggestionRange.start &&
+      transaction.transaction_date <= suggestionRange.end,
+  );
   const dismissedSuggestionIds =
     settings.dismissed_financial_reminder_suggestions ?? [];
   const dismissedSuggestions = new Set(dismissedSuggestionIds);
   const suggestions = buildRecurringExpenseSuggestions(
-    expenseTransactions,
+    suggestionTransactions,
     reminders,
     suggestionRange.end,
   ).filter((suggestion) => !dismissedSuggestions.has(suggestion.id));
@@ -46,6 +63,11 @@ export default async function CalendarPage({
         </p>
       </header>
       <FinancialCalendar
+        initialHistoricalActivity={financialCalendarActivities(
+          historicalExpenseTransactions,
+          incomeTransactions,
+          incomeEntries,
+        )}
         initialReminders={reminders}
         initialSelectedId={parseFinancialReminderId(reminder)}
         initialSuggestions={suggestions}
