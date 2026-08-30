@@ -7,7 +7,8 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   currency: "USD",
 });
 
-function formatCurrency(value: string | null | undefined) {
+export function formatReceiptItemAmount(value: string | null | undefined) {
+  if (value == null || value.trim() === "") return "—";
   const amount = Number(value);
   return Number.isFinite(amount) ? currencyFormatter.format(amount) : "—";
 }
@@ -42,7 +43,7 @@ export function ReceiptOrderDetails({ orders }: { orders: ReceiptOrder[] }) {
           <div key={order.id}>
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[11px]">
               <span className="font-medium text-foreground">Order {order.external_order_id}</span>
-              <span className="font-mono text-foreground">{formatCurrency(order.total_amount)}</span>
+              <span className="font-mono text-foreground">{formatReceiptItemAmount(order.total_amount)}</span>
             </div>
             <p className="mt-1 text-[10px] text-muted">
               {formatDate(order.order_date)} · {order.match_method === "exact" ? "Matched" : "Parsed"}
@@ -53,7 +54,7 @@ export function ReceiptOrderDetails({ orders }: { orders: ReceiptOrder[] }) {
                   <div className="flex gap-2 rounded-lg border border-line/70 bg-panel-soft/45 p-2.5 text-[11px] text-foreground/80" key={item.id}>
                     <span className="shrink-0 font-mono text-muted">{item.quantity}×</span>
                     <span className="min-w-0 flex-1">{item.name}</span>
-                    <span className="shrink-0 font-mono text-muted">{formatCurrency(item.total_amount)}</span>
+                    <span className="shrink-0 font-mono text-muted">{formatReceiptItemAmount(item.total_amount)}</span>
                   </div>
                 ))}
               </div>
