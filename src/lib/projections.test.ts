@@ -85,6 +85,7 @@ function financialReminder(
     custom_recurrence_value: null,
     email_enabled: false,
     homepage_enabled: false,
+    chorewheel_enabled: false,
     is_enabled: true,
     is_completed: false,
     completed_at: null,

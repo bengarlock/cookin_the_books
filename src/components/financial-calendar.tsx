@@ -59,6 +59,7 @@ type FormState = {
   remindersEnabled: boolean;
   emailEnabled: boolean;
   homepageEnabled: boolean;
+  chorewheelEnabled: boolean;
 };
 
 function emptyForm(dueDate = localDateKey(new Date())): FormState {
@@ -75,6 +76,7 @@ function emptyForm(dueDate = localDateKey(new Date())): FormState {
     remindersEnabled: true,
     emailEnabled: false,
     homepageEnabled: true,
+    chorewheelEnabled: false,
   };
 }
 
@@ -98,6 +100,7 @@ function formFromReminder(reminder: FinancialReminder): FormState {
     remindersEnabled: reminder.is_enabled !== false,
     emailEnabled: reminder.email_enabled,
     homepageEnabled: reminder.homepage_enabled,
+    chorewheelEnabled: reminder.chorewheel_enabled,
   };
 }
 
@@ -519,6 +522,7 @@ export function FinancialCalendar({
       is_enabled: form.remindersEnabled,
       email_enabled: form.emailEnabled,
       homepage_enabled: form.homepageEnabled,
+      chorewheel_enabled: form.chorewheelEnabled,
     };
     mutationInFlight.current = true;
     setIsSaving(true);
@@ -1218,6 +1222,22 @@ export function FinancialCalendar({
               />
             </label>
             </fieldset>
+            <section aria-label="ChoreWheel integration" className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
+              <label className="flex items-center justify-between gap-3 text-sm font-medium text-white/85">
+                Add to ChoreWheel
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={form.chorewheelEnabled}
+                  aria-describedby="financial-reminder-chorewheel-help"
+                  onChange={(event) => setForm({ ...form, chorewheelEnabled: event.target.checked })}
+                  className="size-5 accent-[var(--accent)]"
+                />
+              </label>
+              <p id="financial-reminder-chorewheel-help" className="mt-2 text-xs leading-5 text-white/50">
+                Shows this event under Reminders in ChoreWheel with the same repeat schedule. Completing it in either app updates both.
+              </p>
+            </section>
             <section aria-label="Event reminders" className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
               <label className="flex items-center justify-between gap-3 text-sm font-medium text-white/85">
                 Reminders enabled
