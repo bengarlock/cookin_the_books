@@ -22,6 +22,7 @@ export type FinancialReminder = {
   custom_recurrence_value: number | null;
   email_enabled: boolean;
   homepage_enabled: boolean;
+  chorewheel_enabled: boolean;
   // Enables notifications only; the calendar event remains active and editable.
   is_enabled: boolean;
   is_completed: boolean;
@@ -47,5 +48,6 @@ export type FinancialReminderPayload = Pick<
   | "custom_recurrence_value"
   | "email_enabled"
   | "homepage_enabled"
+  | "chorewheel_enabled"
   | "is_enabled"
 >;
