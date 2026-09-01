@@ -28,6 +28,8 @@ export type FinancialReminder = {
   completed_at: string | null;
   active_on_homepage: boolean;
   days_until_due: number;
+  notification_due_date?: string;
+  notification_days_until_due?: number;
   created_at: string;
   updated_at: string;
 };
