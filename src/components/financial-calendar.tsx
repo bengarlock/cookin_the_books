@@ -1330,18 +1330,78 @@ export function FinancialCalendar({
               <button
                 type="submit"
                 disabled={isSaving}
-                className="min-w-28 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
+                aria-label={
+                  isSaving
+                    ? "Saving event"
+                    : selectedId === null
+                      ? "Save event"
+                      : "Save changes"
+                }
+                title={
+                  isSaving
+                    ? "Saving event…"
+                    : selectedId === null
+                      ? "Save event"
+                      : "Save changes"
+                }
+                className="flex size-10 items-center justify-center rounded-xl bg-accent text-slate-950 transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
               >
-                {isSaving ? "Saving…" : selectedId === null ? "Save event" : "Save"}
+                {isSaving ? (
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    className="size-5 animate-spin"
+                  >
+                    <path d="M21 12a9 9 0 0 1-9 9" />
+                    <path d="M3 12a9 9 0 0 1 9-9" />
+                  </svg>
+                ) : (
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="size-5"
+                  >
+                    <path d="M5 3h12l2 2v16H5z" />
+                    <path d="M8 3v6h8V3" />
+                    <path d="M8 21v-7h8v7" />
+                  </svg>
+                )}
               </button>
               {selectedId !== null ? (
                 <>
                   <button
                     type="button"
                     onClick={() => { setMoveId(selectedId); setMoveError(""); setMoveMessage(""); }}
-                    className="rounded-xl border border-white/10 px-3 py-2.5 text-sm text-white/70 transition hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label="Move event on calendar"
+                    title="Move event on calendar"
+                    className="flex size-10 items-center justify-center rounded-xl border border-white/10 text-white/55 transition hover:border-accent/50 hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Move on calendar
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="size-5"
+                    >
+                      <path d="M6 3v3" />
+                      <path d="M18 3v3" />
+                      <path d="M4 8h16" />
+                      <rect x="3" y="5" width="18" height="16" rx="2" />
+                      <path d="m9 15 2-2 2 2" />
+                      <path d="M11 13v5" />
+                    </svg>
                   </button>
                   <button
                     type="button"
@@ -1349,11 +1409,48 @@ export function FinancialCalendar({
                       const reminder = reminders.find((item) => item.id === selectedId);
                       if (reminder) void toggleCompleted(reminder);
                     }}
-                    className="min-w-24 rounded-xl border border-white/10 px-3 py-2.5 text-sm text-white/70 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label={
+                      reminders.find((item) => item.id === selectedId)?.is_completed
+                        ? "Reopen event"
+                        : "Complete event"
+                    }
+                    title={
+                      reminders.find((item) => item.id === selectedId)?.is_completed
+                        ? "Reopen event"
+                        : "Complete event"
+                    }
+                    className="flex size-10 items-center justify-center rounded-xl border border-white/10 text-white/55 transition hover:border-emerald-400/40 hover:text-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {reminders.find((item) => item.id === selectedId)?.is_completed
-                      ? "Reopen"
-                      : "Complete"}
+                      ? (
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="size-5"
+                        >
+                          <path d="M3 12a9 9 0 1 0 3-6.7" />
+                          <path d="M3 4v5h5" />
+                        </svg>
+                      ) : (
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="size-5"
+                        >
+                          <circle cx="12" cy="12" r="9" />
+                          <path d="m8 12 2.5 2.5L16 9" />
+                        </svg>
+                      )}
                   </button>
                   <button
                     ref={deleteButtonRef}
