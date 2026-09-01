@@ -1,12 +1,18 @@
 import Link from "next/link";
 
-import { localDateFromKey } from "@/lib/financial-reminder-dates";
-import type { FinancialReminder } from "@/lib/financial-reminder-types";
+import { localDateFromKey } from "../lib/financial-reminder-dates";
+import type { FinancialReminder } from "../lib/financial-reminder-types";
 
 function dueLabel(reminder: FinancialReminder) {
-  if (reminder.days_until_due === 0) return "Due today";
-  if (reminder.days_until_due === 1) return "Due tomorrow";
-  return `Due in ${reminder.days_until_due} days`;
+  const daysUntilDue =
+    reminder.notification_days_until_due ?? reminder.days_until_due;
+  if (daysUntilDue === 0) return "Due today";
+  if (daysUntilDue === 1) return "Due tomorrow";
+  return `Due in ${daysUntilDue} days`;
+}
+
+function dueDate(reminder: FinancialReminder) {
+  return reminder.notification_due_date ?? reminder.due_date;
 }
 
 export function HomepageFinancialReminders({
@@ -16,7 +22,7 @@ export function HomepageFinancialReminders({
 }) {
   const active = reminders
     .filter((reminder) => reminder.is_enabled !== false && reminder.active_on_homepage)
-    .sort((left, right) => left.due_date.localeCompare(right.due_date));
+    .sort((left, right) => dueDate(left).localeCompare(dueDate(right)));
   if (!active.length) return null;
 
   return (
@@ -42,7 +48,7 @@ export function HomepageFinancialReminders({
       <div className="divide-y divide-white/[0.07]">
         {active.slice(0, 4).map((reminder) => (
           <Link
-            href="/dashboard/calendar"
+            href={`/dashboard/calendar?reminder=${reminder.id}`}
             key={reminder.id}
             className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 transition hover:bg-white/[0.035]"
           >
@@ -56,7 +62,7 @@ export function HomepageFinancialReminders({
                   month: "long",
                   day: "numeric",
                   year: "numeric",
-                }).format(localDateFromKey(reminder.due_date))}
+                }).format(localDateFromKey(dueDate(reminder)))}
               </span>
             </span>
             {reminder.amount ? (
