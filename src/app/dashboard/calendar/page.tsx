@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { FinancialCalendar } from "@/components/financial-calendar";
 import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
+import { calendarShowCompletedPreference } from "@/lib/calendar-show-completed";
 import { allTimeExpenseDateRange } from "@/lib/expense-date-range";
 import { getExpenseTransactions } from "@/lib/expense-transactions";
 import { financialCalendarActivities } from "@/lib/financial-calendar-activity";
@@ -72,6 +73,9 @@ export default async function CalendarPage({
         initialSelectedId={parseFinancialReminderId(reminder)}
         initialSuggestions={suggestions}
         initialDismissedSuggestionIds={dismissedSuggestionIds}
+        initialShowCompleted={calendarShowCompletedPreference(
+          settings.navigation_preferences?.calendar_show_completed,
+        )}
       />
     </div>
   );
