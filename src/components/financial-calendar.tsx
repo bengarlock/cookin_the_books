@@ -164,12 +164,14 @@ export function FinancialCalendar({
   initialSelectedId = null,
   initialSuggestions = [],
   initialDismissedSuggestionIds = [],
+  initialShowCompleted = true,
 }: {
   initialHistoricalActivity?: FinancialCalendarActivity[];
   initialReminders: FinancialReminder[];
   initialSelectedId?: number | null;
   initialSuggestions?: RecurringExpenseSuggestion[];
   initialDismissedSuggestionIds?: string[];
+  initialShowCompleted?: boolean;
 }) {
   const initialSelectedReminder =
     initialReminders.find((reminder) => reminder.id === initialSelectedId) ?? null;
@@ -194,8 +196,10 @@ export function FinancialCalendar({
       : emptyForm(),
   );
   const [showCompleted, setShowCompleted] = useState(
-    Boolean(initialSelectedReminder?.is_completed),
+    initialShowCompleted || Boolean(initialSelectedReminder?.is_completed),
   );
+  const [isSavingShowCompleted, setIsSavingShowCompleted] = useState(false);
+  const [showCompletedError, setShowCompletedError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [dragPreviewPosition, setDragPreviewPosition] = useState<
@@ -453,6 +457,44 @@ export function FinancialCalendar({
     setError("");
     setAmountError("");
     setSelectedSuggestionId(null);
+  }
+
+  async function updateShowCompleted(nextShowCompleted: boolean) {
+    const previousShowCompleted = showCompleted;
+    setShowCompleted(nextShowCompleted);
+    setIsSavingShowCompleted(true);
+    setShowCompletedError("");
+    try {
+      const response = await fetch(`${APP_BASE_PATH}/api/budget-plan-settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          navigation_preferences: {
+            calendar_show_completed: nextShowCompleted,
+          },
+        }),
+      });
+      const data = (await response.json()) as BudgetPlanSettings | unknown;
+      if (!response.ok) {
+        throw new Error(
+          errorMessage(data, "The calendar preference could not be saved."),
+        );
+      }
+      const saved = data as BudgetPlanSettings;
+      setShowCompleted(
+        saved.navigation_preferences?.calendar_show_completed ??
+          nextShowCompleted,
+      );
+    } catch (preferenceError) {
+      setShowCompleted(previousShowCompleted);
+      setShowCompletedError(
+        preferenceError instanceof Error
+          ? preferenceError.message
+          : "The calendar preference could not be saved.",
+      );
+    } finally {
+      setIsSavingShowCompleted(false);
+    }
   }
 
   async function dismissSuggestion(suggestionId: string) {
@@ -969,12 +1011,19 @@ export function FinancialCalendar({
           <label className="flex items-center gap-2 text-sm text-white/60">
             <input
               type="checkbox"
+              aria-label="Show completed events"
               checked={showCompleted}
-              onChange={(event) => setShowCompleted(event.target.checked)}
+              disabled={isSavingShowCompleted}
+              onChange={(event) => void updateShowCompleted(event.target.checked)}
               className="size-4 accent-[var(--accent)]"
             />
             Show completed
           </label>
+          {showCompletedError ? (
+            <p className="text-xs text-rose-200" role="alert">
+              {showCompletedError}
+            </p>
+          ) : null}
           <p className="text-xs text-white/40">
             Net totals include posted income, spend, unpaid entries, and projections. Dashed entries follow their recurring schedule.
           </p>

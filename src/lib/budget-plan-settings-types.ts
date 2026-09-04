@@ -4,6 +4,7 @@ export type BudgetPlanSettings = {
   overview_tile_order?: string[];
   navigation_preferences?: {
     budget_expanded?: boolean;
+    calendar_show_completed?: boolean;
   };
   financial_reminder_email?: string;
   financial_reminder_notifications_enabled?: boolean;
