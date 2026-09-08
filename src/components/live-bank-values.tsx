@@ -1878,6 +1878,10 @@ export function LiveBankValues({
     budgetData?.budgetPlanSettings ?? initialBudgetPlanSettings;
   const [expenseTags, setExpenseTags] = useState(initialExpenseTags);
 
+  useEffect(() => {
+    setLocalPendingTransactions(initialPendingTransactions ?? []);
+  }, [initialPendingTransactions]);
+
   function mergeExpenseTags(tags: ExpenseTag[]) {
     setExpenseTags((current) => {
       const byName = new Map(current.map((tag) => [tag.name.toLowerCase(), tag]));
@@ -2301,6 +2305,11 @@ export function LiveBankValues({
     }
   }, []);
 
+  useEffect(() => {
+    if (!expandedAccount) return;
+    void loadAccountTransactions(expandedAccount);
+  }, [expandedAccount, loadAccountTransactions, snapshot?.source_updated_at]);
+
   function updateAccountTransaction(
     accountKey: SnapshotAccountKey,
     updated: CreditCardTransaction,
@@ -2323,9 +2332,6 @@ export function LiveBankValues({
   function toggleAccountTransactions(accountKey: SnapshotAccountKey) {
     const nextAccount = expandedAccount === accountKey ? null : accountKey;
     setExpandedAccount(nextAccount);
-    if (nextAccount && !accountTransactions[nextAccount]) {
-      void loadAccountTransactions(nextAccount);
-    }
   }
 
   function togglePendingTransactionForm(accountKey: SnapshotAccountKey) {
