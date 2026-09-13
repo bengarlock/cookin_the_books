@@ -202,6 +202,8 @@ export function FinancialCalendar({
   const [showCompletedError, setShowCompletedError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [completingId, setCompletingId] = useState<number | null>(null);
+  const [lastCompleted, setLastCompleted] = useState<FinancialReminder | null>(null);
+  const [isUndoing, setIsUndoing] = useState(false);
   const [upcomingError, setUpcomingError] = useState("");
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [dragPreviewPosition, setDragPreviewPosition] = useState<
@@ -610,6 +612,25 @@ export function FinancialCalendar({
     }
   }
 
+  async function refreshReminderList(updated: FinancialReminder) {
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/financial-reminders`,
+        { cache: "no-store" },
+      );
+      if (response.ok) {
+        setReminders((await response.json()) as FinancialReminder[]);
+        return true;
+      }
+    } catch {
+      // The update succeeded; keep its returned state even if the list cannot refresh.
+    }
+    setReminders((current) =>
+      current.map((item) => item.id === updated.id ? updated : item),
+    );
+    return false;
+  }
+
   async function toggleCompleted(
     reminder: FinancialReminder,
     source: "editor" | "upcoming" = "editor",
@@ -632,18 +653,10 @@ export function FinancialCalendar({
       const data = (await response.json()) as FinancialReminder | unknown;
       if (!response.ok) throw new Error(errorMessage(data));
       const updated = data as FinancialReminder;
-      const refreshedResponse = await fetch(
-        `${APP_BASE_PATH}/api/financial-reminders`,
-        { cache: "no-store" },
-      );
-      if (refreshedResponse.ok) {
-        setReminders((await refreshedResponse.json()) as FinancialReminder[]);
-      } else {
-        setReminders((current) =>
-          current.map((item) => (item.id === updated.id ? updated : item)),
-        );
-      }
+      await refreshReminderList(updated);
       if (selectedId === updated.id) setForm(formFromReminder(updated));
+      if (source === "upcoming") setLastCompleted(updated);
+      else if (lastCompleted?.id === updated.id) setLastCompleted(null);
     } catch (updateError) {
       const message = updateError instanceof Error
         ? updateError.message
@@ -654,6 +667,39 @@ export function FinancialCalendar({
       mutationInFlight.current = false;
       setIsSaving(false);
       setCompletingId(null);
+    }
+  }
+
+  async function undoLastCompletion() {
+    if (!lastCompleted || mutationInFlight.current) return;
+    mutationInFlight.current = true;
+    setIsSaving(true);
+    setIsUndoing(true);
+    setUpcomingError("");
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/financial-reminders/${lastCompleted.id}/undo-completion`,
+        { method: "POST" },
+      );
+      const data = (await response.json()) as FinancialReminder | unknown;
+      if (!response.ok) throw new Error(errorMessage(data));
+      const restored = data as FinancialReminder;
+      const refreshed = await refreshReminderList(restored);
+      if (selectedId === restored.id) setForm(formFromReminder(restored));
+      setLastCompleted(null);
+      if (!refreshed) {
+        setUpcomingError("Event restored. Refresh the page to update recurring events.");
+      }
+    } catch (undoError) {
+      setUpcomingError(
+        undoError instanceof Error
+          ? undoError.message
+          : "The event could not be restored.",
+      );
+    } finally {
+      mutationInFlight.current = false;
+      setIsSaving(false);
+      setIsUndoing(false);
     }
   }
 
@@ -676,6 +722,7 @@ export function FinancialCalendar({
         throw new Error(errorMessage(data));
       }
       setReminders((current) => current.filter((item) => item.id !== reminderId));
+      if (lastCompleted?.id === reminderId) setLastCompleted(null);
       clearEditor();
     } catch (deleteError) {
       setError(
@@ -1613,7 +1660,21 @@ export function FinancialCalendar({
         ) : null}
 
         <section className="surface rounded-2xl p-5">
-          <h2 className="text-base font-semibold text-white">Coming up</h2>
+          <div className="flex min-h-8 items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-white">Coming up</h2>
+            {lastCompleted ? (
+              <button
+                type="button"
+                onClick={() => void undoLastCompletion()}
+                disabled={isSaving}
+                aria-label={`Undo completion of ${lastCompleted.title}`}
+                title={`Restore ${lastCompleted.title}`}
+                className="min-h-8 rounded-lg border border-emerald-400/30 px-2.5 text-xs font-medium text-emerald-200 transition hover:border-emerald-400/60 hover:bg-emerald-400/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isUndoing ? "Undoing…" : "Undo"}
+              </button>
+            ) : null}
+          </div>
           {upcomingError ? <p role="alert" className="mt-3 text-sm text-rose-200">{upcomingError}</p> : null}
           <div className="mt-3 space-y-2">
             {upcoming.length ? (
