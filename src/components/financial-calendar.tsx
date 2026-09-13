@@ -201,6 +201,8 @@ export function FinancialCalendar({
   const [isSavingShowCompleted, setIsSavingShowCompleted] = useState(false);
   const [showCompletedError, setShowCompletedError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [completingId, setCompletingId] = useState<number | null>(null);
+  const [upcomingError, setUpcomingError] = useState("");
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [dragPreviewPosition, setDragPreviewPosition] = useState<
     ReturnType<typeof calendarDragPreviewPosition> | null
@@ -608,11 +610,16 @@ export function FinancialCalendar({
     }
   }
 
-  async function toggleCompleted(reminder: FinancialReminder) {
+  async function toggleCompleted(
+    reminder: FinancialReminder,
+    source: "editor" | "upcoming" = "editor",
+  ) {
     if (mutationInFlight.current) return;
     mutationInFlight.current = true;
     setIsSaving(true);
+    setCompletingId(source === "upcoming" ? reminder.id : null);
     setError("");
+    setUpcomingError("");
     try {
       const response = await fetch(
         `${APP_BASE_PATH}/api/financial-reminders/${reminder.id}`,
@@ -638,14 +645,15 @@ export function FinancialCalendar({
       }
       if (selectedId === updated.id) setForm(formFromReminder(updated));
     } catch (updateError) {
-      setError(
-        updateError instanceof Error
-          ? updateError.message
-          : "The event could not be updated.",
-      );
+      const message = updateError instanceof Error
+        ? updateError.message
+        : "The event could not be updated.";
+      if (source === "upcoming") setUpcomingError(message);
+      else setError(message);
     } finally {
       mutationInFlight.current = false;
       setIsSaving(false);
+      setCompletingId(null);
     }
   }
 
@@ -1606,36 +1614,63 @@ export function FinancialCalendar({
 
         <section className="surface rounded-2xl p-5">
           <h2 className="text-base font-semibold text-white">Coming up</h2>
+          {upcomingError ? <p role="alert" className="mt-3 text-sm text-rose-200">{upcomingError}</p> : null}
           <div className="mt-3 space-y-2">
             {upcoming.length ? (
               upcoming.map((reminder) => (
-                <button
-                  type="button"
+                <div
                   key={reminder.id}
-                  onClick={() => selectReminder(reminder)}
-                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-3 text-left transition hover:border-white/15 hover:bg-white/[0.05]"
+                  className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2 transition hover:border-white/15 hover:bg-white/[0.05]"
                 >
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium text-white">
-                      {reminder.title}
+                  <button
+                    type="button"
+                    onClick={() => selectReminder(reminder)}
+                    className="flex min-w-0 flex-1 items-center justify-between gap-2 py-1 text-left focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-white">
+                        {reminder.title}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-white/45">
+                        {friendlyDate(reminder.due_date)} · {timingLabel(reminder)}
+                        {reminder.recurrence_frequency !== "none"
+                          ? ` · Repeats ${recurrenceLabel(
+                              reminder.recurrence_frequency,
+                              reminder.custom_recurrence_type,
+                              reminder.custom_recurrence_value,
+                            )}`
+                          : ""}
+                      </span>
                     </span>
-                    <span className="mt-0.5 block text-xs text-white/45">
-                      {friendlyDate(reminder.due_date)} · {timingLabel(reminder)}
-                      {reminder.recurrence_frequency !== "none"
-                        ? ` · Repeats ${recurrenceLabel(
-                            reminder.recurrence_frequency,
-                            reminder.custom_recurrence_type,
-                            reminder.custom_recurrence_value,
-                          )}`
-                        : ""}
-                    </span>
-                  </span>
-                  {reminder.amount ? (
-                    <span className="shrink-0 text-sm font-semibold text-accent">
-                      {currency(reminder.amount)}
-                    </span>
-                  ) : null}
-                </button>
+                    {reminder.amount ? (
+                      <span className="shrink-0 text-sm font-semibold text-accent">
+                        {currency(reminder.amount)}
+                      </span>
+                    ) : null}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void toggleCompleted(reminder, "upcoming")}
+                    disabled={isSaving}
+                    aria-label={`${completingId === reminder.id ? "Completing" : "Complete"} ${reminder.title}`}
+                    title={`Complete ${reminder.title}`}
+                    className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-emerald-400/25 text-emerald-300 transition hover:border-emerald-400/60 hover:bg-emerald-400/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="size-5"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="m8 12 2.5 2.5L16 9" />
+                    </svg>
+                  </button>
+                </div>
               ))
             ) : (
               <p className="text-sm text-white/45">No upcoming events yet.</p>
