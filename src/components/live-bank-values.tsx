@@ -1728,24 +1728,34 @@ function AccountTransactionList({
             value={transactionForm.note}
           />
         </label>
-        <label className="sm:col-span-2">
-          <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
+        <fieldset className="sm:col-span-2">
+          <legend className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
             Transaction type
-          </span>
-          <select
-            className="h-11 w-full rounded-xl border border-white/10 bg-background px-3 text-sm text-white outline-none focus:border-accent/50"
-            onChange={(event) => onChangeTransactionForm({ direction: event.target.value as "debit" | "credit" })}
-            value={transactionForm.direction}
-          >
-            <option value="debit">Debit — {liabilityAccounts.has(accountKey) ? "increases amount owed" : "money out"}</option>
-            <option value="credit">Credit — {liabilityAccounts.has(accountKey) ? "reduces amount owed" : "money in"}</option>
-          </select>
-          <span className="mt-2 block text-xs text-muted">
-            Enter a positive amount. {transactionForm.direction === "credit"
-              ? liabilityAccounts.has(accountKey) ? "This credit reduces the amount owed." : "This credit increases the adjusted balance."
-              : liabilityAccounts.has(accountKey) ? "This debit increases the amount owed." : "This debit decreases the adjusted balance."}
-          </span>
-        </label>
+          </legend>
+          <div className="inline-grid h-11 grid-cols-2 rounded-xl border border-white/10 bg-black/20 p-1">
+            {(["debit", "credit"] as const).map((direction) => (
+              <label className="cursor-pointer" key={direction}>
+                <input
+                  checked={transactionForm.direction === direction}
+                  className="peer sr-only"
+                  name="pending-transaction-direction"
+                  onChange={() => onChangeTransactionForm({ direction })}
+                  type="radio"
+                  value={direction}
+                />
+                <span
+                  className={`grid h-full min-w-24 place-items-center rounded-lg px-5 text-sm font-semibold transition peer-focus-visible:ring-2 peer-focus-visible:ring-accent/60 ${
+                    transactionForm.direction === direction
+                      ? "bg-accent/15 text-accent shadow-sm"
+                      : "text-white/60 hover:text-white"
+                  }`}
+                >
+                  {direction === "debit" ? "Debit" : "Credit"}
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <label>
           <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
             Amount
