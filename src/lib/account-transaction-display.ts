@@ -44,7 +44,7 @@ export function manualPendingTransactionDisplayAmount(
   const snapshotAccountKey = accountKey as SnapshotAccountKey;
 
   if (cashAccounts.has(snapshotAccountKey)) {
-    return -Math.abs(value);
+    return -value;
   }
 
   return value;

@@ -6,6 +6,20 @@ import type { PendingTransaction } from "./pending-transaction-types";
 import type { BankValueSnapshot } from "./snapshot-types";
 
 describe("calculateAdjustedAccountBalances", () => {
+  it("nets a cash credit against an existing debit and excludes cleared credits", () => {
+    const result = calculateAdjustedAccountBalances({
+      snapshot: { chase_checking: "1219.06" } as BankValueSnapshot,
+      pendingTransactions: [
+        { amount: "2019.01", is_cleared: false },
+        { amount: "-1299.95", is_cleared: false },
+        { amount: "-500.00", is_cleared: true },
+      ].map((transaction) => ({ ...transaction, account: "chase_checking", match_status: "none", settled_accounts: [] } as PendingTransaction)),
+      pendingCardTransactions: [],
+    });
+    expect(result.pendingValue("chase_checking")).toBeCloseTo(719.06, 2);
+    expect(result.adjustedValue("chase_checking")).toBeCloseTo(500, 2);
+  });
+
   it("adds imported pending charges to the posted Citi balance", () => {
     const result = calculateAdjustedAccountBalances({
       snapshot: {
