@@ -43,6 +43,7 @@ import type { IncomeEntry } from "@/lib/income-entry-types";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
 import { classifyPaychecks } from "@/lib/projections";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
+import { pendingTransactionAmount } from "@/lib/pending-transaction-amount";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import { AmazonOrderDetails } from "@/components/amazon-order-details";
 import { ReceiptOrderDetails } from "@/components/receipt-order-details";
@@ -874,6 +875,7 @@ function AccountTransactionList({
     update: Partial<{
       note: string;
       amount: string;
+      direction: "debit" | "credit";
       account: SnapshotAccountKey;
       expected_post_date: string;
     }>,
@@ -894,6 +896,7 @@ function AccountTransactionList({
   transactionForm: {
     note: string;
     amount: string;
+    direction: "debit" | "credit";
     account: SnapshotAccountKey;
     expected_post_date: string;
   };
@@ -1607,7 +1610,7 @@ function AccountTransactionList({
                   ? `Matched to synced transaction from ${formatTransactionDate(transaction.matched_transaction_detail?.transaction_date || transaction.expected_post_date)}`
                   : transaction.match_status === "suggested"
                     ? `Possible match from ${formatTransactionDate(transaction.matched_transaction_detail?.transaction_date || transaction.expected_post_date)}`
-                    : `Manual pending · Expected ${compactDateFormatter.format(new Date(`${transaction.expected_post_date}T12:00:00`))}`}
+                    : `Manual pending · ${Number(transaction.amount) < 0 ? "Credit" : "Debit"} · Expected ${compactDateFormatter.format(new Date(`${transaction.expected_post_date}T12:00:00`))}`}
               </p>
             </div>
             <span className="whitespace-nowrap text-right font-mono text-sm text-amber-100">
@@ -1725,13 +1728,31 @@ function AccountTransactionList({
             value={transactionForm.note}
           />
         </label>
+        <label className="sm:col-span-2">
+          <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
+            Transaction type
+          </span>
+          <select
+            className="h-11 w-full rounded-xl border border-white/10 bg-background px-3 text-sm text-white outline-none focus:border-accent/50"
+            onChange={(event) => onChangeTransactionForm({ direction: event.target.value as "debit" | "credit" })}
+            value={transactionForm.direction}
+          >
+            <option value="debit">Debit — {liabilityAccounts.has(accountKey) ? "increases amount owed" : "money out"}</option>
+            <option value="credit">Credit — {liabilityAccounts.has(accountKey) ? "reduces amount owed" : "money in"}</option>
+          </select>
+          <span className="mt-2 block text-xs text-muted">
+            Enter a positive amount. {transactionForm.direction === "credit"
+              ? liabilityAccounts.has(accountKey) ? "This credit reduces the amount owed." : "This credit increases the adjusted balance."
+              : liabilityAccounts.has(accountKey) ? "This debit increases the amount owed." : "This debit decreases the adjusted balance."}
+          </span>
+        </label>
         <label>
           <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted">
             Amount
           </span>
           <input
             className="h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 font-mono text-sm text-white outline-none focus:border-accent/50"
-            min={liabilityAccounts.has(accountKey) ? undefined : "0.01"}
+            min="0.01"
             onChange={(event) =>
               onChangeTransactionForm({ amount: event.target.value })
             }
@@ -1917,6 +1938,7 @@ export function LiveBankValues({
   const [transactionForm, setTransactionForm] = useState({
     note: "",
     amount: "",
+    direction: "debit" as "debit" | "credit",
     account: "chase_checking" as SnapshotAccountKey,
     expected_post_date: nextBusinessDayString(),
   });
@@ -2134,7 +2156,12 @@ export function LiveBankValues({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(transactionForm),
+          body: JSON.stringify({
+            note: transactionForm.note,
+            account: transactionForm.account,
+            expected_post_date: transactionForm.expected_post_date,
+            amount: pendingTransactionAmount(transactionForm.amount, transactionForm.direction),
+          }),
         },
       );
       const data = (await response.json().catch(() => null)) as
@@ -2154,6 +2181,7 @@ export function LiveBankValues({
       setTransactionForm({
         note: "",
         amount: "",
+        direction: "debit" as "debit" | "credit",
         account: formOpenAccount || transactionForm.account,
         expected_post_date: nextBusinessDayString(),
       });
@@ -2341,6 +2369,7 @@ export function LiveBankValues({
       setTransactionForm({
         note: "",
         amount: "",
+        direction: "debit" as "debit" | "credit",
         account: accountKey,
         expected_post_date: nextBusinessDayString(),
       });

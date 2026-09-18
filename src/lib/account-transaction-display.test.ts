@@ -67,6 +67,12 @@ describe("manualPendingTransactionDisplayAmount", () => {
     expect(manualPendingTransactionDisplayAmount("25.00", "chase_credit")).toBe(25);
   });
 
+  it("shows a cash credit as money in and a card credit as reduced debt", () => {
+    expect(manualPendingTransactionDisplayAmount("-25.00", "chase_checking")).toBe(25);
+    expect(manualPendingTransactionDisplayAmount("-25.00", "chase_savings")).toBe(25);
+    expect(manualPendingTransactionDisplayAmount("-25.00", "chase_credit")).toBe(-25);
+  });
+
   it("returns null for invalid manual pending amounts", () => {
     expect(
       manualPendingTransactionDisplayAmount("not-a-number", "chase_checking"),
