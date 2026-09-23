@@ -917,6 +917,7 @@ function AccountTransactionList({
   const [confirmingUnmatchId, setConfirmingUnmatchId] = useState<number | null>(null);
   const [editingTransactionId, setEditingTransactionId] = useState<number | null>(null);
   const [savingTransactionId, setSavingTransactionId] = useState<number | null>(null);
+  const [autoCategorizingTransactionId, setAutoCategorizingTransactionId] = useState<number | null>(null);
   const [savingBudgetFlagsId, setSavingBudgetFlagsId] = useState<number | null>(null);
   const [budgetFlagsError, setBudgetFlagsError] = useState("");
   const [relationshipQuery, setRelationshipQuery] = useState("");
@@ -1187,6 +1188,36 @@ function AccountTransactionList({
     }
   }
 
+  async function autoCategorizeTransaction(transaction: CreditCardTransaction) {
+    setAutoCategorizingTransactionId(transaction.id);
+    setEditError("");
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/auto-categorize?include_unbudgeted=true`,
+        { method: "POST" },
+      );
+      const updated = (await response.json().catch(() => null)) as
+        | CreditCardTransaction
+        | { message?: string; detail?: string }
+        | null;
+      if (!response.ok || !updated || !("id" in updated)) {
+        throw new Error(
+          updated && !("id" in updated)
+            ? updated.message || updated.detail || "Unable to auto categorize this transaction."
+            : "Unable to auto categorize this transaction.",
+        );
+      }
+      setEditForm((current) => ({ ...current, category: updated.category }));
+      onTransactionUpdated(updated);
+    } catch (error) {
+      setEditError(
+        error instanceof Error ? error.message : "Unable to auto categorize this transaction.",
+      );
+    } finally {
+      setAutoCategorizingTransactionId(null);
+    }
+  }
+
   function toggleEditorTag(name: string, enabled: boolean) {
     const cleaned = name.trim();
     if (!cleaned) return;
@@ -1225,6 +1256,10 @@ function AccountTransactionList({
           const isCredit =
             transaction.transaction_type === "payment" ||
             transaction.transaction_type === "credit";
+          const hasReceiptLineItems = Boolean(
+            transaction.amazon_orders?.some((order) => order.items.length) ||
+            transaction.receipt_orders?.some((order) => order.items.length),
+          );
           return (
             <div
               className={`grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] gap-x-3 border-b border-white/[0.07] px-4 py-3 transition-colors duration-[250ms] ease-out last:border-b-0 ${editingTransactionId === transaction.id ? "bg-sky-400/[0.12]" : "hover:bg-white/[0.025]"}`}
@@ -1351,6 +1386,19 @@ function AccountTransactionList({
                       >
                         Categorize
                       </button>
+                      {hasReceiptLineItems ? (
+                        <button
+                          className="rounded-lg border border-violet-300/30 bg-violet-400/10 px-3 py-2 text-xs font-semibold text-violet-100 transition hover:border-violet-300/50 hover:bg-violet-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={autoCategorizingTransactionId === transaction.id}
+                          onClick={() => void autoCategorizeTransaction(transaction)}
+                          title="Uses the matched receipt line items to choose one category."
+                          type="button"
+                        >
+                          {autoCategorizingTransactionId === transaction.id
+                            ? "Auto categorizing…"
+                            : "Auto categorize"}
+                        </button>
+                      ) : null}
                       <button
                         aria-controls={`transaction-${transaction.id}-budget-treatment`}
                         aria-expanded={budgetTreatmentExpanded}
