@@ -6,15 +6,13 @@ export function isOverviewEmptySlot(id: string) {
 }
 
 export function overviewOccupiedColumnSpan(order: string[]) {
-  const lastOccupiedIndex = order.reduce(
-    (lastIndex, id, index) =>
-      isOverviewEmptySlot(id) ? lastIndex : index,
-    -1,
+  return order.reduce(
+    (widestSpan, id, index) =>
+      isOverviewEmptySlot(id)
+        ? widestSpan
+        : Math.max(widestSpan, (index % OVERVIEW_GRID_COLUMNS) + 1),
+    1,
   );
-
-  return lastOccupiedIndex < 0
-    ? 1
-    : (lastOccupiedIndex % OVERVIEW_GRID_COLUMNS) + 1;
 }
 
 function nextEmptySlotId(usedIds: Set<string>) {

@@ -8,7 +8,7 @@ import {
 } from "./overview-tile-order";
 
 describe("overviewOccupiedColumnSpan", () => {
-  it("ends at the rightmost occupied column while preserving empty slots", () => {
+  it("uses the widest occupied row while preserving empty slots", () => {
     expect(overviewOccupiedColumnSpan([])).toBe(1);
     expect(
       overviewOccupiedColumnSpan([
@@ -24,6 +24,14 @@ describe("overviewOccupiedColumnSpan", () => {
         "days-left",
         "daily-budget",
         "remaining-budget",
+        "projected-savings",
+        "credit-card-spend",
+        "__overview-empty-0",
+        "__overview-empty-1",
+        "gross-assets",
+        "snapshot",
+        "net-assets",
+        "__overview-empty-2",
       ]),
     ).toBe(4);
   });
