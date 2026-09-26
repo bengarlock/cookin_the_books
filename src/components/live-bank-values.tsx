@@ -2695,27 +2695,6 @@ export function LiveBankValues({
             </div>
           ) : null}
 
-          {calculations.savingsReserve.variance < 0 ? (
-            <div
-              className="savings-reserve-alert rounded-2xl border border-amber-200/25 bg-amber-300/10 p-5"
-              role="alert"
-            >
-              <p className="savings-reserve-alert-label text-xs font-semibold uppercase tracking-[0.2em] text-amber-100">
-                Savings reserve shortfall
-              </p>
-              <p className="savings-reserve-alert-copy mt-2 text-sm leading-6 text-amber-50/80">
-                Chase Savings is{" "}
-                <span className="savings-reserve-alert-value font-semibold text-amber-50">
-                  {formatCurrency(
-                    calculations.savingsReserve.restorationNeeded,
-                  )}
-                </span>{" "}
-                below the {formatCurrency(calculations.savingsReserve.target)}{" "}
-                reserve target.
-              </p>
-            </div>
-          ) : null}
-
           {budgetOffset !== 0 ? (
             <div
               className="rounded-2xl border border-accent/25 bg-accent/10 p-5"
@@ -2737,6 +2716,28 @@ export function LiveBankValues({
           <OverviewTileGrid
             initialOrder={budgetPlanSettings.overview_tile_order || []}
             items={overviewTiles}
+            notice={
+              calculations.savingsReserve.variance < 0 ? (
+                <div
+                  className="savings-reserve-alert rounded-2xl border border-amber-200/25 bg-amber-300/10 p-5"
+                  role="alert"
+                >
+                  <p className="savings-reserve-alert-label text-xs font-semibold uppercase tracking-[0.2em] text-amber-100">
+                    Savings reserve shortfall
+                  </p>
+                  <p className="savings-reserve-alert-copy mt-2 text-sm leading-6 text-amber-50/80">
+                    Chase Savings is{" "}
+                    <span className="savings-reserve-alert-value font-semibold text-amber-50">
+                      {formatCurrency(
+                        calculations.savingsReserve.restorationNeeded,
+                      )}
+                    </span>{" "}
+                    below the {formatCurrency(calculations.savingsReserve.target)}{" "}
+                    reserve target.
+                  </p>
+                </div>
+              ) : undefined
+            }
             onOrderChange={saveOverviewTileOrder}
           />
         </div>

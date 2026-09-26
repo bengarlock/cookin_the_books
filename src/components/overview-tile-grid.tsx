@@ -13,11 +13,20 @@ import {
 import {
   isOverviewEmptySlot,
   moveOverviewTile,
+  overviewOccupiedColumnSpan,
   reconcileOverviewTileOrder,
 } from "@/lib/overview-tile-order";
 
 const ARMING_MOVE_TOLERANCE = 8;
 const REFLOW_DURATION_MS = 500;
+const gridColumnsClassName = "grid gap-4 sm:grid-cols-2 xl:grid-cols-4";
+const tileGridClassName = `${gridColumnsClassName} auto-rows-[minmax(11rem,auto)]`;
+const desktopColumnSpanClass: Record<number, string> = {
+  1: "xl:col-span-1",
+  2: "xl:col-span-2",
+  3: "xl:col-span-3",
+  4: "xl:col-span-4",
+} as const;
 
 type OverviewTile = {
   id: string;
@@ -39,10 +48,12 @@ type PointerSession = {
 export function OverviewTileGrid({
   initialOrder,
   items,
+  notice,
   onOrderChange,
 }: {
   initialOrder: string[];
   items: OverviewTile[];
+  notice?: ReactNode;
   onOrderChange: (order: string[]) => Promise<void>;
 }) {
   const itemIds = useMemo(() => items.map((item) => item.id), [items]);
@@ -66,6 +77,7 @@ export function OverviewTileGrid({
       isOverviewEmptySlot(id) ? lastIndex : index,
     -1,
   );
+  const occupiedColumnSpan = overviewOccupiedColumnSpan(order);
   const tileElements = useRef(new Map<string, HTMLDivElement>());
   const pointerSession = useRef<PointerSession | null>(null);
   const activeIdRef = useRef<string | null>(null);
@@ -297,6 +309,17 @@ export function OverviewTileGrid({
 
   return (
     <div>
+      {notice ? (
+        <div className={`${gridColumnsClassName} mb-4`}>
+          <div
+            className={`col-span-1 ${
+              occupiedColumnSpan > 1 ? "sm:col-span-2" : ""
+            } ${desktopColumnSpanClass[occupiedColumnSpan]}`}
+          >
+            {notice}
+          </div>
+        </div>
+      ) : null}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-muted">
         <p>
           Drag a tile to any grid position. Empty spaces stay where you leave
@@ -312,7 +335,7 @@ export function OverviewTileGrid({
                 : ""}
         </p>
       </div>
-      <div className="grid auto-rows-[minmax(11rem,auto)] gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className={tileGridClassName}>
         {order.map((id, index) => {
           if (isOverviewEmptySlot(id)) {
             return (

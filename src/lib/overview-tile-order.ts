@@ -5,6 +5,18 @@ export function isOverviewEmptySlot(id: string) {
   return id.startsWith(EMPTY_SLOT_PREFIX);
 }
 
+export function overviewOccupiedColumnSpan(order: string[]) {
+  const lastOccupiedIndex = order.reduce(
+    (lastIndex, id, index) =>
+      isOverviewEmptySlot(id) ? lastIndex : index,
+    -1,
+  );
+
+  return lastOccupiedIndex < 0
+    ? 1
+    : (lastOccupiedIndex % OVERVIEW_GRID_COLUMNS) + 1;
+}
+
 function nextEmptySlotId(usedIds: Set<string>) {
   let index = 0;
   let id = `${EMPTY_SLOT_PREFIX}${index}`;

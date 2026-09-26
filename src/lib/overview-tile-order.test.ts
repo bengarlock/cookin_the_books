@@ -3,8 +3,31 @@ import { describe, expect, it } from "vitest";
 import {
   isOverviewEmptySlot,
   moveOverviewTile,
+  overviewOccupiedColumnSpan,
   reconcileOverviewTileOrder,
 } from "./overview-tile-order";
+
+describe("overviewOccupiedColumnSpan", () => {
+  it("ends at the rightmost occupied column while preserving empty slots", () => {
+    expect(overviewOccupiedColumnSpan([])).toBe(1);
+    expect(
+      overviewOccupiedColumnSpan([
+        "total-budget",
+        "days-left",
+        "daily-budget",
+        "__overview-empty-0",
+      ]),
+    ).toBe(3);
+    expect(
+      overviewOccupiedColumnSpan([
+        "total-budget",
+        "days-left",
+        "daily-budget",
+        "remaining-budget",
+      ]),
+    ).toBe(4);
+  });
+});
 
 describe("reconcileOverviewTileOrder", () => {
   it("keeps saved tiles in order, appends new tiles, and adds grid positions", () => {
