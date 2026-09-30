@@ -490,7 +490,7 @@ export function DashboardShell({
 
   return (
     <div
-      className="app-backdrop min-h-screen lg:grid lg:grid-cols-[260px_1fr]"
+      className="app-backdrop min-h-screen lg:grid lg:h-dvh lg:min-h-0 lg:grid-cols-[260px_1fr] lg:overflow-hidden"
       onClickCapture={handleNavigationCapture}
     >
       <aside className="dashboard-sidebar border-b border-white/10 bg-black/15 px-5 py-5 backdrop-blur lg:fixed lg:inset-y-0 lg:w-[260px] lg:border-r lg:border-b-0 lg:px-6 lg:py-7">
@@ -658,14 +658,14 @@ export function DashboardShell({
         </div>
       </aside>
 
-      <div className="min-w-0 lg:col-start-2">
+      <div className="min-w-0 lg:col-start-2 lg:flex lg:h-dvh lg:min-h-0 lg:flex-col">
         <DashboardHeader
           pathnameOverride={
             isPlanNavigationPending ? budgetParentHref : undefined
           }
         />
 
-        <main className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+        <main className="dashboard-content-scroll px-5 py-8 sm:px-8 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:px-10 lg:py-10">
           <div className="mx-auto w-full max-w-7xl">
             {isPlanNavigationPending ? <BudgetPlanLoadingShell /> : children}
           </div>
