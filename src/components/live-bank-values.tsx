@@ -11,6 +11,10 @@ import {
 } from "react";
 
 import { useOptionalBudgetData } from "@/components/budget-data-provider";
+import {
+  hasActiveHomepageFinancialReminders,
+  HomepageFinancialReminders,
+} from "@/components/homepage-financial-reminders";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import { OverviewTileGrid } from "@/components/overview-tile-grid";
 import {
@@ -39,6 +43,7 @@ import type {
   FinancialGoal,
   FinancialGoalTrackingMetric,
 } from "@/lib/financial-goal-types";
+import type { FinancialReminder } from "@/lib/financial-reminder-types";
 import type { IncomeEntry } from "@/lib/income-entry-types";
 import { formatPayday, getNextPayCycle } from "@/lib/pay-cycle";
 import { classifyPaychecks } from "@/lib/projections";
@@ -1919,6 +1924,7 @@ export function LiveBankValues({
   initialBudgetPlanSettings,
   initialCreditCardTransactions = [],
   initialFinancialGoals = [],
+  initialFinancialReminders = [],
   initialGoalTransactions = [],
   initialIncomeEntries = [],
   initialPendingCardTransactions = [],
@@ -1930,6 +1936,7 @@ export function LiveBankValues({
   initialBudgetPlanSettings?: BudgetPlanSettings;
   initialCreditCardTransactions?: CreditCardTransaction[];
   initialFinancialGoals?: FinancialGoal[];
+  initialFinancialReminders?: FinancialReminder[];
   initialGoalTransactions?: TransactionSelectorRecord[];
   initialIncomeEntries?: IncomeEntry[];
   initialPendingCardTransactions?: PendingCardTransaction[];
@@ -2664,6 +2671,8 @@ export function LiveBankValues({
         })),
     ),
   ];
+  const hasHomepageFinancialReminders =
+    hasActiveHomepageFinancialReminders(initialFinancialReminders);
 
   return (
     <section>
@@ -2717,25 +2726,34 @@ export function LiveBankValues({
             initialOrder={budgetPlanSettings.overview_tile_order || []}
             items={overviewTiles}
             notice={
+              hasHomepageFinancialReminders ||
               calculations.savingsReserve.variance < 0 ? (
-                <div
-                  className="savings-reserve-alert rounded-2xl border border-amber-200/25 bg-amber-300/10 p-5"
-                  role="alert"
-                >
-                  <p className="savings-reserve-alert-label text-xs font-semibold uppercase tracking-[0.2em] text-amber-100">
-                    Savings reserve shortfall
-                  </p>
-                  <p className="savings-reserve-alert-copy mt-2 text-sm leading-6 text-amber-50/80">
-                    Chase Savings is{" "}
-                    <span className="savings-reserve-alert-value font-semibold text-amber-50">
-                      {formatCurrency(
-                        calculations.savingsReserve.restorationNeeded,
-                      )}
-                    </span>{" "}
-                    below the {formatCurrency(calculations.savingsReserve.target)}{" "}
-                    reserve target.
-                  </p>
-                </div>
+                <>
+                  <HomepageFinancialReminders
+                    reminders={initialFinancialReminders}
+                  />
+                  {calculations.savingsReserve.variance < 0 ? (
+                    <div
+                      className="savings-reserve-alert rounded-2xl border border-amber-200/25 bg-amber-300/10 p-5"
+                      role="alert"
+                    >
+                      <p className="savings-reserve-alert-label text-xs font-semibold uppercase tracking-[0.2em] text-amber-100">
+                        Savings reserve shortfall
+                      </p>
+                      <p className="savings-reserve-alert-copy mt-2 text-sm leading-6 text-amber-50/80">
+                        Chase Savings is{" "}
+                        <span className="savings-reserve-alert-value font-semibold text-amber-50">
+                          {formatCurrency(
+                            calculations.savingsReserve.restorationNeeded,
+                          )}
+                        </span>{" "}
+                        below the {formatCurrency(
+                          calculations.savingsReserve.target,
+                        )} reserve target.
+                      </p>
+                    </div>
+                  ) : null}
+                </>
               ) : undefined
             }
             onOrderChange={saveOverviewTileOrder}

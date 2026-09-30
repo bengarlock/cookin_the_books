@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import { LiveBankValues } from "@/components/live-bank-values";
-import { HomepageFinancialReminders } from "@/components/homepage-financial-reminders";
 import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
 import { getDashboardPendingCardTransactions } from "@/lib/dashboard-pending-card-transactions";
 import { getExpenseCategories } from "@/lib/expense-categories";
@@ -46,10 +45,10 @@ export default async function DashboardPage() {
 
   return (
     <div className="w-full">
-      <HomepageFinancialReminders reminders={financialReminders} />
       <LiveBankValues
         initialBudgetPlanSettings={budgetPlanSettings}
         initialFinancialGoals={financialGoals}
+        initialFinancialReminders={financialReminders}
         initialGoalTransactions={goalTransactions}
         initialIncomeEntries={incomeEntries}
         initialPendingCardTransactions={pendingCardTransactions}
