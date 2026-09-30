@@ -16,6 +16,7 @@ type ImportStatus = {
     orders?: number;
     items?: number;
     matched_orders?: number;
+    auto_categorized_transactions?: number;
   };
   error?: string;
   message?: string;
@@ -28,6 +29,7 @@ export function AmazonOrderImport() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [importId, setImportId] = useState<number | null>(null);
+  const [autoCategorizeNewMatches, setAutoCategorizeNewMatches] = useState(false);
 
   useEffect(() => {
     if (importId === null) return;
@@ -55,12 +57,13 @@ export function AmazonOrderImport() {
       }
       if (result?.status === "completed") {
         const summary = result.result || {};
+        const autoCategorized = summary.auto_categorized_transactions || 0;
         setMessage(
-          (
-            `${summary.orders || 0} orders and ` +
-            `${summary.items || 0} items imported; ` +
-            `${summary.matched_orders || 0} linked to card transactions.`
-          ),
+          `${summary.orders || 0} orders and ${summary.items || 0} items imported; ` +
+            `${summary.matched_orders || 0} linked to card transactions.` +
+            (autoCategorized
+              ? ` Auto-categorized ${autoCategorized} newly matched ${autoCategorized === 1 ? "transaction" : "transactions"}.`
+              : ""),
         );
         setImportId(null);
         setIsImporting(false);
@@ -116,6 +119,10 @@ export function AmazonOrderImport() {
     setError("");
     const formData = new FormData();
     formData.append("file", file);
+    formData.append(
+      "auto_categorize_new_matches",
+      String(autoCategorizeNewMatches),
+    );
     try {
       const response = await fetch(
         `${APP_BASE_PATH}/api/amazon-orders/import`,
@@ -175,20 +182,35 @@ export function AmazonOrderImport() {
             Request your Amazon data
           </a>
         </div>
-        <label className="inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-[#07100f] transition hover:bg-accent disabled:opacity-60">
-          {isImporting ? "Importing..." : "Choose ZIP"}
-          <input
-            ref={inputRef}
-            accept=".zip,application/zip,.csv,text/csv"
-            className="sr-only"
-            disabled={isImporting}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void importFile(file);
-            }}
-            type="file"
-          />
-        </label>
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <label className="flex max-w-64 cursor-pointer items-start gap-2 text-xs text-muted">
+            <input
+              checked={autoCategorizeNewMatches}
+              className="mt-0.5 size-4 rounded border-white/20 bg-black/20 text-accent focus:ring-accent/50"
+              disabled={isImporting}
+              onChange={(event) => setAutoCategorizeNewMatches(event.target.checked)}
+              type="checkbox"
+            />
+            <span>
+              <span className="block font-medium text-white">Auto-categorize newly matched transactions</span>
+              Uses imported Amazon line items. Existing matches are not changed.
+            </span>
+          </label>
+          <label className="inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-[#07100f] transition hover:bg-accent disabled:opacity-60">
+            {isImporting ? "Importing..." : "Choose ZIP"}
+            <input
+              ref={inputRef}
+              accept=".zip,application/zip,.csv,text/csv"
+              className="sr-only"
+              disabled={isImporting}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void importFile(file);
+              }}
+              type="file"
+            />
+          </label>
+        </div>
       </div>
       {message ? (
         <p
