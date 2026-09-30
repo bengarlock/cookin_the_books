@@ -12,8 +12,10 @@ import type {
 
 export function MatchedOrderDetails({
   transaction,
+  onLineItemsAvailable,
 }: {
   transaction: ExpenseTransaction;
+  onLineItemsAvailable?: (available: boolean) => void;
 }) {
   const [details, setDetails] = useState<TransactionOrderDetails | null>(
     transaction.amazon_orders || transaction.receipt_orders
@@ -28,6 +30,13 @@ export function MatchedOrderDetails({
       (transaction.has_amazon_orders || transaction.has_receipt_orders),
   );
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    onLineItemsAvailable?.(Boolean(
+      details?.amazon_orders.some((order) => order.items.length) ||
+      details?.receipt_orders.some((order) => order.items.length),
+    ));
+  }, [details, onLineItemsAvailable]);
 
   useEffect(() => {
     if (
