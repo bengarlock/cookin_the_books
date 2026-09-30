@@ -118,7 +118,12 @@ input {
 }
 
 @media (min-width: 1024px) {
-  html:has(.dashboard-content-scroll),
+  html:has(.dashboard-content-scroll) {
+    height: 100%;
+    overflow: hidden;
+    scrollbar-gutter: auto;
+  }
+
   body:has(.dashboard-content-scroll) {
     height: 100%;
     overflow: hidden;
