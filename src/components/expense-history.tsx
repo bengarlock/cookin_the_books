@@ -81,6 +81,7 @@ export function ExpenseHistory({
   const [relationshipLoading, setRelationshipLoading] = useState(false);
   const [relationshipSavingId, setRelationshipSavingId] = useState<number | null>(null);
   const [categorizing, setCategorizing] = useState(false);
+  const [autoCategorizingId, setAutoCategorizingId] = useState<number | null>(null);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -138,6 +139,7 @@ export function ExpenseHistory({
     .sort((left, right) => left.localeCompare(right));
 
   function openTransaction(transaction: ExpenseTransaction) {
+    if (autoCategorizingId !== null) return;
     if (expandedTransactionId === transaction.id) {
       setExpandedTransactionId(null);
       return;
@@ -192,6 +194,37 @@ export function ExpenseHistory({
       setError(cause instanceof Error ? cause.message : "Unable to categorize transactions.");
     } finally {
       setCategorizing(false);
+    }
+  }
+
+  async function autoCategorizeTransaction(transaction: ExpenseTransaction) {
+    setAutoCategorizingId(transaction.id);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(
+        `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/auto-categorize?include_unbudgeted=true`,
+        { method: "POST" },
+      );
+      const updated = (await response.json().catch(() => null)) as
+        | CreditCardTransaction
+        | { message?: string; detail?: string }
+        | null;
+      if (!response.ok || !updated || !("id" in updated)) {
+        throw new Error(
+          updated && !("id" in updated)
+            ? updated.message || updated.detail || "Unable to auto categorize this transaction."
+            : "Unable to auto categorize this transaction.",
+        );
+      }
+      setTransactions((current) => mergeExpenseTransactions(current, [compactExpenseTransaction(updated)]));
+      setCategoryDraft(updated.category);
+      setExpandedCategory(updated.category);
+      setMessage(`Transaction categorized as ${categoryLabels[updated.category] || updated.category}.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to auto categorize this transaction.");
+    } finally {
+      setAutoCategorizingId(null);
     }
   }
 
@@ -314,7 +347,7 @@ export function ExpenseHistory({
               <span className="sr-only">Search transactions</span>
               <input className="h-9 w-full rounded-lg border border-white/10 bg-black/20 px-3 text-xs text-white outline-none placeholder:text-white/35 focus:border-accent/40 sm:w-64" onChange={(event) => { setSearch(event.target.value); setExpandedCategory(null); }} placeholder="Search transactions" type="search" value={search} />
             </label>
-            <button className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50" disabled={categorizing} onClick={() => void categorizeExpenses()} type="button">{categorizing ? "Categorizing…" : "Categorize transactions"}</button>
+            <button className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent disabled:opacity-50" disabled={categorizing || autoCategorizingId !== null} onClick={() => void categorizeExpenses()} type="button">{categorizing ? "Categorizing…" : "Categorize transactions"}</button>
           </div>
         </div>
         {categoryTotals.length ? <div className="mt-5 space-y-2">
@@ -326,7 +359,7 @@ export function ExpenseHistory({
                 <div className="mb-2 flex items-center justify-between gap-3 text-xs"><span className="flex items-center gap-2 text-white/75"><span aria-hidden="true" className={`text-accent transition ${expanded ? "rotate-90" : ""}`}>›</span>{categoryLabels[category] || category}<span className="text-muted">{rows.length}</span></span><span className="font-mono text-white">{currencyFormatter.format(amount)}</span></div>
                 <div className="h-2 overflow-hidden rounded-full bg-white/[0.07]"><div className="h-full rounded-full bg-accent" style={{ width: `${total ? Math.max(2, amount / total * 100) : 0}%` }} /></div>
               </button>
-              {expanded ? <div className="divide-y divide-white/[0.06] border-t border-white/[0.07] bg-black/10">{rows.map((transaction) => <TransactionRow availableTagNames={availableTagNames} budgetTreatmentExpanded={budgetTreatmentExpanded} categorizationExpanded={categorizationExpanded} categoryDraft={categoryDraft} categoryOptions={categoryOptions} key={transaction.id} matchType={matchType} matchValue={matchValue} noteDraft={noteDraft} noteExpanded={noteExpanded} onBudgetTreatmentToggle={() => setBudgetTreatmentExpanded((value) => !value)} onCategorizationToggle={() => setCategorizationExpanded((value) => !value)} onCategoryChange={setCategoryDraft} onMatchTypeChange={setMatchType} onMatchValueChange={setMatchValue} onNoteChange={setNoteDraft} onNoteToggle={() => setNoteExpanded((value) => !value)} onRelatedToggle={() => setRelatedExpanded((value) => !value)} onSave={(remember) => void saveTransaction(transaction, remember)} onTagToggle={toggleTag} onTagsToggle={() => setTagsExpanded((value) => !value)} onToggle={() => openTransaction(transaction)} onUpdateBudgetTreatment={(patch) => void updateBudgetTreatment(transaction, patch)} relatedExpanded={relatedExpanded} relationshipLoading={relationshipLoading} relationshipResults={relationshipResults} relationshipSavingId={relationshipSavingId} relationshipSuggestions={relationshipSuggestions} relationshipQuery={relationshipQuery} saving={savingId === transaction.id} selected={expandedTransactionId === transaction.id} setRelationshipQuery={setRelationshipQuery} onSearchRelated={() => void searchRelatedTransactions(transaction.id)} onUpdateRelationship={(relatedId, method) => void updateRelationship(transaction.id, relatedId, method)} tagDraft={tagDraft} tagsExpanded={tagsExpanded} transaction={transaction} />)}</div> : null}
+              {expanded ? <div className="divide-y divide-white/[0.06] border-t border-white/[0.07] bg-black/10">{rows.map((transaction) => <TransactionRow autoCategorizing={autoCategorizingId === transaction.id} autoCategorizeDisabled={categorizing || savingId !== null || autoCategorizingId !== null} onAutoCategorize={() => void autoCategorizeTransaction(transaction)} availableTagNames={availableTagNames} budgetTreatmentExpanded={budgetTreatmentExpanded} categorizationExpanded={categorizationExpanded} categoryDraft={categoryDraft} categoryOptions={categoryOptions} key={transaction.id} matchType={matchType} matchValue={matchValue} noteDraft={noteDraft} noteExpanded={noteExpanded} onBudgetTreatmentToggle={() => setBudgetTreatmentExpanded((value) => !value)} onCategorizationToggle={() => setCategorizationExpanded((value) => !value)} onCategoryChange={setCategoryDraft} onMatchTypeChange={setMatchType} onMatchValueChange={setMatchValue} onNoteChange={setNoteDraft} onNoteToggle={() => setNoteExpanded((value) => !value)} onRelatedToggle={() => setRelatedExpanded((value) => !value)} onSave={(remember) => void saveTransaction(transaction, remember)} onTagToggle={toggleTag} onTagsToggle={() => setTagsExpanded((value) => !value)} onToggle={() => openTransaction(transaction)} onUpdateBudgetTreatment={(patch) => void updateBudgetTreatment(transaction, patch)} relatedExpanded={relatedExpanded} relationshipLoading={relationshipLoading} relationshipResults={relationshipResults} relationshipSavingId={relationshipSavingId} relationshipSuggestions={relationshipSuggestions} relationshipQuery={relationshipQuery} saving={savingId === transaction.id || autoCategorizingId === transaction.id} selected={expandedTransactionId === transaction.id} setRelationshipQuery={setRelationshipQuery} onSearchRelated={() => void searchRelatedTransactions(transaction.id)} onUpdateRelationship={(relatedId, method) => void updateRelationship(transaction.id, relatedId, method)} tagDraft={tagDraft} tagsExpanded={tagsExpanded} transaction={transaction} />)}</div> : null}
             </div>;
           })}
         </div> : <p className="mt-5 rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-muted">{normalizedSearch ? `No transactions match “${search.trim()}”.` : "No categorized expenses were found in this date range."}</p>}
@@ -337,12 +370,21 @@ export function ExpenseHistory({
 
 function TransactionRow(props: TransactionRowProps) {
   const { transaction } = props;
+  const [hasReceiptLineItems, setHasReceiptLineItems] = useState(false);
   const controlClass = (active: boolean, color: string) => `rounded-lg border px-3 py-2 text-xs font-semibold transition ${active ? color : "border-white/10 text-white/65 hover:border-accent/25 hover:text-accent"}`;
   return <div className={`px-4 py-3 ${props.selected ? "bg-sky-400/[0.12]" : ""}`}>
     <button className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 text-left" onClick={props.onToggle} type="button"><span className="min-w-0"><span className="block truncate text-sm font-medium text-white">{transaction.description}</span><span className="mt-1 block text-xs text-muted">{formatDate(transaction.transaction_date)} · {transaction.issuer} •••• {transaction.account_last_four}</span><span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45">{transaction.category}</span>{transaction.tags.length ? <span className="mt-1.5 flex flex-wrap gap-1">{transaction.tags.map((tag) => <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-2 py-0.5 text-[10px] text-sky-100" key={tag.id}>{tag.name}</span>)}</span> : null}</span><span className="flex items-center gap-3 font-mono text-sm font-semibold text-white">{currencyFormatter.format(effectiveCategorizedExpenseAmount(transaction))}<span className="grid size-7 place-items-center rounded-full border border-white/10 text-base font-medium text-white/55">{props.selected ? "−" : "+"}</span></span></button>
-    <MatchedOrderDetails transaction={transaction} />
+    <MatchedOrderDetails onLineItemsAvailable={setHasReceiptLineItems} transaction={transaction} />
     {props.selected ? <div className="mt-3 rounded-xl border border-white/[0.08] bg-black/10 p-3">
-      <div className="flex flex-wrap items-center gap-2"><button className={controlClass(props.tagsExpanded, "border-sky-300/30 bg-sky-400/10 text-sky-100")} onClick={props.onTagsToggle} type="button">Tags</button><button className={controlClass(props.noteExpanded, "border-accent/30 bg-accent/10 text-accent")} onClick={props.onNoteToggle} type="button">Note</button><button className={controlClass(props.relatedExpanded, "border-gold/30 bg-gold/10 text-gold")} onClick={props.onRelatedToggle} type="button">Related transactions</button><button className={controlClass(props.categorizationExpanded, "border-violet-300/30 bg-violet-400/10 text-violet-100")} onClick={props.onCategorizationToggle} type="button">Categorize</button><button className={controlClass(props.budgetTreatmentExpanded, "border-accent/30 bg-accent/10 text-accent")} onClick={props.onBudgetTreatmentToggle} type="button">Budget treatment</button></div>
+      <div className="flex flex-wrap items-center gap-2"><button className={controlClass(props.tagsExpanded, "border-sky-300/30 bg-sky-400/10 text-sky-100")} onClick={props.onTagsToggle} type="button">Tags</button><button className={controlClass(props.noteExpanded, "border-accent/30 bg-accent/10 text-accent")} onClick={props.onNoteToggle} type="button">Note</button><button className={controlClass(props.relatedExpanded, "border-gold/30 bg-gold/10 text-gold")} onClick={props.onRelatedToggle} type="button">Related transactions</button><button className={controlClass(props.categorizationExpanded, "border-violet-300/30 bg-violet-400/10 text-violet-100")} onClick={props.onCategorizationToggle} type="button">Categorize</button>
+        {hasReceiptLineItems ? <button
+          className="rounded-lg border border-violet-300/30 bg-violet-400/10 px-3 py-2 text-xs font-semibold text-violet-100 transition hover:border-violet-300/50 hover:bg-violet-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={props.autoCategorizeDisabled}
+          onClick={props.onAutoCategorize}
+          title="Uses the matched receipt line items to choose one category."
+          type="button"
+        >{props.autoCategorizing ? "Auto categorizing…" : "Auto categorize"}</button> : null}
+        <button className={controlClass(props.budgetTreatmentExpanded, "border-accent/30 bg-accent/10 text-accent")} onClick={props.onBudgetTreatmentToggle} type="button">Budget treatment</button></div>
       {props.tagsExpanded ? <div className="mt-3 border-t border-white/[0.07] pt-3"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Tags</p><div className="mt-2 flex flex-wrap gap-2">{props.availableTagNames.map((tag) => <button className={`rounded-full border px-2.5 py-1 text-[11px] ${props.tagDraft.includes(tag) ? "border-sky-300/30 bg-sky-400/10 text-sky-100" : "border-white/10 text-white/60"}`} key={tag} onClick={() => props.onTagToggle(tag)} type="button">{props.tagDraft.includes(tag) ? "✓ " : "+ "}{tag}</button>)}</div></div> : null}
       {props.noteExpanded ? <label className="mt-3 block border-t border-white/[0.07] pt-3"><span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Transaction note</span><textarea className="mt-2 min-h-20 w-full resize-y rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-xs text-white outline-none focus:border-accent/50" maxLength={2000} onChange={(event) => props.onNoteChange(event.target.value)} placeholder="Add context about this transaction" value={props.noteDraft} /></label> : null}
       {props.categorizationExpanded ? <div className="mt-3 grid items-center gap-2 border-t border-white/[0.07] pt-3 sm:grid-cols-[auto_minmax(12rem,1fr)_auto_minmax(10rem,auto)]"><select className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white" onChange={(event) => props.onMatchTypeChange(event.target.value as "exact" | "starts_with")} value={props.matchType}><option value="exact">Equals</option><option value="starts_with">Starts with</option></select><input className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white" onChange={(event) => props.onMatchValueChange(event.target.value)} value={props.matchValue} /><span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Set category</span><select className="h-9 rounded-lg border border-white/10 bg-[#0b1714] px-3 text-xs text-white" onChange={(event) => props.onCategoryChange(event.target.value)} value={props.categoryDraft}>{props.categoryOptions.map((category) => <option key={category.key} value={category.key}>{category.label}</option>)}</select></div> : null}
@@ -355,4 +397,4 @@ function TransactionRow(props: TransactionRowProps) {
 
 function RelationshipRow({ item, label, onClick, saving }: { item: CreditCardTransaction; label: string; onClick: () => void; saving: boolean }) { return <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-gold/20 bg-gold/[0.05] px-3 py-2"><div className="min-w-0"><p className="truncate text-xs font-medium text-white">{item.description}</p><p className="mt-0.5 text-[11px] text-muted">{formatDate(item.transaction_date)} · {item.issuer} •••• {item.account_last_four} · {currencyFormatter.format(Number(item.amount))}</p></div><button className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent" disabled={saving} onClick={onClick} type="button">{label}</button></div>; }
 
-type TransactionRowProps = { transaction: ExpenseTransaction; selected: boolean; onToggle: () => void; categoryOptions: ExpenseCategory[]; categoryDraft: string; onCategoryChange: (value: string) => void; noteDraft: string; onNoteChange: (value: string) => void; matchType: "exact" | "starts_with"; onMatchTypeChange: (value: "exact" | "starts_with") => void; matchValue: string; onMatchValueChange: (value: string) => void; onSave: (remember: boolean) => void; saving: boolean; tagDraft: string[]; onTagToggle: (name: string) => void; availableTagNames: string[]; tagsExpanded: boolean; onTagsToggle: () => void; noteExpanded: boolean; onNoteToggle: () => void; relatedExpanded: boolean; onRelatedToggle: () => void; categorizationExpanded: boolean; onCategorizationToggle: () => void; budgetTreatmentExpanded: boolean; onBudgetTreatmentToggle: () => void; onUpdateBudgetTreatment: (patch: Partial<Pick<ExpenseTransaction, "split" | "include">>) => void; relationshipSuggestions: SuggestedRelatedTransaction[]; relationshipResults: CreditCardTransaction[]; relationshipQuery: string; setRelationshipQuery: (value: string) => void; relationshipLoading: boolean; relationshipSavingId: number | null; onSearchRelated: () => void; onUpdateRelationship: (id: number, method: "POST" | "DELETE") => void; };
+type TransactionRowProps = { autoCategorizing: boolean; autoCategorizeDisabled: boolean; onAutoCategorize: () => void; transaction: ExpenseTransaction; selected: boolean; onToggle: () => void; categoryOptions: ExpenseCategory[]; categoryDraft: string; onCategoryChange: (value: string) => void; noteDraft: string; onNoteChange: (value: string) => void; matchType: "exact" | "starts_with"; onMatchTypeChange: (value: "exact" | "starts_with") => void; matchValue: string; onMatchValueChange: (value: string) => void; onSave: (remember: boolean) => void; saving: boolean; tagDraft: string[]; onTagToggle: (name: string) => void; availableTagNames: string[]; tagsExpanded: boolean; onTagsToggle: () => void; noteExpanded: boolean; onNoteToggle: () => void; relatedExpanded: boolean; onRelatedToggle: () => void; categorizationExpanded: boolean; onCategorizationToggle: () => void; budgetTreatmentExpanded: boolean; onBudgetTreatmentToggle: () => void; onUpdateBudgetTreatment: (patch: Partial<Pick<ExpenseTransaction, "split" | "include">>) => void; relationshipSuggestions: SuggestedRelatedTransaction[]; relationshipResults: CreditCardTransaction[]; relationshipQuery: string; setRelationshipQuery: (value: string) => void; relationshipLoading: boolean; relationshipSavingId: number | null; onSearchRelated: () => void; onUpdateRelationship: (id: number, method: "POST" | "DELETE") => void; };
