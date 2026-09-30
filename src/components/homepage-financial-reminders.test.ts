@@ -2,7 +2,10 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { HomepageFinancialReminders } from "./homepage-financial-reminders";
+import {
+  hasActiveHomepageFinancialReminders,
+  HomepageFinancialReminders,
+} from "./homepage-financial-reminders";
 import type { FinancialReminder } from "../lib/financial-reminder-types";
 
 function reminder(
@@ -36,6 +39,15 @@ function reminder(
 }
 
 describe("homepage financial reminders", () => {
+  it("detects active reminders for the overview grid", () => {
+    expect(hasActiveHomepageFinancialReminders([reminder()])).toBe(true);
+    expect(
+      hasActiveHomepageFinancialReminders([
+        reminder({ active_on_homepage: false }),
+      ]),
+    ).toBe(false);
+  });
+
   it("renders the active recurring occurrence instead of its overdue series origin", () => {
     const html = renderToStaticMarkup(
       createElement(HomepageFinancialReminders, { reminders: [reminder()] }),

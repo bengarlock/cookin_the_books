@@ -117,6 +117,34 @@ input {
   background-size: 100vw 100vh;
 }
 
+@media (min-width: 1024px) {
+  html:has(.dashboard-content-scroll) {
+    height: 100%;
+    overflow: hidden;
+    scrollbar-gutter: auto;
+  }
+
+  body:has(.dashboard-content-scroll) {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body:has(.dashboard-content-scroll) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  body:has(.dashboard-content-scroll) > .app-backdrop {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .dashboard-content-scroll {
+    scrollbar-gutter: stable;
+  }
+}
+
 .surface {
   border: 1px solid var(--line);
   background: linear-gradient(145deg, rgba(17, 36, 59, 0.94), rgba(10, 22, 38, 0.94));

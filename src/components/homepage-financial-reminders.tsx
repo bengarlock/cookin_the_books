@@ -15,13 +15,25 @@ function dueDate(reminder: FinancialReminder) {
   return reminder.notification_due_date ?? reminder.due_date;
 }
 
+export function hasActiveHomepageFinancialReminders(
+  reminders: FinancialReminder[],
+) {
+  return reminders.some(
+    (reminder) =>
+      reminder.is_enabled !== false && reminder.active_on_homepage,
+  );
+}
+
 export function HomepageFinancialReminders({
   reminders,
 }: {
   reminders: FinancialReminder[];
 }) {
   const active = reminders
-    .filter((reminder) => reminder.is_enabled !== false && reminder.active_on_homepage)
+    .filter(
+      (reminder) =>
+        reminder.is_enabled !== false && reminder.active_on_homepage,
+    )
     .sort((left, right) => dueDate(left).localeCompare(dueDate(right)));
   if (!active.length) return null;
 
