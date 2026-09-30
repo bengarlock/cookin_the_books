@@ -118,6 +118,23 @@ input {
 }
 
 @media (min-width: 1024px) {
+  html:has(.dashboard-content-scroll),
+  body:has(.dashboard-content-scroll) {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body:has(.dashboard-content-scroll) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  body:has(.dashboard-content-scroll) > .app-backdrop {
+    flex: 1;
+    min-height: 0;
+  }
+
   .dashboard-content-scroll {
     scrollbar-gutter: stable;
   }
