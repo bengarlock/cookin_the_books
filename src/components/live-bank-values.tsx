@@ -2354,8 +2354,7 @@ export function LiveBankValues({
 
     try {
       const params = new URLSearchParams({
-        issuer: filters.issuer,
-        account_last_four: filters.accountLastFour,
+        account_key: accountKey,
         limit: "60",
       });
       if (filters.includeUnbudgeted) {

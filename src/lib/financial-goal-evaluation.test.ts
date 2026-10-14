@@ -69,6 +69,25 @@ const goal: FinancialGoalInput = {
 };
 
 describe("evaluateFinancialGoal", () => {
+  it("maps a replacement card suffix to its stable balance account", () => {
+    const result = evaluateFinancialGoal({
+      goal: {
+        ...goal,
+        scope_conditions: [{ ...goal.scope_conditions[0], value: ["5161"] }],
+      },
+      transactions: [{
+        ...transaction,
+        issuer: "Barclays - Cards",
+        account_last_four: "5161",
+        account_key: "barclays_card",
+      }],
+      snapshot: { ...snapshot, barclays_card: "300.00" },
+      currentDate: new Date("2026-07-25T12:00:00"),
+    });
+
+    expect(result.selectedAccountBalance).toBe(300);
+  });
+
   it("evaluates selected account balances and spending in the selected period", () => {
     const result = evaluateFinancialGoal({
       goal,

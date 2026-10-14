@@ -1,3 +1,5 @@
+import type { SnapshotAccountKey } from "./snapshot-types";
+
 export type ExpenseTag = { id: number; name: string };
 
 export type CreditCardTransaction = {
@@ -5,6 +7,7 @@ export type CreditCardTransaction = {
   budget_item: number | null;
   issuer: string;
   account_last_four: string;
+  account_key?: SnapshotAccountKey | null;
   statement_start: string;
   statement_end: string;
   transaction_date: string;
@@ -57,6 +60,7 @@ export type PendingCardTransaction = Pick<
   CreditCardTransaction,
   | "issuer"
   | "account_last_four"
+  | "account_key"
   | "amount"
   | "transaction_type"
   | "category"
