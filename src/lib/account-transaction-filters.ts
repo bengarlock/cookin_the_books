@@ -51,13 +51,14 @@ export const transactionAccountFilters: Partial<
 export function accountSelectorLabel(
   transaction: Pick<
     CreditCardTransaction,
-    "issuer" | "account_last_four"
+    "issuer" | "account_last_four" | "account_key"
   >,
 ) {
-  const knownAccount = Object.values(transactionAccountFilters).find(
-    (filters) =>
-      filters?.accountLastFour === transaction.account_last_four,
-  );
+  const knownAccount = transaction.account_key
+    ? transactionAccountFilters[transaction.account_key]
+    : Object.values(transactionAccountFilters).find(
+        (filters) => filters?.accountLastFour === transaction.account_last_four,
+      );
   const fallbackIssuer = transaction.issuer
     .replace(/\s*-\s*Cards$/i, "")
     .replace(/\s+Online$/i, "")
@@ -93,22 +94,28 @@ export function accountSelectorOptions(
   );
 }
 
-export function transactionsForAccount(
-  transactions: CreditCardTransaction[],
+export function transactionsForAccount<T extends Pick<
+  CreditCardTransaction,
+  "issuer" | "account_last_four" | "account_key"
+>>(
+  transactions: T[],
   accountKey: SnapshotAccountKey,
-) {
+): T[] {
   const filters = transactionAccountFilters[accountKey];
   if (!filters) return [];
   return transactions.filter(
     (transaction) =>
-      transaction.issuer === filters.issuer &&
-      transaction.account_last_four === filters.accountLastFour,
+      transaction.account_key === accountKey ||
+      (!transaction.account_key &&
+        transaction.issuer === filters.issuer &&
+        transaction.account_last_four === filters.accountLastFour),
   );
 }
 
 export function accountKeyForTransaction(
   transaction: PendingCardTransaction,
 ): SnapshotAccountKey | null {
+  if (transaction.account_key) return transaction.account_key;
   for (const [accountKey, filters] of Object.entries(transactionAccountFilters)) {
     if (
       filters &&

@@ -68,6 +68,27 @@ describe("credit-card account transaction filters", () => {
     ).toHaveLength(1);
   });
 
+  it("keeps replacement card transactions in the same account row", () => {
+    const replacement = cardTransaction({
+      issuer: "Barclays - Cards",
+      account_last_four: "5161",
+      account_key: "barclays_card",
+    });
+    const previous = cardTransaction({
+      issuer: "Barclays - Cards",
+      account_last_four: "2028",
+      account_key: "barclays_card",
+    });
+    expect(transactionsForAccount([replacement, previous], "barclays_card"))
+      .toHaveLength(2);
+    expect(accountKeyForTransaction(replacement)).toBe("barclays_card");
+    expect(accountSelectorLabel(replacement)).toBe(
+      "Barclaycard · Credit card •••• 5161",
+    );
+    expect(importedPendingLiabilityTotals({ summaryTransactions: [replacement] })
+      .get("barclays_card")).toBe(38.94);
+  });
+
   it("uses dashboard pending summaries before an account register is loaded", () => {
     const totals = importedPendingLiabilityTotals({
       summaryTransactions: [

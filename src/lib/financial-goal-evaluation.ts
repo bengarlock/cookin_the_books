@@ -144,6 +144,7 @@ function compare(actual: number, operator: FinancialGoalCondition["operator"], t
 function selectedAccountKeys(
   goal: FinancialGoalInput,
   snapshot: BankValueSnapshot | null,
+  transactions: TransactionSelectorRecord[],
 ) {
   const selectedLastFour = new Set(
     goal.scope_conditions
@@ -166,6 +167,11 @@ function selectedAccountKeys(
   const keys = Object.entries(transactionAccountFilters)
     .filter(([, filter]) => filter && selectedLastFour.has(filter.accountLastFour))
     .map(([key]) => key as SnapshotAccountKey);
+  keys.push(...transactions
+    .filter((transaction) =>
+      selectedLastFour.has(transaction.account_last_four) && Boolean(transaction.account_key),
+    )
+    .map((transaction) => transaction.account_key as SnapshotAccountKey));
   if (keys.includes("citi_current")) keys.push("citi_pending");
   return Array.from(new Set(keys));
 }
@@ -175,6 +181,7 @@ function selectedBalances(
   snapshot: BankValueSnapshot | null,
   pendingTransactions: PendingTransaction[],
   pendingCardTransactions: PendingCardTransaction[],
+  transactions: TransactionSelectorRecord[],
 ) {
   const { adjustedValue, pendingValue, postedValue } =
     calculateAdjustedAccountBalances({
@@ -202,7 +209,7 @@ function selectedBalances(
     }
     return adjustedValue(key);
   };
-  const keys = selectedAccountKeys(goal, snapshot);
+  const keys = selectedAccountKeys(goal, snapshot, transactions);
   return {
     all: keys.reduce((total, key) => total + valueForKey(key), 0),
     liabilities: keys
@@ -267,6 +274,7 @@ export function evaluateFinancialGoal({
     snapshot,
     pendingTransactions,
     pendingCardTransactions,
+    transactions,
   );
   const balance = balances.all;
 
