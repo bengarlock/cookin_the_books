@@ -2,6 +2,7 @@ export type SnapshotAccountKey =
   | "chase_checking"
   | "chase_savings"
   | "chase_credit"
+  | "chase_credit_8506"
   | "citi_current"
   | "citi_pending"
   | "barclays_card"
@@ -25,6 +26,7 @@ export type BankValueSnapshot = {
   chase_checking: string;
   chase_savings: string;
   chase_credit: string;
+  chase_credit_8506: string;
   citi_current: string;
   citi_pending: string;
   barclays_card: string;

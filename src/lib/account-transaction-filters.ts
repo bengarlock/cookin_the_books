@@ -34,6 +34,12 @@ export const transactionAccountFilters: Partial<
     selectorLabel: "Chase Mastercard · Credit card",
     includeUnbudgeted: true,
   },
+  chase_credit_8506: {
+    issuer: "Chase",
+    accountLastFour: "8506",
+    selectorLabel: "Chase Credit Card · Credit card",
+    includeUnbudgeted: true,
+  },
   citi_current: {
     issuer: "Citibank Online",
     accountLastFour: "4596",

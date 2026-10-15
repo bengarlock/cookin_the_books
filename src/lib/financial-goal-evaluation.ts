@@ -23,6 +23,7 @@ const snapshotAccountKeys: SnapshotAccountKey[] = [
   "chase_checking",
   "chase_savings",
   "chase_credit",
+  "chase_credit_8506",
   "citi_current",
   "citi_pending",
   "barclays_card",

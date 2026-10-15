@@ -33,6 +33,7 @@ import type { FinancialReminder } from "./financial-reminder-types";
 
 const LIABILITY_ACCOUNTS: SnapshotAccountKey[] = [
   "chase_credit",
+  "chase_credit_8506",
   "citi_current",
   "citi_pending",
   "barclays_card",
@@ -55,6 +56,7 @@ const LIABILITY_LABELS: Record<SnapshotAccountKey, string> = {
   chase_checking: "Chase Checking",
   chase_savings: "Chase Savings",
   chase_credit: "Chase Mastercard",
+  chase_credit_8506: "Chase Credit Card •••• 8506",
   citi_current: "Citi Card — Current",
   citi_pending: "Citi Card — Pending",
   barclays_card: "Barclaycard",
