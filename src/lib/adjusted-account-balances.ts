@@ -8,6 +8,7 @@ import type { BankValueSnapshot, SnapshotAccountKey } from "./snapshot-types";
 
 export const liabilityAccountKeys = new Set<SnapshotAccountKey>([
   "chase_credit",
+  "chase_credit_8506",
   "citi_current",
   "citi_pending",
   "barclays_card",

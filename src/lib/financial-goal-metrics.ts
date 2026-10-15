@@ -5,7 +5,7 @@ import type { BankValueSnapshot, SnapshotAccountKey } from "./snapshot-types";
 
 const DAY = 24 * 60 * 60 * 1000;
 const LIABILITY_ACCOUNTS: SnapshotAccountKey[] = [
-  "chase_credit", "citi_current", "citi_pending", "barclays_card",
+  "chase_credit", "chase_credit_8506", "citi_current", "citi_pending", "barclays_card",
 ];
 
 function dayNumber(value: string) {

@@ -76,6 +76,7 @@ const accounts: Array<{
   { key: "chase_checking", label: "Chase Checking", category: "Cash" },
   { key: "chase_savings", label: "Chase Savings", category: "Cash" },
   { key: "chase_credit", label: "Chase Mastercard", category: "Liability" },
+  { key: "chase_credit_8506", label: "Chase Credit Card •••• 8506", category: "Liability" },
   { key: "citi_current", label: "Citi Card — Current", category: "Liability" },
   { key: "citi_pending", label: "Citi Card — Pending", category: "Pending" },
   { key: "barclays_card", label: "Barclaycard", category: "Liability" },
@@ -104,6 +105,7 @@ const accounts: Array<{
 
 const liabilityAccounts = new Set<SnapshotAccountKey>([
   "chase_credit",
+  "chase_credit_8506",
   "citi_current",
   "citi_pending",
   "barclays_card",
@@ -135,7 +137,7 @@ function initialAccountTransactionState(
   if (!transactions.length) return {};
 
   const state: AccountTransactionState = {};
-  for (const accountKey of ["chase_credit", "citi_current", "barclays_card"] as const) {
+  for (const accountKey of ["chase_credit", "chase_credit_8506", "citi_current", "barclays_card"] as const) {
     state[accountKey] = {
       isLoading: false,
       error: "",
@@ -159,9 +161,10 @@ const accountSections: Array<{
   {
     title: "Liability accounts",
     description: "Credit-card balances and pending charges",
-    keys: ["chase_credit", "citi_current", "barclays_card"],
+    keys: ["chase_credit", "chase_credit_8506", "citi_current", "barclays_card"],
     totalKeys: [
       "chase_credit",
+      "chase_credit_8506",
       "citi_current",
       "citi_pending",
       "barclays_card",
@@ -2064,6 +2067,7 @@ export function LiveBankValues({
     const savingsReserve = getSavingsReservePosition(chaseSavings);
     const creditCardBalance =
       adjustedValue("chase_credit") +
+      adjustedValue("chase_credit_8506") +
       adjustedValue("citi_current") +
       adjustedValue("citi_pending") +
       adjustedValue("barclays_card");
@@ -2948,6 +2952,7 @@ export function LiveBankValues({
                     !liabilityAccounts.has(account.key) && adjusted < 0;
                   const compactLiability =
                     account.key === "chase_credit" ||
+                    account.key === "chase_credit_8506" ||
                     account.key === "barclays_card";
                   const liabilitySettled = calculations.settledAccounts.has(
                     account.key,

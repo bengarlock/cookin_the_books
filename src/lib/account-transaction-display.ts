@@ -8,6 +8,7 @@ const cashAccounts = new Set<SnapshotAccountKey>([
 
 const liabilityAccounts = new Set<SnapshotAccountKey>([
   "chase_credit",
+  "chase_credit_8506",
   "citi_current",
   "citi_pending",
   "barclays_card",

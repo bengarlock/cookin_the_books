@@ -53,6 +53,7 @@ const accountDefinitions: Array<{
   { key: "chase_checking", label: "Chase Checking" },
   { key: "chase_savings", label: "Chase Savings" },
   { key: "chase_credit", label: "Chase Mastercard", liability: true },
+  { key: "chase_credit_8506", label: "Chase Credit Card •••• 8506", liability: true },
   { key: "citi_current", label: "Citi Card - Current", liability: true },
   { key: "citi_pending", label: "Citi Card - Pending", liability: true },
   { key: "barclays_card", label: "Barclaycard", liability: true },
@@ -125,6 +126,7 @@ function adjustedBalancesFromSnapshot(
       );
     } else if (
       transaction.account === "chase_credit" ||
+      transaction.account === "chase_credit_8506" ||
       transaction.account === "citi_current" ||
       transaction.account === "citi_pending" ||
       transaction.account === "barclays_card"
@@ -158,6 +160,7 @@ function adjustedBalancesFromSnapshot(
   }
   for (const key of [
     "chase_credit",
+    "chase_credit_8506",
     "citi_current",
     "citi_pending",
     "barclays_card",
