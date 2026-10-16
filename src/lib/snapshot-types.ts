@@ -50,6 +50,7 @@ export type BankValueSnapshot = {
   notes: string;
   metadata: Record<string, unknown>;
   account_balances?: SnapshotAccountBalance[];
+  archived_account_keys?: SnapshotAccountKey[];
   is_editable: boolean;
   created_at: string;
   updated_at: string;

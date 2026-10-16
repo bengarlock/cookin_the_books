@@ -2830,6 +2830,10 @@ export function LiveBankValues({
                   )}
                 </div>
                 {section.keys.map((accountKey) => {
+                  if (snapshot?.archived_account_keys?.includes(accountKey)) {
+                    return null;
+                  }
+
                   const account = accounts.find(
                     (item) => item.key === accountKey,
                   );
@@ -3152,14 +3156,19 @@ export function LiveBankValues({
                     }`}
                   >
                     {formatCurrency(
-                      (section.totalKeys || section.keys).reduce(
-                        (total, key) =>
-                          total +
-                          (section.title === "Investments & retirement"
-                            ? valueFromSnapshot(snapshot, key)
-                            : calculations.adjustedValue(key)),
-                        0,
-                      ),
+                      (section.totalKeys || section.keys)
+                        .filter(
+                          (key) =>
+                            !snapshot?.archived_account_keys?.includes(key),
+                        )
+                        .reduce(
+                          (total, key) =>
+                            total +
+                            (section.title === "Investments & retirement"
+                              ? valueFromSnapshot(snapshot, key)
+                              : calculations.adjustedValue(key)),
+                          0,
+                        ),
                     )}
                   </span>
                 </div>
