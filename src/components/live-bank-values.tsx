@@ -2129,6 +2129,17 @@ export function LiveBankValues({
     view,
   ]);
 
+  const visibleAccountSections = useMemo(() => {
+    const archivedKeys = new Set(snapshot?.archived_account_keys || []);
+    return accountSections
+      .map((section) => ({
+        ...section,
+        keys: section.keys.filter((key) => !archivedKeys.has(key)),
+        totalKeys: section.totalKeys?.filter((key) => !archivedKeys.has(key)),
+      }))
+      .filter((section) => section.keys.length);
+  }, [snapshot?.archived_account_keys]);
+
   function beginBudgetOffsetEdit() {
     setBudgetOffsetDraft(budgetOffset.toFixed(2));
     setBudgetOffsetError("");
@@ -2783,7 +2794,7 @@ export function LiveBankValues({
             ) : null}
           </div>
           <div className="grid gap-5">
-              {accountSections.map((section) => (
+              {visibleAccountSections.map((section) => (
                 <section
                   key={section.title}
                   className="surface flex flex-col overflow-hidden rounded-2xl"
