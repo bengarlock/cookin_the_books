@@ -46,6 +46,7 @@ export type BankValueSnapshot = {
   last_highpoint_net_assets: string;
   loss_since_highpoint: string;
   loss_since_highpoint_percentage: string;
+  archived_account_keys?: SnapshotAccountKey[];
   notes: string;
   metadata: Record<string, unknown>;
   account_balances?: SnapshotAccountBalance[];
