@@ -10,6 +10,7 @@ const settingsLinks = [
   { href: "/dashboard/settings/receipts", label: "Receipts" },
   { href: "/dashboard/settings/categories", label: "Categories" },
   { href: "/dashboard/settings/connected-accounts", label: "Connected accounts" },
+  { href: "/dashboard/settings/account-links", label: "Account links" },
   { href: "/dashboard/settings/sync-activity", label: "Sync activity" },
 ];
 

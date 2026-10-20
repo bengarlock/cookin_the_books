@@ -1,4 +1,7 @@
+import type { AccountLoginUrls } from "./account-links";
+
 export type BudgetPlanSettings = {
+  account_login_urls?: AccountLoginUrls;
   budget_offset: string;
   next_payday_override: string | null;
   overview_tile_order?: string[];
