@@ -71,3 +71,9 @@ export function accountLoginUrl(key: SnapshotAccountKey, overrides: AccountLogin
     return null;
   }
 }
+
+export type AccountDisplayNames = Partial<Record<SnapshotAccountKey, string>>;
+
+export function accountDisplayName(key: SnapshotAccountKey, names: AccountDisplayNames = {}) {
+  return names[key]?.trim() || accountLinkAccounts.find((account) => account.key === key)?.label || key;
+}

@@ -53,7 +53,8 @@ import type { PendingTransaction } from "@/lib/pending-transaction-types";
 import { AmazonOrderDetails } from "@/components/amazon-order-details";
 import { ReceiptOrderDetails } from "@/components/receipt-order-details";
 import {
-  accountLinkAccounts as accounts,
+  accountLinkAccounts,
+  accountDisplayName,
   accountLoginUrl,
   type AccountLoginUrls,
 } from "@/lib/account-links";
@@ -1917,6 +1918,13 @@ export function LiveBankValues({
     budgetData?.setPendingTransactions ?? setLocalPendingTransactions;
   const budgetPlanSettings =
     budgetData?.budgetPlanSettings ?? initialBudgetPlanSettings;
+  const accounts = useMemo(
+    () => accountLinkAccounts.map((account) => ({
+      ...account,
+      label: accountDisplayName(account.key, budgetPlanSettings?.account_display_names),
+    })),
+    [budgetPlanSettings?.account_display_names],
+  );
   const [expenseTags, setExpenseTags] = useState(initialExpenseTags);
 
   useEffect(() => {
@@ -2072,6 +2080,7 @@ export function LiveBankValues({
         })),
     };
   }, [
+    accounts,
     accountTransactions,
     budgetOffset,
     initialPendingCardTransactions,
@@ -2707,7 +2716,7 @@ export function LiveBankValues({
                         Savings reserve shortfall
                       </p>
                       <p className="savings-reserve-alert-copy mt-2 text-sm leading-6 text-amber-50/80">
-                        Chase Savings is{" "}
+                        {accountDisplayName("chase_savings", budgetPlanSettings.account_display_names)} is{" "}
                         <span className="savings-reserve-alert-value font-semibold text-amber-50">
                           {formatCurrency(
                             calculations.savingsReserve.restorationNeeded,
@@ -2788,6 +2797,7 @@ export function LiveBankValues({
                   if (!account) return null;
 
                   if (account.key === "citi_current") {
+                const citiLabel = budgetPlanSettings.account_display_names?.citi_current?.trim() || "Citi Card";
                 const currentPosted = valueFromSnapshot(snapshot, "citi_current");
                 const pendingPosted = valueFromSnapshot(snapshot, "citi_pending");
                 const currentManual =
@@ -2818,20 +2828,20 @@ export function LiveBankValues({
                     <div className="min-w-0">
                       <div className="flex min-w-0 items-center gap-2">
                         <AccountTransactionToggle
-                          accountLabel="Citi Card"
+                          accountLabel={citiLabel}
                           isExpanded={citiExpanded}
                           onClick={() => toggleAccountTransactions("citi_current")}
                         />
                         <span
                           className="min-w-0 flex-1 truncate text-sm text-white/75"
-                          title="Citi Card"
+                          title={citiLabel}
                         >
-                          Citi Card
+                          {citiLabel}
                         </span>
                         <AccountLoginLink
                           urls={budgetPlanSettings?.account_login_urls}
                           accountKey="citi_current"
-                          label="Citi Card"
+                          label={citiLabel}
                         />
                         <PaidActionButton
                           disabled={
@@ -2839,8 +2849,8 @@ export function LiveBankValues({
                           }
                           label={
                             citiSettled
-                              ? "Citi Card is paid pending clearance"
-                              : "Mark Citi Card paid"
+                              ? `${citiLabel} is paid pending clearance`
+                              : `Mark ${citiLabel} paid`
                           }
                           onClick={() =>
                             markLiabilityPaid({
@@ -2878,7 +2888,7 @@ export function LiveBankValues({
                     {citiExpanded ? (
                       <AccountTransactionList
                         accountKey="citi_current"
-                        accountLabel="Citi Card"
+                        accountLabel={citiLabel}
                         categories={expenseCategories}
                         confirmingDeleteId={confirmingDeleteId}
                         deletingId={deletingId}
@@ -2976,7 +2986,7 @@ export function LiveBankValues({
                                 copiedAdjustedAccount === "chase_checking"
                               }
                               disabled={!snapshot}
-                              label="Copy Chase Checking adjusted total minus $500"
+                              label={`Copy ${account.label} adjusted total minus $500`}
                               onClick={() =>
                                 copyAdjustedReserveValue(account.key, adjusted - 500)
                               }
@@ -2988,7 +2998,7 @@ export function LiveBankValues({
                                 copiedAdjustedAccount === "chase_savings"
                               }
                               disabled={!snapshot}
-                              label="Copy $30,000 minus Chase Savings adjusted total"
+                              label={`Copy $30,000 minus ${account.label} adjusted total`}
                               onClick={() =>
                                 copyAdjustedReserveValue(account.key, 30_000 - adjusted)
                               }
