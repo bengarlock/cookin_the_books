@@ -35,32 +35,10 @@ export const accountLinkAccounts: Array<{
   },
 ];
 
-export const defaultAccountLoginUrls: Partial<
-  Record<SnapshotAccountKey, string>
-> = {
-  chase_checking:
-    "https://secure.chase.com/web/auth/dashboard#/dashboard/overview",
-  chase_savings:
-    "https://secure.chase.com/web/auth/dashboard#/dashboard/overview",
-  chase_credit:
-    "https://secure.chase.com/web/auth/dashboard#/dashboard/overview",
-  chase_credit_8506:
-    "https://secure.chase.com/web/auth/dashboard#/dashboard/overview",
-  citi_current: "https://online.citi.com/US/ag/dashboard/credit-card",
-  barclays_card:
-    "https://www.barclaycardus.com/servicing/accountSummaryOnLogin",
-  etrade: "https://us.etrade.com/etx/pxy/portfolios/positions",
-  betterment_general: "https://wwws.betterment.com/app",
-  betterment_safety: "https://wwws.betterment.com/app",
-  betterment_retirement: "https://wwws.betterment.com/app",
-  fidelity_retirement:
-    "https://workplaceservices.fidelity.com/mybenefits/navstation/navigation#/",
-};
-
 export type AccountLoginUrls = Partial<Record<SnapshotAccountKey, string>>;
 
 export function accountLoginUrl(key: SnapshotAccountKey, overrides: AccountLoginUrls = {}) {
-  const value = overrides[key] ?? defaultAccountLoginUrls[key];
+  const value = overrides[key]?.trim();
   if (!value) return null;
   try {
     const url = new URL(value);

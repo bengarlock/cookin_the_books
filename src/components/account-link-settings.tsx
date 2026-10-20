@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { useOptionalBudgetData } from "@/components/budget-data-provider";
 import {
   accountLinkAccounts,
-  defaultAccountLoginUrls,
   type AccountDisplayNames,
   type AccountLoginUrls,
 } from "@/lib/account-links";
@@ -75,7 +74,7 @@ export function AccountLinkSettings({ initialSettings }: { initialSettings: Budg
       <h2 className="text-lg font-semibold text-white">Account names &amp; links</h2>
       <p className="mt-2 max-w-2xl text-sm text-muted">
         Choose a display name and bank portal URL for each account. Your preferences are saved across devices.
-        Leave a field blank or use Reset to restore its default.
+        Leave a display name blank to use its default. Leave a URL blank to hide the account’s bank portal button.
       </p>
       <form className="mt-6 space-y-5" onSubmit={save}>
         <fieldset className="space-y-6 disabled:opacity-60" disabled={isSaving}>
@@ -126,19 +125,19 @@ export function AccountLinkSettings({ initialSettings }: { initialSettings: Budg
                       setUrls((current) => ({ ...current, [account.key]: event.target.value }));
                       clearFeedback();
                     }}
-                    placeholder={defaultAccountLoginUrls[account.key] ?? "https://example.com"}
+                    placeholder="https://example.com"
                     type="url"
                     value={urls[account.key] ?? ""}
                   />
                   <button
-                    aria-label={`Reset ${account.label} link`}
+                    aria-label={`Clear ${account.label} link`}
                     className={resetClass}
                     onClick={() => {
                       setUrls((current) => { const next = { ...current }; delete next[account.key]; return next; });
                       clearFeedback();
                     }}
                     type="button"
-                  >Reset</button>
+                  >Clear</button>
                 </div>
               </div>
             </div>
