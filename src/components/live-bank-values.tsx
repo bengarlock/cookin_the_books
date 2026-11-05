@@ -2228,15 +2228,15 @@ export function LiveBankValues({
           grossAssets={calculations.grossAssets}
           netAssets={calculations.netAssets}
           budgetOffset={budgetOffset}
-          attentionCount={calculations.overdrawnAccounts.length + (calculations.savingsReserve.variance < 0 ? 1 : 0) + initialFinancialReminders.filter(r => r.is_enabled !== false && r.active_on_homepage).length}
+          attentionCount={(snapshot ? calculations.overdrawnAccounts.length + (calculations.savingsReserve.variance < 0 ? 1 : 0) : 0) + initialFinancialReminders.filter(r => r.is_enabled !== false && r.active_on_homepage).length}
           attention={<>
-            {calculations.overdrawnAccounts.map(account => (
+            {(snapshot ? calculations.overdrawnAccounts : []).map(account => (
               <div className="overview-attention-item is-overdrawn" role="alert" key={account.key}>
                 <div><h3>Overdrawn account</h3><p>{account.label}: {formatCurrency(account.adjustedBalance)} adjusted balance.</p></div>
                 <Link href="/dashboard/accounts">Review account →</Link>
               </div>
             ))}
-            {calculations.savingsReserve.variance < 0 ? (
+            {snapshot && calculations.savingsReserve.variance < 0 ? (
               <div className="overview-attention-item" role="alert">
                 <div><h3>Savings reserve shortfall</h3><p><strong>{formatCurrency(calculations.savingsReserve.restorationNeeded)}</strong> below the {formatCurrency(calculations.savingsReserve.target)} target.</p><p>{accountDisplayName("chase_savings", budgetPlanSettings.account_display_names)} · Adjusted balance {formatCurrency(calculations.adjustedValue("chase_savings"))}</p></div>
                 <Link href="/dashboard/accounts">Review account →</Link>

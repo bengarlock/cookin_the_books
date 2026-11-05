@@ -56,7 +56,8 @@ function GoalBrief({ goal, context }: { goal: FinancialGoal; context: GoalContex
   const lowerBound = target && ["greater_than", "greater_than_or_equal"].includes(target.operator);
   const cap = target && ["less_than", "less_than_or_equal"].includes(target.operator) && Number(target.value) > 0;
   const progress = cap && target.actual !== null ? Math.max(0, Math.min(100, target.actual / Number(target.value) * 100)) : null;
-  const primary = metrics.filter(m => m.metric === "remaining_budget" || m.metric === "daily_spending_limit");
+  const primary = metrics.filter(m => (m.metric === "remaining_budget" && !lowerBound) || m.metric === "daily_spending_limit")
+    .sort((left, right) => Number(left.metric === "daily_spending_limit") - Number(right.metric === "daily_spending_limit"));
   const secondary = metrics.filter(m => !primary.includes(m)
     && !(context.snapshot && cap && m.metric === "total_budget")
     && !(context.snapshot && cap && m.metric === "total_credit_card_spend" && m.value !== null && target.actual !== null && Math.abs(m.value - target.actual) < .005));
@@ -76,13 +77,14 @@ function GoalBrief({ goal, context }: { goal: FinancialGoal; context: GoalContex
         <div><h2>{goal.name}</h2>{period ? <p className="overview-brief-muted overview-brief-caption">{period}</p> : null}</div>
         <span className={`overview-goal-status ${goal.is_active && evaluation.met ? "is-met" : ""}`}>{context.snapshot ? status : "Awaiting snapshot"}</span>
       </header>
+      {lowerBound && target.actual !== null ? <dl className="overview-goal-primary"><div><dt>Current balance</dt><dd>{context.snapshot ? overviewCurrency(target.actual) : "—"}</dd></div></dl> : null}
       {primary.length ? <dl className="overview-goal-primary">{primary.map(m => (
         <div key={m.metric}><dt>{metricLabel(m.metric)}</dt><dd className={m.metric === "daily_spending_limit" ? "overview-goal-daily" : ""}>{value(m.metric, m.value)}</dd></div>
       ))}</dl> : null}
       {context.snapshot && target?.actual != null ? (
         <div className="overview-goal-condition">
           {progress !== null ? <div className="overview-budget-track" role="progressbar" aria-label={`${goal.name}: ${target.field === "spending" ? "spending" : "balance"} against cap`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} aria-valuetext={`${overviewCurrency(target.actual)} of ${overviewCurrency(target.value)} cap`}><span style={{ width: `${progress}%` }} /></div> : null}
-          <div className="overview-brief-line"><span>{overviewCurrency(target.actual)} {target.field === "spending" ? "spent" : "current balance"}</span><span className="overview-brief-muted">{cap ? "Cap" : "Target"}: {target.operator === "greater_than" ? "> " : target.operator === "greater_than_or_equal" ? "≥ " : target.operator === "equals" ? "= " : target.operator === "not_equals" ? "≠ " : target.operator === "less_than" ? "< " : "≤ "}{overviewCurrency(target.value)}</span></div>
+          <div className="overview-brief-line">{!lowerBound ? <span>{overviewCurrency(target.actual)} {target.field === "spending" ? "spent" : "current balance"}</span> : null}<span className="overview-brief-muted">{cap ? "Cap" : "Target"}: {target.operator === "greater_than" ? "> " : target.operator === "greater_than_or_equal" ? "≥ " : target.operator === "equals" ? "= " : target.operator === "not_equals" ? "≠ " : target.operator === "less_than" ? "< " : "≤ "}{overviewCurrency(target.value)}</span></div>
         </div>
       ) : null}
       {secondary.length ? <dl className="overview-goal-secondary">{secondary.map(m => <div key={m.metric}><dt>{metricLabel(m.metric)}</dt><dd>{value(m.metric, m.value)}</dd></div>)}</dl> : null}
