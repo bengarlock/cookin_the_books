@@ -7,9 +7,8 @@ export type DashboardPageHeader = {
 export const dashboardPageHeaders: Record<string, DashboardPageHeader> = {
   "/dashboard": {
     eyebrow: "Overview",
-    title: "Financial operations at a glance",
-    description:
-      "Portfolio snapshots, trends, and financial utilities around one trusted backend.",
+    title: "Overview",
+    description: "Your financial picture today.",
   },
   "/dashboard/accounts": {
     eyebrow: "Accounts",

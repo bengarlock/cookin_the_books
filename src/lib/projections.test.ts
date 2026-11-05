@@ -105,6 +105,7 @@ function snapshot(
     chase_checking: "2500.00",
     chase_savings: "30000.00",
     chase_credit: "400.00",
+    chase_credit_8506: "0.00",
     citi_current: "600.00",
     citi_pending: "100.00",
     barclays_card: "0.00",
