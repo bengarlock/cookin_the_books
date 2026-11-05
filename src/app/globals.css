@@ -31,7 +31,7 @@
 .overview-balance-sheet dd { font-variant-numeric: tabular-nums; }
 .overview-balance-total { border-top: 1px solid var(--line); padding-top: 14px; font-weight: 600; }
 .overview-balance-total dt { color: var(--foreground); }
-.overview-brief-goals { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.overview-brief-goals { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 24px; align-items: stretch; }
 .overview-brief-goals > :only-child { grid-column: 1 / -1; }
 .overview-brief-section-heading { display: flex; align-items: start; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
 .overview-goal-status { font-size: .75rem; color: var(--muted); }
