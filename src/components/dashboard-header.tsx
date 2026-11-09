@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
 import { APP_BASE_PATH } from "@/lib/config";
@@ -14,29 +14,12 @@ import {
   type SnapshotFreshness,
 } from "@/lib/snapshot-freshness";
 
-type PlaidQueuedSync = {
-  connection_id: number;
-  institution_name: string;
-  task_id: string;
-};
-
-type PlaidSyncTaskStatus = {
-  task_id: string;
-  state: string;
-  ready: boolean;
-  successful: boolean;
-  failed: boolean;
-  result?: {
-    created_count?: number;
-    updated_count?: number;
-    removed_count?: number;
-    balance_updated_count?: number;
-    transactions_refresh_status?: string;
-    transactions_refresh_error?: string;
-    transactions_refresh_error_code?: string;
-  } | null;
-  error?: string;
-};
+import {
+  accountRefreshSummary,
+  waitForAccountRefresh,
+  type PlaidQueuedSync,
+  type PlaidSyncTaskStatus,
+} from "@/lib/account-refresh";
 
 function normalizeDashboardPath(pathname: string) {
   const withoutBase = pathname.startsWith(APP_BASE_PATH)
@@ -154,10 +137,11 @@ export function DashboardHeader({
 } = {}) {
   const currentPathname = usePathname();
   const pathname = pathnameOverride ?? currentPathname;
-  const router = useRouter();
-  const { snapshot, setSnapshot } = useLiveSnapshot();
+  const { snapshot, refreshView, isUpdatingView, viewRefreshError } = useLiveSnapshot();
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const refreshInFlight = useRef(false);
+  const [refreshProgress, setRefreshProgress] = useState("");
   const [refreshError, setRefreshError] = useState("");
   const [refreshMessage, setRefreshMessage] = useState("");
   const header = getDashboardPageHeader(normalizeDashboardPath(pathname));
@@ -168,30 +152,14 @@ export function DashboardHeader({
   }, []);
 
   useEffect(() => {
-    if (isRefreshing || refreshError || !refreshMessage) return;
+    if (isRefreshing || isUpdatingView || refreshError || !refreshMessage) return;
 
     const clearStatus = window.setTimeout(() => {
       setRefreshMessage("");
-    }, 5_000);
+    }, 15_000);
 
     return () => window.clearTimeout(clearStatus);
-  }, [isRefreshing, refreshError, refreshMessage]);
-
-  async function fetchLatestSnapshot() {
-    const response = await fetch(`${APP_BASE_PATH}/api/snapshots/latest`, {
-      cache: "no-store",
-    });
-    const data = (await response.json().catch(() => null)) as
-      | BankValueSnapshot
-      | { message?: string; detail?: string }
-      | null;
-    if (!response.ok) {
-      throw new Error(
-        readableErrorMessage(data, "Latest account data could not be loaded."),
-      );
-    }
-    return data && "id" in data ? data : null;
-  }
+  }, [isRefreshing, isUpdatingView, refreshError, refreshMessage]);
 
   async function fetchPlaidSyncTaskStatuses(taskIds: string[]) {
     const response = await fetch(`${APP_BASE_PATH}/api/plaid/connections/sync-status`, {
@@ -210,67 +178,11 @@ export function DashboardHeader({
     return data?.tasks || [];
   }
 
-  async function waitForPlaidSyncJobs(queued: PlaidQueuedSync[]) {
-    const taskIds = queued.map((item) => item.task_id).filter(Boolean);
-    if (!taskIds.length) return [] as PlaidSyncTaskStatus[];
-
-    for (let attempt = 0; attempt < 60; attempt += 1) {
-      const statuses = await fetchPlaidSyncTaskStatuses(taskIds);
-      if (statuses.length && statuses.every((task) => task.ready)) {
-        return statuses;
-      }
-      await new Promise((resolve) => window.setTimeout(resolve, 2_000));
-    }
-
-    throw new Error(
-      "Plaid sync is still running in the background. Check Data current again shortly.",
-    );
-  }
-
-  function summarizePlaidSyncStatus(
-    queued: PlaidQueuedSync[],
-    statuses: PlaidSyncTaskStatus[],
-  ) {
-    const queuedByTaskId = new Map(queued.map((item) => [item.task_id, item]));
-    const failedTasks = statuses.filter((task) => task.failed);
-    if (failedTasks.length) {
-      const institutions = failedTasks
-        .map((task) => queuedByTaskId.get(task.task_id)?.institution_name || task.task_id)
-        .join(", ");
-      throw new Error(`Plaid sync failed for: ${institutions}.`);
-    }
-
-    const totals = statuses.reduce(
-      (summary, task) => {
-        const result = task.result || {};
-        return {
-          created: summary.created + (result.created_count || 0),
-          updated: summary.updated + (result.updated_count || 0),
-          removed: summary.removed + (result.removed_count || 0),
-          balances: summary.balances + (result.balance_updated_count || 0),
-        };
-      },
-      { created: 0, updated: 0, removed: 0, balances: 0 },
-    );
-    const refreshWarnings = statuses
-      .filter((task) => task.result?.transactions_refresh_status === "failed")
-      .map((task) => queuedByTaskId.get(task.task_id)?.institution_name || task.task_id);
-    const activity = [
-      totals.created ? `${totals.created} new` : "",
-      totals.updated ? `${totals.updated} updated` : "",
-      totals.removed ? `${totals.removed} removed` : "",
-      totals.balances ? `${totals.balances} balance refreshes` : "",
-    ].filter(Boolean);
-    const base = activity.length
-      ? `Plaid sync complete: ${activity.join(", ")}.`
-      : "Plaid sync complete. No new account changes were returned.";
-    return refreshWarnings.length
-      ? `${base} Refresh request timed out for ${refreshWarnings.join(", ")}, but normal sync completed.`
-      : base;
-  }
-
   async function refreshAccountData() {
+    if (refreshInFlight.current || isUpdatingView) return;
+    refreshInFlight.current = true;
     setIsRefreshing(true);
+    setRefreshProgress("Requesting account updates…");
     setRefreshError("");
     setRefreshMessage("");
     try {
@@ -289,14 +201,12 @@ export function DashboardHeader({
         );
       }
       const queued = data?.queued || [];
-      const statuses = await waitForPlaidSyncJobs(queued);
-      const summary = summarizePlaidSyncStatus(queued, statuses);
-      const latestSnapshot = await fetchLatestSnapshot();
-      const nextSnapshot = latestSnapshot || data?.snapshot;
-      if (nextSnapshot) {
-        setSnapshot(nextSnapshot);
-        setCurrentDate(new Date());
-      }
+      const statuses = await waitForAccountRefresh(queued, fetchPlaidSyncTaskStatuses, setRefreshProgress);
+      const summary = accountRefreshSummary(queued, statuses);
+      setRefreshProgress("Updating account view…");
+      await refreshView();
+      setCurrentDate(new Date());
+      const taskWarnings = statuses.some((task) => task.failed || task.result?.transactions_refresh_status === "failed");
       if (data?.errors?.length) {
         const institutions = data.errors
           .map((error) => error.institution_name || error.detail)
@@ -307,10 +217,11 @@ export function DashboardHeader({
             ? `Some connections could not refresh: ${institutions}.`
             : "Some connections could not refresh.",
         );
+      } else if (taskWarnings) {
+        setRefreshError(summary);
       } else {
         setRefreshMessage(summary);
       }
-      router.refresh();
     } catch (error) {
       setRefreshMessage("");
       setRefreshError(
@@ -318,14 +229,17 @@ export function DashboardHeader({
           ? error.message
           : "Account data could not be refreshed.",
       );
+      // Even partial or timed-out syncs may have changed transactions.
+      await refreshView().catch(() => undefined);
     } finally {
+      refreshInFlight.current = false;
       setIsRefreshing(false);
     }
   }
 
   return (
-    <header className="dashboard-header relative h-[9.5rem] shrink-0 border-b border-white/10 bg-[#07111f]/70 px-5 backdrop-blur sm:px-8 lg:px-10">
-      <div className="flex h-full min-w-0 max-w-3xl flex-col justify-center pr-32 sm:pr-36">
+    <header className="dashboard-header relative h-48 shrink-0 sm:h-44 border-b border-white/10 bg-[#07111f]/70 px-5 backdrop-blur sm:px-8 lg:px-10">
+      <div className="flex h-[9.5rem] min-w-0 max-w-3xl flex-col justify-center pr-32 sm:pr-36">
         <p className="line-clamp-1 text-xs font-semibold uppercase tracking-[0.24em] text-gold">
           {header.eyebrow}
         </p>
@@ -340,14 +254,18 @@ export function DashboardHeader({
         <div className="flex max-w-[28rem] flex-col items-end gap-2">
           <DataFreshnessIndicator
             currentDate={currentDate}
-            error={refreshError}
-            isRefreshing={isRefreshing}
+            error={refreshError || viewRefreshError}
+            isRefreshing={isRefreshing || isUpdatingView}
             onRefresh={() => void refreshAccountData()}
             statusMessage={refreshMessage}
             updatedAt={snapshot?.source_updated_at}
           />
+
         </div>
       </div>
+      <p role="status" aria-live="polite" className={`absolute inset-x-5 bottom-3 max-h-12 min-h-8 overflow-y-auto text-xs leading-4 sm:inset-x-8 lg:inset-x-10 ${(refreshError || viewRefreshError) ? "text-rose-200" : "text-muted"}`}>
+        {isRefreshing ? refreshProgress : isUpdatingView ? "Updating account view…" : refreshError || viewRefreshError || refreshMessage}
+      </p>
     </header>
   );
 }
