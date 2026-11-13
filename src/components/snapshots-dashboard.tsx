@@ -34,6 +34,7 @@ const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
   notation: "compact",
+  minimumFractionDigits: 0,
   maximumFractionDigits: 1,
 });
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
