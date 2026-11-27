@@ -1,7 +1,6 @@
 # Cookin' the Books
 
-Authenticated Next.js dashboard for financial tools backed by
-`portfolio_database`.
+Personal finance dashboard that reads receipts with the Codex API and tags them onto bank transactions. Next.js, Django REST Framework, PostgreSQL, Plaid.
 
 The app uses:
 
@@ -152,8 +151,35 @@ Next.js to receive the configured base path.
 | `PORTFOLIO_WEBSOCKET_BASE_URL` | Optional Channels/Daphne WebSocket origin; derived from the API URL when omitted |
 | `AUTH_COOKIE_NAME` | Name of the HTTP-only backend-token cookie |
 | `AUTH_COOKIE_MAX_AGE_SECONDS` | Browser cookie lifetime in seconds |
+| `DEMO_USERNAME` / `DEMO_PASSWORD` | Optional demo account credentials; `/cookinthebooks/demo` returns 404 unless both are set |
 
 No production URLs, credentials, or API tokens are committed to the project.
+
+## Public demo
+
+`https://bengarlock.com/cookinthebooks/demo` signs visitors into a demo account
+with generated sample data and drops them on the dashboard. The route handler
+(`src/app/demo/route.ts`) logs in with `DEMO_USERNAME` / `DEMO_PASSWORD` on the
+server, so the credentials never reach the browser. Treat them as public
+anyway: anyone can copy the session token out of their own browser.
+
+The protections live in `portfolio_database`, not here:
+
+- Users in the `demo` group can only reach `/api/v1/cookin_the_books/`. Every
+  other app, the shared `bank-info` table, the server-management websocket,
+  and realtime events reject them.
+- Plaid, the receipt mailbox, file imports and OpenAI categorization are
+  read-only or disabled for demo users, and reminder emails are never sent.
+- `manage.py seed_demo_account` builds the account (it needs
+  `DEMO_ACCOUNT_PASSWORD` the first time), and the Celery beat task
+  `reset_cookin_books_demo_account` rebuilds it nightly, undoing visitor edits.
+
+In this app, `verify-token`'s `is_demo` flag shows the demo banner and disables
+the Plaid and receipt-mailbox controls. A `cookinTheBooksDemo` marker cookie
+sends visitors whose demo session expired back through `/demo` instead of the
+login form. Signing out clears the marker. Visiting `/demo` replaces any real
+session in that browser, because the session cookie is shared across
+`bengarlock.com`.
 
 ## Live snapshot updates
 

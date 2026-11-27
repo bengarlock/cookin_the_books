@@ -11,6 +11,8 @@ export const metadata: Metadata = {
     template: "%s | Cookin' the Books",
   },
   description: "A secure dashboard for personal financial tools.",
+  // A private dashboard (and its public demo) has nothing for search engines.
+  robots: { index: false, follow: false },
 };
 
 const themeScript = `(()=>{try{const t=localStorage.getItem("cookin-the-books-theme");const v=t==="light"?"light":"dark";document.documentElement.dataset.theme=v;document.documentElement.style.colorScheme=v}catch{document.documentElement.dataset.theme="dark"}})()`;

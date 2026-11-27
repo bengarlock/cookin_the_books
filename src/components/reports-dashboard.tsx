@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccountNames } from "@/components/account-names";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { FormEvent } from "react";
 
@@ -83,9 +84,10 @@ export function ReportsDashboard({
   const [saveError, setSaveError] = useState("");
   const [saveButtonState, setSaveButtonState] = useState<"idle" | "saved" | "updated">("idle");
   const saveButtonTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const accountNames = useAccountNames();
   const accounts = useMemo(
-    () => accountSelectorOptions(transactions),
-    [transactions],
+    () => accountSelectorOptions(transactions, { names: accountNames }),
+    [accountNames, transactions],
   );
   const categoryOptions = useMemo(() => {
     const options = new Map(

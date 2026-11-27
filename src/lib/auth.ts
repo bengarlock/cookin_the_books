@@ -17,6 +17,8 @@ export const AUTH_COOKIE_MAX_AGE = Number(
 type VerificationResult = {
   authenticated: boolean;
   invalidToken?: boolean;
+  /** The backend confines demo users; the UI uses this to explain disabled features. */
+  isDemo?: boolean;
 };
 
 export const verifyPortfolioSession = cache(
@@ -48,11 +50,13 @@ export const verifyPortfolioSession = cache(
 
       const data = (await response.json().catch(() => null)) as {
         valid?: boolean;
+        is_demo?: boolean;
       } | null;
 
       return {
         authenticated: data?.valid === true,
         invalidToken: data?.valid === false,
+        isDemo: data?.is_demo === true,
       };
     } catch {
       return { authenticated: false };

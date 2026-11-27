@@ -48,6 +48,38 @@ describe("credit-card account transaction filters", () => {
     ).toBe("Barclays · Credit card •••• 4198");
   });
 
+  it("uses saved or demo display names, keeping the account type and last four", () => {
+    const names = { chase_credit: "Copperline Rewards Visa", chase_checking: "Copperline Checking" };
+
+    expect(
+      accountSelectorLabel(
+        { issuer: "Copperline Bank", account_last_four: "1164", account_key: "chase_credit" },
+        names,
+      ),
+    ).toBe("Copperline Rewards Visa · Credit card •••• 1164");
+    expect(
+      accountSelectorLabel(
+        { issuer: "Copperline Bank", account_last_four: "4821", account_key: "chase_checking" },
+        names,
+      ),
+    ).toBe("Copperline Checking •••• 4821");
+    expect(
+      accountSelectorOptions(
+        [{ issuer: "Copperline Bank", account_last_four: "1164", account_key: "chase_credit", transaction_type: "purchase" }],
+        { names },
+      ),
+    ).toEqual([{ value: "1164", label: "Copperline Rewards Visa · Credit card •••• 1164" }]);
+  });
+
+  it("keeps the built-in label when a display name is blank", () => {
+    expect(
+      accountSelectorLabel(
+        { issuer: "Chase", account_last_four: "9125", account_key: "chase_credit" },
+        { chase_credit: "  " },
+      ),
+    ).toBe("Chase Mastercard · Credit card •••• 9125");
+  });
+
   it("deduplicates and sorts account selector options by their canonical label", () => {
     expect(
       accountSelectorOptions([

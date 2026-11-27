@@ -3,8 +3,10 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
+import { useDefaultAccountNames } from "@/components/account-names";
 import { useOptionalBudgetData } from "@/components/budget-data-provider";
 import {
+  accountDisplayName,
   accountLinkAccounts,
   type AccountDisplayNames,
   type AccountLoginUrls,
@@ -15,12 +17,14 @@ import { APP_BASE_PATH } from "@/lib/config";
 const inputClass = "min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-accent/60";
 const resetClass = "rounded-xl border border-white/10 px-3 py-2.5 text-sm text-white/70 transition hover:border-accent/40 hover:text-white focus-visible:outline-2 focus-visible:outline-accent";
 
-function settingsError(data: Record<string, unknown>) {
+function settingsError(data: Record<string, unknown>, defaultNames: AccountDisplayNames) {
   for (const field of ["account_display_names", "account_login_urls"]) {
     const details = data[field];
     if (details && typeof details === "object") {
       return Object.entries(details).map(([key, value]) => {
-        const label = accountLinkAccounts.find((account) => account.key === key)?.label ?? key;
+        const label = accountLinkAccounts.some((account) => account.key === key)
+          ? accountDisplayName(key as keyof AccountDisplayNames, defaultNames)
+          : key;
         return `${label}: ${Array.isArray(value) ? value.join(" ") : value}`;
       }).join(" ");
     }
@@ -31,6 +35,7 @@ function settingsError(data: Record<string, unknown>) {
 export function AccountLinkSettings({ initialSettings }: { initialSettings: BudgetPlanSettings }) {
   const router = useRouter();
   const budgetData = useOptionalBudgetData();
+  const defaultNames = useDefaultAccountNames();
   const [urls, setUrls] = useState<AccountLoginUrls>(initialSettings.account_login_urls ?? {});
   const [names, setNames] = useState<AccountDisplayNames>(initialSettings.account_display_names ?? {});
   const [isSaving, setIsSaving] = useState(false);
@@ -53,7 +58,7 @@ export function AccountLinkSettings({ initialSettings }: { initialSettings: Budg
         body: JSON.stringify({ account_login_urls: urls, account_display_names: names }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(settingsError(data));
+      if (!response.ok) throw new Error(settingsError(data, defaultNames));
       if (!data.account_login_urls || !data.account_display_names) {
         throw new Error("Account settings could not be saved. Please try again.");
       }
@@ -79,7 +84,10 @@ export function AccountLinkSettings({ initialSettings }: { initialSettings: Budg
       <form className="mt-6 space-y-5" onSubmit={save}>
         <fieldset className="space-y-6 disabled:opacity-60" disabled={isSaving}>
           <legend className="sr-only">Account names and bank portal URLs</legend>
-          {accountLinkAccounts.filter((account) => account.key !== "citi_pending").map((account) => (
+          {accountLinkAccounts.filter((account) => account.key !== "citi_pending").map((builtIn) => ({
+            ...builtIn,
+            label: accountDisplayName(builtIn.key, defaultNames),
+          })).map((account) => (
             <div className="max-w-3xl space-y-3 border-b border-white/10 pb-5" key={account.key}>
               <h3 className="text-sm font-semibold text-white">{account.label}</h3>
               <div>

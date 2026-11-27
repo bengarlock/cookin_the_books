@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccountNames } from "@/components/account-names";
 import Link from "next/link";
 import {
   FormEvent,
@@ -1626,12 +1627,13 @@ export function LiveBankValues({
     budgetData?.setPendingTransactions ?? setLocalPendingTransactions;
   const budgetPlanSettings =
     budgetData?.budgetPlanSettings ?? initialBudgetPlanSettings;
+  const accountNames = useAccountNames(budgetPlanSettings?.account_display_names);
   const accounts = useMemo(
     () => accountLinkAccounts.map((account) => ({
       ...account,
-      label: accountDisplayName(account.key, budgetPlanSettings?.account_display_names),
+      label: accountDisplayName(account.key, accountNames),
     })),
-    [budgetPlanSettings?.account_display_names],
+    [accountNames],
   );
   const [expenseTags, setExpenseTags] = useState(initialExpenseTags);
 
@@ -2238,7 +2240,7 @@ export function LiveBankValues({
             ))}
             {snapshot && calculations.savingsReserve.variance < 0 ? (
               <div className="overview-attention-item" role="alert">
-                <div><h3>Savings reserve shortfall</h3><p><strong>{formatCurrency(calculations.savingsReserve.restorationNeeded)}</strong> below the {formatCurrency(calculations.savingsReserve.target)} target.</p><p>{accountDisplayName("chase_savings", budgetPlanSettings.account_display_names)} · Adjusted balance {formatCurrency(calculations.adjustedValue("chase_savings"))}</p></div>
+                <div><h3>Savings reserve shortfall</h3><p><strong>{formatCurrency(calculations.savingsReserve.restorationNeeded)}</strong> below the {formatCurrency(calculations.savingsReserve.target)} target.</p><p>{accountDisplayName("chase_savings", accountNames)} · Adjusted balance {formatCurrency(calculations.adjustedValue("chase_savings"))}</p></div>
                 <Link href="/dashboard/accounts">Review account →</Link>
               </div>
             ) : null}
@@ -2308,7 +2310,7 @@ export function LiveBankValues({
                   if (!account) return null;
 
                   if (account.key === "citi_current") {
-                const citiLabel = budgetPlanSettings.account_display_names?.citi_current?.trim() || "Citi Card";
+                const citiLabel = accountNames.citi_current?.trim() || "Citi Card";
                 const currentPosted = valueFromSnapshot(snapshot, "citi_current");
                 const pendingPosted = valueFromSnapshot(snapshot, "citi_pending");
                 const currentManual =

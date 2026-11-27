@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { AUTH_COOKIE_NAME } from "@/lib/auth";
 import { APP_BASE_PATH } from "@/lib/config";
+import { DEMO_COOKIE_NAME, DEMO_ENTRY_PATH } from "@/lib/demo";
 
 function withoutBasePath(pathname: string) {
   if (pathname === APP_BASE_PATH) {
@@ -32,6 +33,13 @@ export function proxy(request: NextRequest) {
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
 
   if (isProtectedRoute && !token) {
+    if (request.cookies.get(DEMO_COOKIE_NAME)?.value) {
+      const demoUrl = request.nextUrl.clone();
+      demoUrl.pathname = DEMO_ENTRY_PATH;
+      demoUrl.search = "";
+      return NextResponse.redirect(demoUrl);
+    }
+
     return loginRedirect(request, pathname);
   }
 

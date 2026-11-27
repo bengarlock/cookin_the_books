@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccountNames } from "@/components/account-names";
 import {
   FormEvent,
   type PointerEvent as ReactPointerEvent,
@@ -17,6 +18,7 @@ import {
   type SnapshotMetric,
 } from "@/lib/snapshot-series";
 import { type ExpenseDateRange } from "@/lib/expense-date-range";
+import { accountKeyForTransaction } from "@/lib/account-transaction-filters";
 import { pendingCreditCardTransactionAmount } from "@/lib/pending-liability-transactions";
 import type { PendingCardTransaction } from "@/lib/credit-card-transaction-types";
 import type { PendingTransaction } from "@/lib/pending-transaction-types";
@@ -145,11 +147,7 @@ function adjustedBalancesFromSnapshot(
   }
 
   const importedCitiPending = pendingCardTransactions
-    .filter(
-      (transaction) =>
-        transaction.issuer === "Citibank Online" &&
-        transaction.account_last_four === "4596",
-    )
+    .filter((transaction) => accountKeyForTransaction(transaction) === "citi_current")
     .reduce(
       (total, transaction) => total + pendingCreditCardTransactionAmount(transaction),
       0,
@@ -892,6 +890,15 @@ export function SnapshotsDashboard({
   initialYearlyNetChanges: YearlyNetChange[];
   snapshotYears: number[];
 }) {
+  const accountNames = useAccountNames();
+  const labeledAccounts = useMemo(
+    () =>
+      accountDefinitions.map((account) => ({
+        ...account,
+        label: accountNames[account.key]?.trim() || account.label,
+      })),
+    [accountNames],
+  );
   const [snapshots, setSnapshots] = useState(initialSnapshots);
   const [loadedRanges, setLoadedRanges] = useState<ExpenseDateRange[]>([
     initialRange,
@@ -1171,7 +1178,7 @@ export function SnapshotsDashboard({
   const chartLabel =
     chartMetric === "net_assets"
       ? "Net assets"
-      : accountDefinitions.find(({ key }) => key === chartMetric)!.label;
+      : labeledAccounts.find(({ key }) => key === chartMetric)!.label;
   const chartRangeChangeLabel =
     chartMetric === "net_assets" ? "Range change" : "Balance change";
   const yearlyNetChanges = useMemo(
@@ -1227,7 +1234,7 @@ export function SnapshotsDashboard({
                 }
               >
                 <option value="net_assets">Net assets · all accounts</option>
-                {accountDefinitions.map(({ key, label }) => (
+                {labeledAccounts.map(({ key, label }) => (
                   <option key={key} value={key}>
                     {label}
                   </option>
@@ -1489,7 +1496,7 @@ export function SnapshotsDashboard({
           {isCreating || selectedSnapshot?.is_editable ? (
             <form className="space-y-5 p-5" onSubmit={saveToday}>
               <div className="grid gap-3 sm:grid-cols-2">
-                {accountDefinitions.map((account) => (
+                {labeledAccounts.map((account) => (
                   <label key={account.key}>
                     <span className="mb-1.5 block text-xs text-muted">
                       {account.label}
@@ -1622,7 +1629,7 @@ export function SnapshotsDashboard({
                       key={balance.id}
                     >
                       <span className="text-sm text-white/70">
-                        {balance.account_name}
+                        {accountNames[balance.account_key]?.trim() || balance.account_name}
                       </span>
                       <span className="font-mono text-sm font-semibold text-white">
                         {currencyFormatter.format(Number(balance.balance))}
