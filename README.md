@@ -1,7 +1,6 @@
 # Cookin' the Books
 
-Authenticated Next.js dashboard for financial tools backed by
-`portfolio_database`.
+Personal finance dashboard that reads receipts with the Codex API and tags them onto bank transactions. Next.js, Django REST Framework, PostgreSQL, Plaid.
 
 The app uses:
 
