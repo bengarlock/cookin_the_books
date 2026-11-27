@@ -3,6 +3,7 @@ import type {
   PendingCardTransaction,
 } from "./credit-card-transaction-types";
 import { pendingCreditCardTransactionAmount } from "./pending-liability-transactions";
+import type { AccountDisplayNames } from "./account-links";
 import type { SnapshotAccountKey } from "./snapshot-types";
 
 export const transactionAccountFilters: Partial<
@@ -55,16 +56,22 @@ export const transactionAccountFilters: Partial<
 };
 
 export function accountSelectorLabel(
-  transaction: Pick<
-    CreditCardTransaction,
-    "issuer" | "account_last_four" | "account_key"
-  >,
+  transaction: Pick<CreditCardTransaction, "issuer" | "account_last_four"> & {
+    account_key?: CreditCardTransaction["account_key"];
+  },
+  names: AccountDisplayNames = {},
 ) {
-  const knownAccount = transaction.account_key
-    ? transactionAccountFilters[transaction.account_key]
-    : Object.values(transactionAccountFilters).find(
-        (filters) => filters?.accountLastFour === transaction.account_last_four,
-      );
+  const accountKey =
+    transaction.account_key ||
+    (Object.entries(transactionAccountFilters).find(
+      ([, filters]) => filters?.accountLastFour === transaction.account_last_four,
+    )?.[0] as SnapshotAccountKey | undefined);
+  const knownAccount = accountKey ? transactionAccountFilters[accountKey] : undefined;
+  const customName = accountKey ? names[accountKey]?.trim() : "";
+  if (customName) {
+    const kind = knownAccount?.selectorLabel.includes(" · Credit card") ? " · Credit card" : "";
+    return `${customName}${kind} •••• ${transaction.account_last_four}`;
+  }
   const fallbackIssuer = transaction.issuer
     .replace(/\s*-\s*Cards$/i, "")
     .replace(/\s+Online$/i, "")
@@ -76,11 +83,14 @@ export function accountSelectorLabel(
 }
 
 export function accountSelectorOptions(
-  transactions: Pick<
+  transactions: (Pick<
     CreditCardTransaction,
     "issuer" | "account_last_four" | "transaction_type"
-  >[],
-  { spendingOnly = false }: { spendingOnly?: boolean } = {},
+  > & { account_key?: CreditCardTransaction["account_key"] })[],
+  {
+    spendingOnly = false,
+    names = {},
+  }: { spendingOnly?: boolean; names?: AccountDisplayNames } = {},
 ) {
   const accounts = new Map<string, string>();
   transactions.forEach((transaction) => {
@@ -91,7 +101,7 @@ export function accountSelectorOptions(
     ) {
       accounts.set(
         transaction.account_last_four,
-        accountSelectorLabel(transaction),
+        accountSelectorLabel(transaction, names),
       );
     }
   });

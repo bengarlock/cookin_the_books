@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccountNames } from "@/components/account-names";
 import { type ReactNode, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -162,6 +163,7 @@ export function ProjectionsDashboard({
   initialPendingTransactions: PendingTransaction[];
   initialFinancialReminders: FinancialReminder[];
 }) {
+  const accountNames = useAccountNames();
   const { snapshot } = useLiveSnapshot();
   const pathname = usePathname();
   const router = useRouter();
@@ -530,7 +532,7 @@ export function ProjectionsDashboard({
           {projection.liabilityBreakdown.map((item) => (
             <SummaryRow
               key={item.account}
-              label={item.label}
+              label={accountNames[item.account]?.trim() || item.label}
               negative
               value={`-${formatCurrency(item.amount)}`}
             />

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { AccountNamesProvider } from "@/components/account-names";
 import { AuthInvalidationBoundary } from "@/components/auth-invalidation-boundary";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { DemoModeProvider } from "@/components/demo-mode";
@@ -40,6 +41,7 @@ export default async function DashboardLayout({
 
   return (
     <DemoModeProvider isDemo={isDemo}>
+      <AccountNamesProvider names={budgetPlanSettings.account_display_names}>
       <LiveSnapshotProvider initialSnapshot={latestSnapshot}>
         <AuthInvalidationBoundary isDemo={isDemo} />
         <DashboardShell
@@ -49,6 +51,7 @@ export default async function DashboardLayout({
           {children}
         </DashboardShell>
       </LiveSnapshotProvider>
+      </AccountNamesProvider>
     </DemoModeProvider>
   );
 }

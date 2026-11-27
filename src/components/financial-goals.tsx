@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccountNames } from "@/components/account-names";
 import { useMemo, useState, type FormEvent } from "react";
 
 import {
@@ -382,9 +383,10 @@ function GoalFields({
   transactions: TransactionSelectorRecord[];
   onChange: (value: FinancialGoalInput) => void;
 }) {
+  const accountNames = useAccountNames();
   const accounts = useMemo(
-    () => accountSelectorOptions(transactions),
-    [transactions],
+    () => accountSelectorOptions(transactions, { names: accountNames }),
+    [accountNames, transactions],
   );
   const descriptions = useMemo(
     () =>
@@ -445,7 +447,7 @@ function GoalFields({
           className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-none transition focus:border-accent/40"
           maxLength={100}
           onChange={(event) => onChange({ ...value, name: event.target.value })}
-          placeholder="Keep Citi spending and balance under control"
+          placeholder="Keep card spending and balance under control"
           required
           value={value.name}
         />
@@ -699,15 +701,16 @@ export function FinancialGoals({
   );
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const accountNames = useAccountNames();
   const accountLabels = useMemo(
     () =>
       new Map(
-        accountSelectorOptions(initialTransactions).map((account) => [
+        accountSelectorOptions(initialTransactions, { names: accountNames }).map((account) => [
           account.value,
           account.label,
         ]),
       ),
-    [initialTransactions],
+    [accountNames, initialTransactions],
   );
 
   async function createGoal(event: FormEvent) {

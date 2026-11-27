@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccountNames } from "@/components/account-names";
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -159,11 +160,13 @@ export function AutomationRuleEditor({
         .sort((left, right) => left.sort_order - right.sort_order),
     [initialBudgetItems],
   );
+  const accountNames = useAccountNames();
   const accountOptions = useMemo(() => {
     return accountSelectorOptions(initialCreditCardTransactions, {
       spendingOnly: true,
+      names: accountNames,
     });
-  }, [initialCreditCardTransactions]);
+  }, [accountNames, initialCreditCardTransactions]);
   const descriptionOptions = useMemo(
     () =>
       Array.from(
