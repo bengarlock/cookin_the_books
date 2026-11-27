@@ -1,11 +1,14 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { APP_BASE_PATH } from "@/lib/config";
 import { AUTH_INVALIDATED_HEADER } from "@/lib/auth-invalidation";
 
 export function AuthInvalidationBoundary() {
+  const router = useRouter();
+
   useEffect(() => {
     const originalFetch = window.fetch.bind(window);
     let redirecting = false;
@@ -22,7 +25,9 @@ export function AuthInvalidationBoundary() {
         await originalFetch(`${APP_BASE_PATH}/api/auth/logout`, {
           method: "POST",
         }).catch(() => undefined);
-        window.location.assign(`${APP_BASE_PATH}/login?session=expired`);
+        // Matches LogoutButton: refresh drops the cached dashboard data.
+        router.replace("/login?session=expired");
+        router.refresh();
       }
 
       return response;
@@ -31,7 +36,7 @@ export function AuthInvalidationBoundary() {
     return () => {
       window.fetch = originalFetch;
     };
-  }, []);
+  }, [router]);
 
   return null;
 }
