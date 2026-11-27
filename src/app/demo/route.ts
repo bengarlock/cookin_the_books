@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 import { APP_BASE_PATH } from "@/lib/config";
 import { requestPortfolioToken, setSessionCookies } from "@/lib/portfolio-login";
@@ -13,9 +13,15 @@ function demoCredentials() {
   return username && password ? { username, password } : null;
 }
 
-function demoUnavailable(request: Request) {
+// Build redirects from nextUrl (like proxy.ts) rather than request.url: behind
+// nginx, request.url carries the internal host:port, not the public host.
+function appUrl(request: NextRequest, path: string) {
+  return new URL(`${APP_BASE_PATH}${path}`, request.nextUrl.origin);
+}
+
+function demoUnavailable(request: NextRequest) {
   const response = NextResponse.redirect(
-    new URL(`${APP_BASE_PATH}/login?demo=unavailable`, request.url),
+    appUrl(request, "/login?demo=unavailable"),
   );
   response.headers.set("Cache-Control", "no-store");
   return response;
@@ -26,7 +32,7 @@ function demoUnavailable(request: Request) {
  * server-held demo credentials and drops them on the dashboard. The backend
  * confines demo users, so these credentials are safe to treat as public.
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const credentials = demoCredentials();
 
   if (!credentials) {
@@ -44,9 +50,7 @@ export async function GET(request: Request) {
     return demoUnavailable(request);
   }
 
-  const response = NextResponse.redirect(
-    new URL(`${APP_BASE_PATH}/dashboard`, request.url),
-  );
+  const response = NextResponse.redirect(appUrl(request, "/dashboard"));
   response.headers.set("Cache-Control", "no-store");
   response.headers.set("X-Robots-Tag", "noindex");
   return setSessionCookies(response, result.token, {

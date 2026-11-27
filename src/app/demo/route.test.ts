@@ -2,9 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
+import { NextRequest } from "next/server";
+
 const { GET } = await import("./route");
 
-const request = new Request("https://bengarlock.com/cookinthebooks/demo");
+const request = new NextRequest("https://bengarlock.com/cookinthebooks/demo", {
+  nextConfig: { basePath: "/cookinthebooks" },
+});
 
 function mockBackend(response: Response) {
   const fetchMock = vi.fn().mockResolvedValue(response);
