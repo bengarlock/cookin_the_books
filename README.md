@@ -181,6 +181,15 @@ login form. Signing out clears the marker. Visiting `/demo` replaces any real
 session in that browser, because the session cookie is shared across
 `bengarlock.com`.
 
+In production, PM2 starts the app through
+`/home/deploy/.local/bin/cookin-the-books-op-exec` (see
+`ecosystem.config.cjs`). That script reads the production 1Password
+Environment on every start and passes the app only the settings it uses,
+including `DEMO_USERNAME` / `DEMO_PASSWORD`, so they survive restarts and
+reboots without being stored in PM2's saved process list. On DS9 staging,
+`/home/deploy/.local/bin/cookin-the-books-staging-run` does the same with the
+Staging Environment, passing only the demo credentials.
+
 ## Live snapshot updates
 
 The overview loads the newest authenticated bank-value snapshot from
