@@ -11,6 +11,11 @@ import {
 
 import { DateRangePicker } from "@/components/date-range-picker";
 import { APP_BASE_PATH } from "@/lib/config";
+import {
+  snapshotSeries,
+  snapshotSeriesChange,
+  type SnapshotMetric,
+} from "@/lib/snapshot-series";
 import { type ExpenseDateRange } from "@/lib/expense-date-range";
 import { pendingCreditCardTransactionAmount } from "@/lib/pending-liability-transactions";
 import type { PendingCardTransaction } from "@/lib/credit-card-transaction-types";
@@ -29,6 +34,7 @@ const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
   notation: "compact",
+  minimumFractionDigits: 0,
   maximumFractionDigits: 1,
 });
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -355,10 +361,14 @@ function YearlyNetChangeTile({
 }
 
 function SnapshotTrendChart({
+  metric,
+  label,
   onRangeSelect,
   snapshots,
   showTrendLine,
 }: {
+  metric: SnapshotMetric;
+  label: string;
   onRangeSelect: (range: ExpenseDateRange) => void;
   snapshots: BankValueSnapshot[];
   showTrendLine: boolean;
@@ -376,12 +386,23 @@ function SnapshotTrendChart({
     startIndex: number;
   } | null>(null);
   const chart = useMemo(() => {
-    const data = [...snapshots].reverse();
+    const series = snapshotSeries(snapshots, metric);
+    const data = series.map(({ snapshot, value }, index) => ({
+      ...snapshot,
+      chartValue: value,
+      chartChange:
+        metric === "net_assets"
+          ? Number(snapshot.change)
+          : index > 0
+            ? value - series[index - 1].value
+            : null,
+      chartHighpoint: metric === "net_assets" && snapshot.is_highpoint,
+    }));
     if (!data.length) return null;
     const width = 960;
     const height = 360;
     const padding = { top: 28, right: 26, bottom: 54, left: 82 };
-    const values = data.map((item) => Number(item.net_assets));
+    const values = data.map((item) => item.chartValue);
     const rawMinValue = Math.min(...values);
     const rawMaxValue = Math.max(...values);
     const rawRange = Math.max(rawMaxValue - rawMinValue, 1);
@@ -398,7 +419,7 @@ function SnapshotTrendChart({
       ((maxValue - value) / range) *
         (height - padding.top - padding.bottom);
     const points = data
-      .map((item, index) => `${x(index)},${y(Number(item.net_assets))}`)
+      .map((item, index) => `${x(index)},${y(item.chartValue)}`)
       .join(" ");
 
     const count = data.length;
@@ -444,12 +465,12 @@ function SnapshotTrendChart({
       xTickIndexes,
       dateSpanDays,
     };
-  }, [snapshots]);
+  }, [snapshots, metric]);
 
   if (!chart) {
     return (
       <div className="grid h-72 place-items-center text-sm text-muted">
-        No snapshots fall within the selected date range.
+        No recorded balances are available in the selected date range.
       </div>
     );
   }
@@ -460,9 +481,9 @@ function SnapshotTrendChart({
   const hoveredX =
     hoveredIndex === null ? null : activeChart.x(hoveredIndex);
   const hoveredY = hoveredSnapshot
-    ? activeChart.y(Number(hoveredSnapshot.net_assets))
+    ? activeChart.y(hoveredSnapshot.chartValue)
     : null;
-  const tooltipWidth = 196;
+  const tooltipWidth = 250;
   const tooltipHeight = 68;
   const tooltipX =
     hoveredX === null
@@ -596,7 +617,7 @@ function SnapshotTrendChart({
   return (
     <div className="w-full overflow-hidden">
       <svg
-        aria-label="Net assets over time"
+        aria-label={`${label} over time`}
         className={`block h-auto w-full max-w-full select-none touch-pan-y ${
           dragSelection ? "cursor-col-resize" : "cursor-crosshair"
         }`}
@@ -727,30 +748,31 @@ function SnapshotTrendChart({
         {chart.data.map((snapshot, index) => {
           const showPoint =
             chart.data.length <= 120 ||
-            snapshot.is_highpoint ||
+            snapshot.chartHighpoint ||
             index === chart.data.length - 1;
           if (!showPoint) return null;
           return (
             <circle
               fill={
-                snapshot.is_highpoint
+                snapshot.chartHighpoint
                   ? "#f0c978"
-                  : Number(snapshot.change) < 0
+                  : (snapshot.chartChange ?? 0) < 0
                     ? "#fda4af"
                     : "var(--snapshot-chart-accent)"
               }
               key={snapshot.id}
-              r={snapshot.is_highpoint ? 3.8 : 2.6}
+              r={snapshot.chartHighpoint ? 3.8 : 2.6}
               stroke="#07100f"
               strokeWidth="1.2"
               cx={chart.x(index)}
-              cy={chart.y(Number(snapshot.net_assets))}
+              cy={chart.y(snapshot.chartValue)}
             >
               <title>
-                {formatDate(snapshot.snapshot_date)}:{" "}
-                {currencyFormatter.format(Number(snapshot.net_assets))} (
-                {currencyFormatter.format(Number(snapshot.change))})
-                {snapshot.is_highpoint ? " · Highpoint" : ""}
+                {`${formatDate(snapshot.snapshot_date)}: ${currencyFormatter.format(snapshot.chartValue)}${
+                  snapshot.chartChange === null
+                    ? ""
+                    : ` (${currencyFormatter.format(snapshot.chartChange)})`
+                }${snapshot.chartHighpoint ? " · Highpoint" : ""}`}
               </title>
             </circle>
           );
@@ -827,12 +849,12 @@ function SnapshotTrendChart({
               y={tooltipY + 42}
             >
               {currencyFormatter.format(
-                Number(hoveredSnapshot.net_assets),
+                hoveredSnapshot.chartValue,
               )}
             </text>
             <text
               fill={
-                Number(hoveredSnapshot.change) < 0
+                (hoveredSnapshot.chartChange ?? 0) < 0
                   ? "var(--snapshot-chart-negative)"
                   : "var(--snapshot-chart-accent)"
               }
@@ -841,8 +863,10 @@ function SnapshotTrendChart({
               x={tooltipX + 13}
               y={tooltipY + 58}
             >
-              Daily:{" "}
-              {currencyFormatter.format(Number(hoveredSnapshot.change))}
+              {metric === "net_assets" ? "Daily: " : "Since prior snapshot: "}
+              {hoveredSnapshot.chartChange === null
+                ? "—"
+                : currencyFormatter.format(hoveredSnapshot.chartChange)}
             </text>
           </g>
         ) : null}
@@ -874,6 +898,7 @@ export function SnapshotsDashboard({
   ]);
   const [chartRange, setChartRange] =
     useState<ExpenseDateRange>(initialRange);
+  const [chartMetric, setChartMetric] = useState<SnapshotMetric>("net_assets");
   const [showTrendLine, setShowTrendLine] = useState(true);
   const [isLoadingRange, setIsLoadingRange] = useState(false);
   const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
@@ -1138,29 +1163,17 @@ export function SnapshotsDashboard({
       ),
     [chartRange, snapshots],
   );
-  const chartRangeChange = useMemo(() => {
-    if (chartSnapshots.length < 2) {
-      return { amount: 0, percentage: 0 };
-    }
-    const chronological = [...chartSnapshots].sort((left, right) =>
-      left.snapshot_date.localeCompare(right.snapshot_date),
-    );
-    const firstValue = Number(chronological[0].net_assets);
-    const lastValue = Number(
-      chronological[chronological.length - 1].net_assets,
-    );
-    const amount = lastValue - firstValue;
-    return {
-      amount,
-      percentage: firstValue ? (amount / firstValue) * 100 : 0,
-    };
-  }, [chartSnapshots]);
+  const chartSeries = useMemo(
+    () => snapshotSeries(chartSnapshots, chartMetric),
+    [chartSnapshots, chartMetric],
+  );
+  const chartRangeChange = snapshotSeriesChange(chartSeries);
+  const chartLabel =
+    chartMetric === "net_assets"
+      ? "Net assets"
+      : accountDefinitions.find(({ key }) => key === chartMetric)!.label;
   const chartRangeChangeLabel =
-    chartRangeChange.amount < 0
-      ? "Range loss"
-      : chartRangeChange.amount > 0
-        ? "Range gain"
-        : "Range change";
+    chartMetric === "net_assets" ? "Range change" : "Balance change";
   const yearlyNetChanges = useMemo(
     () =>
       initialYearlyNetChanges.length
@@ -1204,8 +1217,25 @@ export function SnapshotsDashboard({
       <section className="surface overflow-hidden rounded-2xl">
         <div className="grid gap-4 border-b border-white/10 bg-white/[0.035] px-5 py-4 xl:grid-cols-[1fr_auto_1fr] xl:items-center">
           <div className="min-w-0">
+            <label className="mb-3 block text-xs font-semibold text-muted">
+              Chart account
+              <select
+                className="mt-1 block w-full rounded-lg border border-white/15 bg-background px-3 py-2 text-sm text-white focus-visible:outline-2 focus-visible:outline-accent"
+                value={chartMetric}
+                onChange={(event) =>
+                  setChartMetric(event.target.value as SnapshotMetric)
+                }
+              >
+                <option value="net_assets">Net assets · all accounts</option>
+                {accountDefinitions.map(({ key, label }) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <h2 className="text-base font-semibold text-white">
-              Net assets trend
+              {chartLabel} trend
             </h2>
             <p className="mt-1 text-xs text-muted">
               Drag across the graph to select a period. The selected range
@@ -1230,17 +1260,24 @@ export function SnapshotsDashboard({
           <div className="flex flex-wrap items-center gap-2 xl:justify-end">
             <div
               className={`rounded-lg border px-4 py-3 text-xs font-semibold ${
-                chartRangeChange.amount < 0
+                (chartRangeChange?.amount ?? 0) < 0
                   ? "border-rose-300/20 bg-rose-500/10 text-rose-300"
                   : "border-accent/20 bg-accent/10 text-accent"
               }`}
             >
               {chartRangeChangeLabel}:{" "}
               <span className="font-mono">
-                {currencyFormatter.format(
-                  Math.abs(chartRangeChange.amount),
-                )}{" "}
-                ({Math.abs(chartRangeChange.percentage).toFixed(2)}%)
+                {chartRangeChange ? (
+                  <>
+                    {chartRangeChange.amount > 0 ? "+" : ""}
+                    {currencyFormatter.format(chartRangeChange.amount)}
+                    {chartRangeChange.percentage === null
+                      ? " (percentage unavailable)"
+                      : ` (${chartRangeChange.percentage > 0 ? "+" : ""}${chartRangeChange.percentage.toFixed(2)}%)`}
+                  </>
+                ) : (
+                  "Need at least two snapshots"
+                )}
               </span>
             </div>
             <button
@@ -1267,7 +1304,26 @@ export function SnapshotsDashboard({
           </div>
         </div>
         <div className="p-3 sm:p-5">
+          {chartMetric !== "net_assets" ? (
+            <p className="mb-3 text-xs text-muted">
+              Recorded balances include deposits, withdrawals, and market
+              changes; balance change is not an investment return. Balances may
+              carry forward when an account has not refreshed.
+            </p>
+          ) : null}
+          {chartSeries.length ? (
+            <p className="mb-2 text-xs text-muted">
+              {formatDate(chartSeries[0].snapshot.snapshot_date)}:{" "}
+              {currencyFormatter.format(chartSeries[0].value)}
+              {" → "}
+              {formatDate(chartSeries[chartSeries.length - 1].snapshot.snapshot_date)}:{" "}
+              {currencyFormatter.format(chartSeries[chartSeries.length - 1].value)}
+            </p>
+          ) : null}
           <SnapshotTrendChart
+            key={chartMetric}
+            metric={chartMetric}
+            label={chartLabel}
             onRangeSelect={setChartRange}
             showTrendLine={showTrendLine}
             snapshots={chartSnapshots}

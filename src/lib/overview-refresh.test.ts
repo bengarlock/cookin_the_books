@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type Mock } from "vitest";
 import { loadOverviewRefresh } from "./overview-refresh";
 
 function fixture() {
@@ -10,7 +10,8 @@ function fixture() {
     "financial-reminders/": [], "bank-value-snapshots/latest/": { id: 9 },
     "credit-card-transactions/selector-summary/": [{ id: 11 }],
   };
-  const read = vi.fn(async <T>(path: string): Promise<T> => resources[path] as T);
+  const readResource = async <T,>(path: string): Promise<T> => resources[path] as T;
+  const read = vi.fn(readResource) as Mock & typeof readResource;
   return { resources, read };
 }
 
