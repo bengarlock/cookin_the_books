@@ -2,13 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { NextRequest } from "next/server";
-
 const { GET } = await import("./route");
-
-const request = new NextRequest("https://bengarlock.com/cookinthebooks/demo", {
-  nextConfig: { basePath: "/cookinthebooks" },
-});
 
 function mockBackend(response: Response) {
   const fetchMock = vi.fn().mockResolvedValue(response);
@@ -32,7 +26,7 @@ describe("GET /demo", () => {
     vi.stubEnv("DEMO_PASSWORD", "");
     const fetchMock = mockBackend(Response.json({}));
 
-    const response = await GET(request);
+    const response = await GET();
 
     expect(response.status).toBe(404);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -41,7 +35,7 @@ describe("GET /demo", () => {
   it("signs in with the server-held credentials and opens the dashboard", async () => {
     const fetchMock = mockBackend(Response.json({ token: "demo-token", valid: true }));
 
-    const response = await GET(request);
+    const response = await GET();
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.example.test/api/v1/login/",
@@ -52,7 +46,7 @@ describe("GET /demo", () => {
     );
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
-      "https://bengarlock.com/cookinthebooks/dashboard",
+      "/cookinthebooks/dashboard",
     );
     expect(response.headers.get("cache-control")).toBe("no-store");
     const cookies = response.headers.getSetCookie().join("\n");
@@ -65,10 +59,10 @@ describe("GET /demo", () => {
   it("falls back to the login page when the backend rejects the demo login", async () => {
     mockBackend(Response.json({ message: "Invalid" }, { status: 400 }));
 
-    const response = await GET(request);
+    const response = await GET();
 
     expect(response.headers.get("location")).toBe(
-      "https://bengarlock.com/cookinthebooks/login?demo=unavailable",
+      "/cookinthebooks/login?demo=unavailable",
     );
     expect(response.headers.getSetCookie()).toEqual([]);
   });
@@ -76,10 +70,10 @@ describe("GET /demo", () => {
   it("falls back to the login page when the backend is unreachable", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch failed")));
 
-    const response = await GET(request);
+    const response = await GET();
 
     expect(response.headers.get("location")).toBe(
-      "https://bengarlock.com/cookinthebooks/login?demo=unavailable",
+      "/cookinthebooks/login?demo=unavailable",
     );
   });
 });

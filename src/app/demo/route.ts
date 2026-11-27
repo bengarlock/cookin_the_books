@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 import { APP_BASE_PATH } from "@/lib/config";
 import { requestPortfolioToken, setSessionCookies } from "@/lib/portfolio-login";
@@ -13,18 +13,17 @@ function demoCredentials() {
   return username && password ? { username, password } : null;
 }
 
-// Build redirects from nextUrl (like proxy.ts) rather than request.url: behind
-// nginx, request.url carries the internal host:port, not the public host.
-function appUrl(request: NextRequest, path: string) {
-  return new URL(`${APP_BASE_PATH}${path}`, request.nextUrl.origin);
-}
-
-function demoUnavailable(request: NextRequest) {
-  const response = NextResponse.redirect(
-    appUrl(request, "/login?demo=unavailable"),
-  );
-  response.headers.set("Cache-Control", "no-store");
-  return response;
+// Behind nginx, request.url (and nextUrl) in a route handler carry the
+// upstream host:port, so an absolute redirect would send visitors to
+// localhost. A relative Location resolves against the public URL instead.
+function redirectTo(path: string) {
+  return new NextResponse(null, {
+    status: 307,
+    headers: {
+      "Cache-Control": "no-store",
+      Location: `${APP_BASE_PATH}${path}`,
+    },
+  });
 }
 
 /**
@@ -32,7 +31,7 @@ function demoUnavailable(request: NextRequest) {
  * server-held demo credentials and drops them on the dashboard. The backend
  * confines demo users, so these credentials are safe to treat as public.
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   const credentials = demoCredentials();
 
   if (!credentials) {
@@ -43,15 +42,14 @@ export async function GET(request: NextRequest) {
   try {
     result = await requestPortfolioToken(credentials.username, credentials.password);
   } catch {
-    return demoUnavailable(request);
+    return redirectTo("/login?demo=unavailable");
   }
 
   if (!result.ok) {
-    return demoUnavailable(request);
+    return redirectTo("/login?demo=unavailable");
   }
 
-  const response = NextResponse.redirect(appUrl(request, "/dashboard"));
-  response.headers.set("Cache-Control", "no-store");
+  const response = redirectTo("/dashboard");
   response.headers.set("X-Robots-Tag", "noindex");
   return setSessionCookies(response, result.token, {
     demo: true,
