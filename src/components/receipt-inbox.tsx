@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { DEMO_DISABLED_MESSAGE, useIsDemo } from "@/components/demo-mode";
 import { APP_BASE_PATH } from "@/lib/config";
 
 type ReceiptMailboxSettings = {
@@ -69,6 +70,7 @@ function formatReceiptTotal(amount: string, currency: string) {
 }
 
 export function ReceiptInbox() {
+  const isDemo = useIsDemo();
   const [receipts, setReceipts] = useState<ReceiptEmail[]>([]);
   const [mailboxSettings, setMailboxSettings] = useState<ReceiptMailboxSettings | null>(null);
   const [forwardingFromAddress, setForwardingFromAddress] = useState("");
@@ -266,11 +268,14 @@ export function ReceiptInbox() {
             Your forwarding address
           </label>
           <p className="mt-1 text-xs text-muted">
-            We use the sender address from forwarded messages to assign receipts to your account.
+            {isDemo
+              ? DEMO_DISABLED_MESSAGE
+              : "We use the sender address from forwarded messages to assign receipts to your account."}
           </p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <input
-              className="min-h-10 flex-1 rounded-lg border border-line bg-transparent px-3 text-sm text-foreground outline-none focus:border-accent/60"
+              className="min-h-10 flex-1 rounded-lg border border-line bg-transparent px-3 text-sm text-foreground outline-none focus:border-accent/60 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={isDemo}
               id="receipt-forwarding-address"
               onChange={(event) => setForwardingFromAddress(event.target.value)}
               placeholder="you@example.com"
@@ -279,7 +284,7 @@ export function ReceiptInbox() {
             />
             <button
               className="min-h-10 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-[#07100f] disabled:opacity-50"
-              disabled={savingAddress || !forwardingFromAddress.trim() || !mailboxSettings}
+              disabled={isDemo || savingAddress || !forwardingFromAddress.trim() || !mailboxSettings}
               onClick={() => void saveForwardingAddress()}
               type="button"
             >

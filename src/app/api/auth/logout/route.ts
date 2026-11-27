@@ -3,10 +3,12 @@ import { NextResponse } from "next/server";
 import { AUTH_COOKIE_NAME, LEGACY_AUTH_COOKIE_NAMES } from "@/lib/auth";
 import { getAuthCookieScope } from "@/lib/auth-cookie-options";
 import { APP_BASE_PATH } from "@/lib/config";
+import { DEMO_COOKIE_NAME } from "@/lib/demo";
 
+// Signing out also leaves the demo, so the next visit shows the login form.
 function clearAuthCookie(response: NextResponse) {
   const cookieScope = getAuthCookieScope();
-  [AUTH_COOKIE_NAME, ...LEGACY_AUTH_COOKIE_NAMES].forEach((name) => response.cookies.set(name, "", {
+  [AUTH_COOKIE_NAME, ...LEGACY_AUTH_COOKIE_NAMES, DEMO_COOKIE_NAME].forEach((name) => response.cookies.set(name, "", {
     httpOnly: true,
     sameSite: "lax",
     maxAge: 0,

@@ -11,7 +11,11 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(() =>
+    searchParams.get("demo") === "unavailable"
+      ? "The demo is temporarily unavailable. Please try again in a few minutes."
+      : "",
+  );
   const [submitPhase, setSubmitPhase] = useState<"idle" | "signing-in" | "loading-profile">("idle");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {

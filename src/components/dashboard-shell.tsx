@@ -14,6 +14,7 @@ import { BudgetLoading } from "@/components/budget-loading";
 import { BudgetNavigation } from "@/components/budget-navigation";
 import { LogoutButton } from "@/components/logout-button";
 import { DashboardHeader } from "@/components/dashboard-header";
+import { DemoBanner } from "@/components/demo-mode";
 import { APP_BASE_PATH } from "@/lib/config";
 import {
   budgetPlanNavigationSource,
@@ -413,9 +414,11 @@ function BudgetPlanLoadingShell() {
 export function DashboardShell({
   children,
   initialNavigationPreferences = {},
+  isDemo = false,
 }: {
   children: ReactNode;
   initialNavigationPreferences?: NavigationPreferences;
+  isDemo?: boolean;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -659,6 +662,7 @@ export function DashboardShell({
       </aside>
 
       <div className="min-w-0 lg:col-start-2 lg:flex lg:h-full lg:min-h-0 lg:flex-col">
+        {isDemo ? <DemoBanner /> : null}
         <DashboardHeader
           pathnameOverride={
             isPlanNavigationPending ? budgetParentHref : undefined

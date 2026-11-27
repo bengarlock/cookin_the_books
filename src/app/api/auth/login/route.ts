@@ -1,15 +1,7 @@
 import { NextResponse } from "next/server";
 
-import {
-  AUTH_COOKIE_MAX_AGE,
-  AUTH_COOKIE_NAME,
-  LEGACY_AUTH_COOKIE_NAMES,
-} from "@/lib/auth";
-import { getAuthCookieScope } from "@/lib/auth-cookie-options";
-import {
-  getPortfolioApiBaseUrl,
-  PortfolioApiConfigurationError,
-} from "@/lib/server-config";
+import { requestPortfolioToken, setSessionCookies } from "@/lib/portfolio-login";
+import { PortfolioApiConfigurationError } from "@/lib/server-config";
 
 type LoginPayload = {
   username?: string;
@@ -39,55 +31,19 @@ export async function POST(request: Request) {
   }
 
   try {
-    const backendResponse = await fetch(
-      `${getPortfolioApiBaseUrl()}/api/v1/login/`,
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-        cache: "no-store",
-      },
-    );
+    const result = await requestPortfolioToken(username, password);
 
-    const data = (await backendResponse.json().catch(() => null)) as {
-      token?: string;
-      message?: string;
-    } | null;
-
-    if (!backendResponse.ok || !data?.token) {
+    if (!result.ok) {
       return NextResponse.json(
-        { message: data?.message || "Invalid username or password." },
-        { status: backendResponse.status || 401 },
+        { message: result.message },
+        { status: result.status },
       );
     }
 
-    const response = NextResponse.json({ authenticated: true });
-    const cookieScope = getAuthCookieScope();
-    response.cookies.set(AUTH_COOKIE_NAME, data.token, {
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: AUTH_COOKIE_MAX_AGE,
-      path: "/",
-      priority: "high",
-      ...cookieScope,
-    });
-    LEGACY_AUTH_COOKIE_NAMES.filter((name) => name !== AUTH_COOKIE_NAME).forEach(
-      (name) => {
-        response.cookies.set(name, "", {
-          httpOnly: true,
-          sameSite: "lax",
-          maxAge: 0,
-          path: "/",
-          priority: "high",
-          ...cookieScope,
-        });
-      },
+    return setSessionCookies(
+      NextResponse.json({ authenticated: true }),
+      result.token,
     );
-
-    return response;
   } catch (error) {
     if (error instanceof PortfolioApiConfigurationError) {
       return NextResponse.json(

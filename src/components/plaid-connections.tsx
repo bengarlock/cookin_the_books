@@ -7,6 +7,7 @@ import {
   type PlaidLinkOnSuccess,
 } from "react-plaid-link";
 
+import { DEMO_DISABLED_MESSAGE, useIsDemo } from "@/components/demo-mode";
 import { APP_BASE_PATH } from "@/lib/config";
 import type { PlaidConnection, PlaidSyncResult } from "@/lib/plaid-types";
 
@@ -73,6 +74,7 @@ function PlaidLauncher({
 }
 
 export function PlaidConnections({ initialConnections }: { initialConnections: PlaidConnection[] }) {
+  const isDemo = useIsDemo();
   const [connections, setConnections] = useState(initialConnections);
   const [linkRequest, setLinkRequest] = useState<{ token: string; connectionId?: number; purpose?: "reauthorize" | "investments" } | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -179,10 +181,17 @@ export function PlaidConnections({ initialConnections }: { initialConnections: P
           <h2 className="mt-2 text-lg font-semibold text-white">Connected institutions</h2>
           <p className="mt-1 text-sm text-muted">Plaid imports recent card activity, including pending transactions.</p>
         </div>
-        <button className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-[#07100f] disabled:opacity-60" disabled={Boolean(linkRequest)} onClick={connectInstitution} type="button">
+        <button
+          className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-[#07100f] disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isDemo || Boolean(linkRequest)}
+          onClick={connectInstitution}
+          title={isDemo ? DEMO_DISABLED_MESSAGE : undefined}
+          type="button"
+        >
           {linkRequest ? "Opening Plaid…" : "Connect institution"}
         </button>
       </div>
+      {isDemo ? <p className="border-b border-accent/15 bg-accent/10 px-5 py-3 text-sm text-accent" role="note">{DEMO_DISABLED_MESSAGE} The demo&apos;s transactions are sample data.</p> : null}
       {error ? <p className="border-b border-rose-300/15 bg-rose-300/10 px-5 py-3 text-sm text-rose-200" role="alert">{error}</p> : null}
       {status ? <p className="border-b border-accent/15 bg-accent/10 px-5 py-3 text-sm text-accent" role="status">{status}</p> : null}
       {connections.length ? connections.map((connection) => (
