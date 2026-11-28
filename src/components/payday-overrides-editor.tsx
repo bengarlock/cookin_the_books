@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
@@ -11,6 +11,7 @@ import {
 import { APP_BASE_PATH } from "@/lib/config";
 import {
   getCurrentPayPeriod,
+  getNextPayCycle,
   isValidPaydayOverride,
   localPaydayString,
   parsePaydayDate,
@@ -113,6 +114,16 @@ export function PaydayOverridesEditor({
   }, []);
 
   const preview = useMemo(() => getCurrentPayPeriod(new Date(), null, drafts), [drafts]);
+  const nextPaydayKey = useMemo(
+    () => localPaydayString(getNextPayCycle(new Date(), null, drafts).nextPayday),
+    [drafts],
+  );
+  const nextPaydayRow = useRef<HTMLLIElement>(null);
+
+  // Open the list on the upcoming payday instead of months in the past.
+  useEffect(() => {
+    nextPaydayRow.current?.scrollIntoView({ block: "center" });
+  }, []);
   const hasChanges =
     JSON.stringify(Object.entries(drafts).sort()) !==
     JSON.stringify(Object.entries(savedOverrides).sort());
@@ -185,14 +196,30 @@ export function PaydayOverridesEditor({
             const shift = shiftLabel(row.scheduled, actual);
             const invalid = invalidKeys.includes(row.key);
             const inputId = `payday-${row.key}`;
+            const isNext = localPaydayString(actual) === nextPaydayKey;
             return (
               <li
-                className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3"
+                aria-current={isNext ? "date" : undefined}
+                className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 ${
+                  isNext
+                    ? "relative bg-accent/10 shadow-[inset_3px_0_0_var(--color-accent)] ring-1 ring-inset ring-accent/40"
+                    : ""
+                }`}
                 key={row.key}
+                ref={isNext ? nextPaydayRow : undefined}
               >
                 <label className="min-w-40 flex-1 text-sm text-white" htmlFor={inputId}>
-                  {longDate.format(row.scheduled)}
-                  <span className="block text-xs text-white/45">Scheduled payday</span>
+                  <span className="flex flex-wrap items-center gap-2">
+                    {longDate.format(row.scheduled)}
+                    {isNext ? (
+                      <span className="rounded-full border border-accent/40 bg-accent/15 px-2 py-0.5 text-[11px] font-semibold text-accent">
+                        Next payday
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className={`block text-xs ${isNext ? "text-accent/80" : "text-white/45"}`}>
+                    {isNext ? "Next expected payday" : "Scheduled payday"}
+                  </span>
                 </label>
                 {shift ? (
                   <span
@@ -208,6 +235,9 @@ export function PaydayOverridesEditor({
                 <input
                   aria-describedby={invalid ? `${inputId}-error` : undefined}
                   aria-invalid={invalid || undefined}
+                  aria-label={`Actual payday for ${longDate.format(row.scheduled)}${
+                    isNext ? " (next payday)" : ""
+                  }`}
                   className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none [color-scheme:dark] focus:border-accent/60"
                   id={inputId}
                   max={localPaydayString(row.max)}
