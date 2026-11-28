@@ -16,6 +16,7 @@ import {
   HomepageFinancialReminders,
 } from "@/components/homepage-financial-reminders";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
+import { usePaydayOverrides } from "@/components/payday-overrides";
 import { OverviewFinancialBrief } from "@/components/overview-financial-brief";
 import {
   accountTransactionDisplayAmount,
@@ -1702,9 +1703,11 @@ export function LiveBankValues({
   const [isBudgetOffsetSaving, setIsBudgetOffsetSaving] = useState(false);
   const [copiedAdjustedAccount, setCopiedAdjustedAccount] =
     useState<SnapshotAccountKey | null>(null);
+  const paydayOverrides = usePaydayOverrides();
   const payCycle = getNextPayCycle(
     currentDate,
     budgetPlanSettings.next_payday_override,
+    paydayOverrides,
   );
   const nextPaydayTimestamp = payCycle.nextPayday.getTime();
   const projectedNextPaycheck = useMemo(() => {
@@ -2234,7 +2237,7 @@ export function LiveBankValues({
         <OverviewFinancialBrief
           context={{ currentDate, snapshot, pendingTransactions,
             pendingCardTransactions: goalTransactions.length ? goalTransactions : initialPendingCardTransactions,
-            transactions: goalTransactions, projectedNextPaycheck }}
+            transactions: goalTransactions, projectedNextPaycheck, paydayOverrides }}
           goals={initialFinancialGoals}
           grossAssets={calculations.grossAssets}
           netAssets={calculations.netAssets}

@@ -5,7 +5,10 @@ import {
   followingPayday,
   getCurrentPayPeriod,
   getNextPayCycle,
+  isValidPaydayOverride,
+  localPaydayString,
   remainingPaydaysInYear,
+  scheduledPaydaysBetween,
 } from "./pay-cycle";
 
 function localDate(year: number, month: number, day: number) {
@@ -133,5 +136,70 @@ describe("getNextPayCycle", () => {
     expect(remainingPaydaysInYear(localDate(2026, 6, 30), "2026-07-15")).toBe(
       remainingPaydaysInYear(localDate(2026, 6, 30)) - 1,
     );
+  });
+});
+
+describe("one-off payday overrides", () => {
+  const earlyDecember = { "2026-12-01": "2026-11-27" };
+
+  it("ends the current pay period on the scheduled payday without overrides", () => {
+    expect(currentPayPeriodDateRange(localDate(2026, 11, 28))).toEqual({
+      start: "2026-11-13",
+      end: "2026-12-01",
+    });
+  });
+
+  it("starts a new pay period when payroll pays early", () => {
+    expect(
+      currentPayPeriodDateRange(localDate(2026, 11, 28), null, earlyDecember),
+    ).toEqual({ start: "2026-11-27", end: "2026-12-15" });
+  });
+
+  it("ends the previous pay period on the early payday", () => {
+    expect(
+      currentPayPeriodDateRange(localDate(2026, 11, 20), null, earlyDecember),
+    ).toEqual({ start: "2026-11-13", end: "2026-11-27" });
+  });
+
+  it("counts a late payday in its new pay period", () => {
+    const late = { "2026-12-01": "2026-12-03" };
+    expect(currentPayPeriodDateRange(localDate(2026, 12, 2), null, late)).toEqual({
+      start: "2026-11-13",
+      end: "2026-12-03",
+    });
+    expect(currentPayPeriodDateRange(localDate(2026, 12, 4), null, late)).toEqual({
+      start: "2026-12-03",
+      end: "2026-12-15",
+    });
+  });
+
+  it("follows a moved payday when stepping through paydays", () => {
+    expect(
+      localPaydayString(followingPayday(localDate(2026, 11, 13), earlyDecember)),
+    ).toBe("2026-11-27");
+    expect(
+      localPaydayString(getNextPayCycle(localDate(2026, 11, 20), null, earlyDecember).nextPayday),
+    ).toBe("2026-11-27");
+  });
+
+  it("does not change the number of paydays left in the year", () => {
+    expect(
+      remainingPaydaysInYear(localDate(2026, 11, 20), null, earlyDecember),
+    ).toBe(remainingPaydaysInYear(localDate(2026, 11, 20)));
+  });
+
+  it("lists scheduled weekend-adjusted paydays", () => {
+    expect(
+      scheduledPaydaysBetween(localDate(2026, 11, 1), localDate(2026, 12, 31)).map(
+        localPaydayString,
+      ),
+    ).toEqual(["2026-11-13", "2026-12-01", "2026-12-15"]);
+  });
+
+  it("only accepts overrides that stay between neighboring paydays", () => {
+    expect(isValidPaydayOverride("2026-12-01", "2026-11-27")).toBe(true);
+    expect(isValidPaydayOverride("2026-12-01", "2026-11-13")).toBe(false);
+    expect(isValidPaydayOverride("2026-12-01", "2026-12-15")).toBe(false);
+    expect(isValidPaydayOverride("2026-12-02", "2026-11-27")).toBe(false);
   });
 });

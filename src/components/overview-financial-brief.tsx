@@ -6,7 +6,7 @@ import type { FinancialGoal, FinancialGoalTrackingMetric } from "../lib/financia
 import type { PendingCardTransaction, TransactionSelectorRecord } from "../lib/credit-card-transaction-types";
 import type { PendingTransaction } from "../lib/pending-transaction-types";
 import type { BankValueSnapshot } from "../lib/snapshot-types";
-import { getCurrentPayPeriod } from "../lib/pay-cycle";
+import { getCurrentPayPeriod, type PaydayOverrides } from "../lib/pay-cycle";
 
 const labels: Record<FinancialGoalTrackingMetric, string> = {
   remaining_budget: "Remaining budget",
@@ -32,14 +32,15 @@ type GoalContext = {
   pendingCardTransactions: PendingCardTransaction[];
   transactions: TransactionSelectorRecord[];
   projectedNextPaycheck: number | null;
+  paydayOverrides?: PaydayOverrides | null;
 };
 
-function periodLabel(goal: ReturnType<typeof normalizeFinancialGoal>, now: Date) {
+function periodLabel(goal: ReturnType<typeof normalizeFinancialGoal>, now: Date, paydayOverrides?: PaydayOverrides | null) {
   const period = goal.success_conditions.find(c => c.field === "spending_period")?.value
     || goal.scope_conditions.find(c => c.field === "pay_period")?.value;
   const raw = Array.isArray(period) ? period[0] : period;
   if (!raw) return null;
-  const current = raw === "current" ? getCurrentPayPeriod(now) : null;
+  const current = raw === "current" ? getCurrentPayPeriod(now, null, paydayOverrides) : null;
   const dates = current ? [current.start, current.end] : /^\d{4}-\d{2}-\d{2}\.\.\d{4}-\d{2}-\d{2}$/.test(raw)
     ? raw.split("..").map(d => new Date(`${d}T12:00:00`)) : [];
   return dates.length === 2 ? dates.map(d => new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(d)).join(" – ") : null;
@@ -61,7 +62,7 @@ function GoalBrief({ goal, context }: { goal: FinancialGoal; context: GoalContex
   const secondary = metrics.filter(m => !primary.includes(m)
     && !(context.snapshot && cap && m.metric === "total_budget")
     && !(context.snapshot && cap && m.metric === "total_credit_card_spend" && m.value !== null && target.actual !== null && Math.abs(m.value - target.actual) < .005));
-  const period = periodLabel(normalized, context.currentDate);
+  const period = periodLabel(normalized, context.currentDate, context.paydayOverrides);
   const status = !goal.is_active ? "Paused" : evaluation.met ? "Conditions met" : "In progress";
   const metricLabel = (metric: FinancialGoalTrackingMetric) => metric === "remaining_budget" && lowerBound ? "Gap to threshold" : labels[metric];
   const value = (metric: FinancialGoalTrackingMetric, amount: number | null) => {

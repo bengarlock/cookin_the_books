@@ -9,6 +9,7 @@ import {
   getNextPayCycle,
   localPaydayString,
   remainingPaydaysInYear,
+  type PaydayOverrides,
 } from "./pay-cycle";
 import type { BankValueSnapshot, SnapshotAccountKey } from "./snapshot-types";
 import type { BudgetItem } from "./budget-item-types";
@@ -372,6 +373,7 @@ function forecastPaydaysInRange(
   dateRange: ExpenseDateRange,
   currentDate: Date,
   nextPaydayOverride?: string | null,
+  paydayOverrides?: PaydayOverrides | null,
 ) {
   const tomorrow = new Date(
     currentDate.getFullYear(),
@@ -381,11 +383,15 @@ function forecastPaydaysInRange(
   const forecastStart = localDateString(tomorrow);
   if (dateRange.end < forecastStart) return 0;
 
-  let payday = getNextPayCycle(currentDate, nextPaydayOverride).nextPayday;
+  let payday = getNextPayCycle(
+    currentDate,
+    nextPaydayOverride,
+    paydayOverrides,
+  ).nextPayday;
   let count = 0;
   while (localPaydayString(payday) <= dateRange.end) {
     if (localPaydayString(payday) >= dateRange.start) count += 1;
-    payday = followingPayday(payday);
+    payday = followingPayday(payday, paydayOverrides);
   }
   return count;
 }
@@ -400,6 +406,7 @@ export function projectDateRange({
   expenseAverageDateRange,
   currentDate = new Date(),
   nextPaydayOverride,
+  paydayOverrides,
 }: {
   incomeEntries: IncomeEntry[];
   incomeTransactions?: IncomeTransaction[];
@@ -410,6 +417,7 @@ export function projectDateRange({
   expenseAverageDateRange?: ExpenseDateRange;
   currentDate?: Date;
   nextPaydayOverride?: string | null;
+  paydayOverrides?: PaydayOverrides | null;
 }): DateRangeProjection {
   const today = localDateString(currentDate);
   const effectiveEnd = dateRange.end < today ? dateRange.end : today;
@@ -437,6 +445,7 @@ export function projectDateRange({
     dateRange,
     currentDate,
     nextPaydayOverride,
+    paydayOverrides,
   );
   const predictedPaycheck = classifyPaychecks(
     incomeEntries,
@@ -512,6 +521,7 @@ export function projectCurrentYear({
   incomeTransactions = [],
   currentDate = new Date(),
   nextPaydayOverride,
+  paydayOverrides,
 }: {
   incomeEntries: IncomeEntry[];
   budgetItems: BudgetItem[];
@@ -522,6 +532,7 @@ export function projectCurrentYear({
   incomeTransactions?: IncomeTransaction[];
   currentDate?: Date;
   nextPaydayOverride?: string | null;
+  paydayOverrides?: PaydayOverrides | null;
 }): CurrentYearProjection {
   const { year, start, end, today } = currentYearBounds(currentDate);
   const paycheckProjection = classifyPaychecks(incomeEntries, currentDate);
@@ -529,6 +540,7 @@ export function projectCurrentYear({
   const remainingPaydays = remainingPaydaysInYear(
     currentDate,
     nextPaydayOverride,
+    paydayOverrides,
   );
   const ytdIncome = yearToDateIncome(
     incomeEntries,
@@ -601,6 +613,7 @@ export function projectRevenueAfterPayCycle({
   pendingTransactions,
   currentDate = new Date(),
   nextPaydayOverride,
+  paydayOverrides,
 }: {
   incomeEntries: IncomeEntry[];
   budgetItems: BudgetItem[];
@@ -613,8 +626,13 @@ export function projectRevenueAfterPayCycle({
   pendingTransactions: PendingTransaction[];
   currentDate?: Date;
   nextPaydayOverride?: string | null;
+  paydayOverrides?: PaydayOverrides | null;
 }): PayCycleProjection {
-  const payCycle = getNextPayCycle(currentDate, nextPaydayOverride);
+  const payCycle = getNextPayCycle(
+    currentDate,
+    nextPaydayOverride,
+    paydayOverrides,
+  );
   const paycheckProjection = classifyPaychecks(
     incomeEntries,
     currentDate,
@@ -633,6 +651,7 @@ export function projectRevenueAfterPayCycle({
   const currentPayPeriod = getCurrentPayPeriod(
     currentDate,
     nextPaydayOverride,
+    paydayOverrides,
   );
   const currentPayCycleDateRange = {
     start: localPaydayString(currentPayPeriod.start),

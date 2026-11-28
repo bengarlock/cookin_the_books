@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
+import { usePaydayOverrides } from "@/components/payday-overrides";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import { APP_BASE_PATH } from "@/lib/config";
 import {
@@ -83,6 +84,7 @@ export function RecurringExpenses({
     today,
     undefined,
   );
+  const paydayOverrides = usePaydayOverrides();
   const rangeProjection = useMemo(
     () =>
       projectDateRange({
@@ -91,10 +93,12 @@ export function RecurringExpenses({
         incomeTransactions,
         dateRange,
         nextPaydayOverride: budgetPlanSettings.next_payday_override,
+        paydayOverrides,
         financialReminders,
       }),
     [
       budgetPlanSettings.next_payday_override,
+      paydayOverrides,
       dateRange,
       financialReminders,
       incomeEntries,
@@ -113,8 +117,9 @@ export function RecurringExpenses({
         pendingTransactions,
         snapshot,
         nextPaydayOverride: budgetPlanSettings.next_payday_override,
+        paydayOverrides,
       }),
-    [budgetPlanSettings.next_payday_override, incomeEntries, pendingTransactions, snapshot, transactions],
+    [budgetPlanSettings.next_payday_override, paydayOverrides, incomeEntries, pendingTransactions, snapshot, transactions],
   );
 
   return (

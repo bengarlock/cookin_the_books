@@ -7,6 +7,7 @@ import { AuthInvalidationBoundary } from "@/components/auth-invalidation-boundar
 import { DashboardShell } from "@/components/dashboard-shell";
 import { DemoModeProvider } from "@/components/demo-mode";
 import { LiveSnapshotProvider } from "@/components/live-snapshot-provider";
+import { PaydayOverridesProvider } from "@/components/payday-overrides";
 import { verifyPortfolioSession } from "@/lib/auth";
 import { getBudgetPlanSettings } from "@/lib/budget-plan-settings";
 import { DEMO_COOKIE_NAME, DEMO_ENTRY_PATH } from "@/lib/demo";
@@ -42,6 +43,7 @@ export default async function DashboardLayout({
   return (
     <DemoModeProvider isDemo={isDemo}>
       <AccountNamesProvider names={budgetPlanSettings.account_display_names}>
+      <PaydayOverridesProvider initialOverrides={budgetPlanSettings.payday_overrides}>
       <LiveSnapshotProvider initialSnapshot={latestSnapshot}>
         <AuthInvalidationBoundary isDemo={isDemo} />
         <DashboardShell
@@ -51,6 +53,7 @@ export default async function DashboardLayout({
           {children}
         </DashboardShell>
       </LiveSnapshotProvider>
+      </PaydayOverridesProvider>
       </AccountNamesProvider>
     </DemoModeProvider>
   );

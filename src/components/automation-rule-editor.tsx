@@ -1,6 +1,7 @@
 "use client";
 
 import { useAccountNames } from "@/components/account-names";
+import { usePaydayOverrides } from "@/components/payday-overrides";
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -194,6 +195,7 @@ export function AutomationRuleEditor({
     return selected;
   }
 
+  const paydayOverrides = usePaydayOverrides();
   const previewMatches = useMemo(() => {
     if (!form.conditions.length || form.conditions.some(conditionIsEmpty)) {
       return [];
@@ -223,8 +225,11 @@ export function AutomationRuleEditor({
       initialCreditCardTransactions,
       draftRule.conditions,
       draftRule.logic_operator,
+      new Date(),
+      paydayOverrides,
     );
   }, [
+    paydayOverrides,
     displayName,
     editingRuleId,
     form,

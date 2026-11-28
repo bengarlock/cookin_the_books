@@ -18,6 +18,7 @@ import { extractApiErrorDetail, extractApiErrorMessage } from "@/lib/api-error-m
 import { APP_BASE_PATH } from "@/lib/config";
 import { formatAutomationRunMessage } from "@/lib/format-automation-run-message";
 import { formatAutomationActionSummary } from "@/lib/expense-automation-summary";
+import { usePaydayOverrides } from "@/components/payday-overrides";
 import { selectTransactions } from "@/lib/transaction-selector";
 import { AutomationRuleEditor } from "@/components/automation-rule-editor";
 
@@ -46,6 +47,7 @@ export function AutomationsDashboard({
     () => new Map(initialBudgetItems.map((item) => [item.id, item])),
     [initialBudgetItems],
   );
+  const paydayOverrides = usePaydayOverrides();
   const impactedRecordCounts = useMemo(
     () =>
       new Map(
@@ -68,11 +70,13 @@ export function AutomationsDashboard({
               initialCreditCardTransactions,
               conditions,
               rule.logic_operator,
+              new Date(),
+              paydayOverrides,
             ).length,
           ];
         }),
       ),
-    [initialCreditCardTransactions, rules],
+    [initialCreditCardTransactions, paydayOverrides, rules],
   );
 
   function openCreateForm() {

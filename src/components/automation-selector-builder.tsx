@@ -4,7 +4,14 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { ExpenseAutomationCondition } from "@/lib/expense-automation-rule-types";
 import type { TransactionSelectorRecord } from "@/lib/credit-card-transaction-types";
-import { getCurrentPayPeriod, localPaydayString } from "@/lib/pay-cycle";
+import { usePaydayOverrides } from "@/components/payday-overrides";
+import { AdjustPaydaysButton } from "@/components/payday-overrides-editor";
+import {
+  getCurrentPayPeriod,
+  localPaydayString,
+  parsePaydayDate,
+  type PaydayOverrides,
+} from "@/lib/pay-cycle";
 
 const pageSize = 10;
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -107,14 +114,17 @@ function payPeriodValue(start: Date, end: Date) {
   return `${localPaydayString(start)}..${localPaydayString(end)}`;
 }
 
-function previousPayPeriod(periodStart: Date) {
+function previousPayPeriod(
+  periodStart: Date,
+  paydayOverrides: PaydayOverrides,
+) {
   const previousDay = new Date(periodStart);
   previousDay.setDate(previousDay.getDate() - 1);
-  return getCurrentPayPeriod(previousDay);
+  return getCurrentPayPeriod(previousDay, null, paydayOverrides);
 }
 
-function getPayPeriodOptions() {
-  const current = getCurrentPayPeriod(new Date());
+function getPayPeriodOptions(paydayOverrides: PaydayOverrides) {
+  const current = getCurrentPayPeriod(new Date(), null, paydayOverrides);
   const options = [
     {
       value: "current",
@@ -124,7 +134,7 @@ function getPayPeriodOptions() {
   let period = current;
 
   for (let index = 0; index < 8; index += 1) {
-    period = previousPayPeriod(period.start);
+    period = previousPayPeriod(period.start, paydayOverrides);
     options.push({
       value: payPeriodValue(period.start, period.end),
       label: formatPeriodLabel(period.start, period.end),
@@ -352,19 +362,39 @@ export function PayPeriodSelector({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const options = getPayPeriodOptions();
+  const paydayOverrides = usePaydayOverrides();
+  const options = getPayPeriodOptions(paydayOverrides);
+  const selected = value || "current";
+  // A saved fixed period may no longer line up with the pay schedule after a
+  // payday was moved; keep it selectable instead of showing a blank select.
+  const savedRange = selected.split("..");
+  const savedStart = parsePaydayDate(savedRange[0]);
+  const savedEnd = parsePaydayDate(savedRange[1]);
+  if (
+    savedStart &&
+    savedEnd &&
+    !options.some((option) => option.value === selected)
+  ) {
+    options.push({
+      value: selected,
+      label: formatPeriodLabel(savedStart, savedEnd),
+    });
+  }
   return (
-    <select
-      className="rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-sm text-white"
-      onChange={(event) => onChange(event.target.value)}
-      value={value || "current"}
-    >
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
+    <div className="flex min-w-0 flex-wrap items-center gap-2">
+      <select
+        className="min-w-0 flex-[1_1_12rem] rounded-lg border border-white/10 bg-[#0b1714] px-3 py-2 text-sm text-white"
+        onChange={(event) => onChange(event.target.value)}
+        value={selected}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <AdjustPaydaysButton />
+    </div>
   );
 }
 

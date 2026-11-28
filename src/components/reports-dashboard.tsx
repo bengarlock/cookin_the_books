@@ -1,6 +1,7 @@
 "use client";
 
 import { useAccountNames } from "@/components/account-names";
+import { usePaydayOverrides } from "@/components/payday-overrides";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { FormEvent } from "react";
 
@@ -112,7 +113,8 @@ export function ReportsDashboard({
   }, [categories, transactions]);
   const descriptions = useMemo(() => Array.from(new Set(transactions.map((item) => item.description).filter(Boolean))).sort(), [transactions]);
   const tags = useMemo(() => Array.from(new Set(transactions.flatMap((item) => item.tags?.map((tag) => tag.name) || []))).sort(), [transactions]);
-  const preview = useMemo(() => selectTransactions(transactions, conditions, "and"), [transactions, conditions]);
+  const paydayOverrides = usePaydayOverrides();
+  const preview = useMemo(() => selectTransactions(transactions, conditions, "and", new Date(), paydayOverrides), [transactions, conditions, paydayOverrides]);
 
   useEffect(() => () => {
     if (saveButtonTimeout.current) clearTimeout(saveButtonTimeout.current);
@@ -217,7 +219,7 @@ export function ReportsDashboard({
     setSaveMessage("");
     clearSaveButtonState();
     setStale(false);
-    setResults(selectTransactions(transactions, report.conditions, "and"));
+    setResults(selectTransactions(transactions, report.conditions, "and", new Date(), paydayOverrides));
   }
 
   function deleteReport(reportId: string) {

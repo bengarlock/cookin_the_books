@@ -5,6 +5,7 @@ import { type ReactNode, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
+import { usePaydayOverrides } from "@/components/payday-overrides";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import { APP_BASE_PATH } from "@/lib/config";
 import type {
@@ -172,6 +173,7 @@ export function ProjectionsDashboard({
     initialBudgetPlanSettings,
   );
   const nextPaydayOverride = budgetPlanSettings.next_payday_override;
+  const paydayOverrides = usePaydayOverrides();
   const [confirmingFastForward, setConfirmingFastForward] = useState(false);
   const [isFastForwarding, setIsFastForwarding] = useState(false);
   const [fastForwardError, setFastForwardError] = useState("");
@@ -200,8 +202,10 @@ export function ProjectionsDashboard({
         snapshot,
         pendingTransactions: initialPendingTransactions,
         nextPaydayOverride,
+        paydayOverrides,
       }),
     [
+      paydayOverrides,
       initialCategorizedTransactions,
       expenseAverageDateRange,
       initialIncomeEntries,
@@ -220,9 +224,11 @@ export function ProjectionsDashboard({
         dateRange: initialRange,
         expenseAverageDateRange,
         nextPaydayOverride,
+        paydayOverrides,
         financialReminders: initialFinancialReminders,
       }),
     [
+      paydayOverrides,
       initialCategorizedTransactions,
       expenseAverageDateRange,
       initialIncomeEntries,
@@ -252,7 +258,10 @@ export function ProjectionsDashboard({
     ],
   );
 
-  const fastForwardPayday = followingPayday(projection.nextPayday);
+  const fastForwardPayday = followingPayday(
+    projection.nextPayday,
+    paydayOverrides,
+  );
 
   async function fastForwardPayCycle() {
     setIsFastForwarding(true);
