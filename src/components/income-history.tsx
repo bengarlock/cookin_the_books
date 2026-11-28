@@ -14,6 +14,10 @@ import {
   incomeLedgerTotals,
   reconcileSyncedIncome,
 } from "@/lib/income-reconciliation";
+import {
+  breakdownEntries,
+  sumBreakdown,
+} from "@/lib/income-breakdown";
 import { mergeImportedIncomeEntries } from "@/lib/merge-imported-income-entries";
 import { validatePdfImportFiles } from "@/lib/pdf-import";
 
@@ -43,32 +47,6 @@ function formatDate(value: string) {
 
 function money(value: string | number | null | undefined) {
   return currencyFormatter.format(Number(value || 0));
-}
-
-function breakdownEntries(
-  breakdown: Record<string, string> | undefined,
-  {
-    excludeLabels = [],
-    onlyNegative = false,
-  }: { excludeLabels?: string[]; onlyNegative?: boolean } = {},
-) {
-  const excluded = new Set(excludeLabels.map((label) => label.toLowerCase()));
-  return Object.entries(breakdown || {})
-    .filter(([label]) => !excluded.has(label.toLowerCase()))
-    .filter(([, value]) => !onlyNegative || Number(value) < 0)
-    .map(([label, value]) => [label, Math.abs(Number(value))] as const)
-    .filter(([, value]) => value > 0)
-    .sort(([leftLabel], [rightLabel]) => leftLabel.localeCompare(rightLabel));
-}
-
-function sumBreakdown(
-  breakdown: Record<string, string> | undefined,
-  options?: { excludeLabels?: string[]; onlyNegative?: boolean },
-) {
-  return breakdownEntries(breakdown, options).reduce(
-    (total, [, value]) => total + value,
-    0,
-  );
 }
 
 type MoneyBreakdownEntry = readonly [
@@ -239,14 +217,12 @@ export function IncomeHistory({
     0,
   );
   const totalTaxes = filteredEntries.reduce((total, entry) => {
-    return total + sumBreakdown(entry.breakdown?.taxes, { onlyNegative: true });
+    return total + sumBreakdown(entry.breakdown?.taxes);
   }, 0);
   const totalDeductions = totalGross - totalTaxes - totalNet;
   const taxBreakdown = filteredEntries.reduce<Record<string, number>>(
     (breakdown, entry) => {
-      for (const [label, value] of breakdownEntries(entry.breakdown?.taxes, {
-        onlyNegative: true,
-      })) {
+      for (const [label, value] of breakdownEntries(entry.breakdown?.taxes)) {
         breakdown[label] = (breakdown[label] || 0) + value;
       }
       return breakdown;
@@ -260,15 +236,12 @@ export function IncomeHistory({
     (breakdown, entry) => {
       const knownDeductions = breakdownEntries(entry.breakdown?.deductions, {
         excludeLabels: ["Cell"],
-        onlyNegative: true,
       });
       const knownTotal = knownDeductions.reduce(
         (total, [, value]) => total + value,
         0,
       );
-      const entryTaxes = sumBreakdown(entry.breakdown?.taxes, {
-        onlyNegative: true,
-      });
+      const entryTaxes = sumBreakdown(entry.breakdown?.taxes);
       const reconciledTotal =
         Number(entry.gross_pay) - entryTaxes - Number(entry.net_pay);
       const adjustment = reconciledTotal - knownTotal;
@@ -724,16 +697,14 @@ export function IncomeHistory({
           {filteredEntries.length ? (
             filteredEntries.map((entry) => {
               const syncedTransaction = syncedIncomeByEntryId.get(entry.id);
-              const taxEntries = breakdownEntries(entry.breakdown?.taxes, {
-                onlyNegative: true,
-              });
+              const taxEntries = breakdownEntries(entry.breakdown?.taxes);
               const taxes = taxEntries.reduce(
                 (total, [, value]) => total + value,
                 0,
               );
               const knownDeductionEntries = breakdownEntries(
                 entry.breakdown?.deductions,
-                { excludeLabels: ["Cell"], onlyNegative: true },
+                { excludeLabels: ["Cell"] },
               );
               const knownDeductions = knownDeductionEntries.reduce(
                 (total, [, value]) => total + value,
