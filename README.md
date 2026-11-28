@@ -2,10 +2,114 @@
 
 Personal finance dashboard that reads receipts with the Codex API and tags them onto bank transactions. Next.js, Django REST Framework, PostgreSQL, Plaid.
 
-The app uses:
+Cookin' the Books pulls bank and credit-card activity in through Plaid, matches
+forwarded receipts and Amazon orders to the transactions they belong to, and
+turns the result into a pay-cycle budget, net-worth history, forecasts, goals,
+and a financial calendar.
 
-- Next.js 16 with the App Router and TypeScript
-- Tailwind CSS
+**Try it:** [bengarlock.com/cookinthebooks/demo](https://bengarlock.com/cookinthebooks/demo)
+signs you into a demo account with generated sample data. Edit anything; it
+resets nightly.
+
+![Overview](docs/screenshots/overview.png)
+
+## Features
+
+### Accounts and transactions
+
+- **Plaid sync** for checking, savings, credit-card, investment, and retirement
+  accounts, with per-connection and sync-all refresh plus a sync activity log.
+- **Account balances** with posted, pending, and adjusted totals. Adjusted
+  balances include manual pending transactions you add yourself, which are
+  reconciled when the real transaction posts.
+- **Transaction editor** for categories, tags, notes, and budget treatment,
+  with one-click automatic categorization and manual corrections.
+- **Related transactions**: suggestions for linking refunds, payments, and
+  other transactions that belong together.
+- **Statement imports** from credit-card CSV and PDF statements, pay stubs, and
+  housing and power bills.
+- **Display names and links** for each account, used everywhere in the app.
+
+![Account balances](docs/screenshots/accounts.png)
+
+### Receipts and orders
+
+- **Receipt inbox**: forward receipt emails to a shared mailbox. Each one is
+  parsed and matched to a card transaction, with retry, manual matching, and
+  review for receipts that didn't match.
+- **Line-item tagging**: tag individual receipt items, not only the whole
+  transaction.
+- **Amazon order history**: upload Amazon's order-history ZIP. It is imported
+  in the background and matched to card transactions, optionally
+  auto-categorizing new matches.
+
+### Budget
+
+- **Pay-cycle plan**: days until payday, total budget, credit-card balance,
+  remaining budget, and a daily spending allowance, plus cash position and
+  savings-reserve variance.
+- **Income**: pay-statement history with gross pay, net pay, and withholdings,
+  reconciled against deposits.
+- **Expenses**: spending by category over any date range, with monthly
+  averages, annual pace, and bulk categorization.
+- **Projections**: next-paycheck forecast from median net pay, projected spend,
+  projected cash after the pay cycle, and an unemployment-runway estimate.
+- **Goals**: balance and spending targets with conditions over chosen accounts,
+  transaction types, and periods. Pin a goal or its tracking metrics to the
+  overview.
+
+![Pay-cycle planning](docs/screenshots/budget-plan.png)
+
+![Expenses by category](docs/screenshots/expenses.png)
+
+![Projections](docs/screenshots/projections.png)
+
+![Financial goals](docs/screenshots/goals.png)
+
+### Calendar and reminders
+
+- **Financial calendar** showing daily transactions and totals alongside
+  scheduled events. Events can repeat on flexible schedules and be dragged to a
+  new date.
+- **Recurring-expense suggestions** found from consistent merchant, amount, and
+  timing patterns.
+- **Reminders** by email, on the overview, or both, with completion and undo.
+
+![Financial calendar](docs/screenshots/calendar.png)
+
+### Net worth, reports, and automations
+
+- **Snapshots**: one locked financial position per day with account-level
+  detail, an interactive net-assets chart with drag-to-select ranges, a trend
+  line, and highpoint tracking. New snapshots reach the dashboard over a
+  WebSocket without a page refresh.
+- **Reports**: saved transaction views built from flexible selectors, with
+  totals, a category breakdown, monthly spend, and year-over-year trends.
+- **Automations**: rules that match transactions by description, amount,
+  account, date, status, or pay period, then assign categories or tags, set
+  budget treatment, or create expense entries. They run automatically after
+  each import.
+
+![Net worth history](docs/screenshots/snapshots.png)
+
+### Overview and settings
+
+- **Overview** with a "needs attention" list, a balance sheet, upcoming
+  reminders, pinned goals, and a tile layout you can rearrange.
+- **Settings** for light and dark themes, notifications, categories, connected
+  accounts, receipt forwarding, and Amazon data.
+
+## Tech stack
+
+- Next.js 16 (App Router), React 19, TypeScript, and Tailwind CSS 4
+- Plaid Link (`react-plaid-link`) for bank connections
+- Vitest for unit tests
+- [`portfolio_database`](#authentication-flow) backend: Django REST Framework,
+  PostgreSQL, Django Channels for live updates, and Celery for background
+  imports, matching, and reminders
+
+The app also uses:
+
 - A fixed Next.js `basePath` of `/cookinthebooks`
 - The existing `portfolio_database` token login and verification endpoints
 - An HTTP-only cookie for the backend token
@@ -83,6 +187,7 @@ The root route redirects unauthenticated users to
 
 ```bash
 npm run lint
+npm test
 npm run build
 ```
 
