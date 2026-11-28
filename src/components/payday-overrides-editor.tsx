@@ -80,8 +80,11 @@ function saveError(data: unknown) {
  */
 export function PaydayOverridesEditor({
   onSaved,
+  scrollToNextPayday = false,
 }: {
   onSaved?: () => void;
+  /** Scroll the surrounding scroll box (not the page) to the next payday. */
+  scrollToNextPayday?: boolean;
 }) {
   const router = useRouter();
   const savedOverrides = usePaydayOverrides();
@@ -120,10 +123,16 @@ export function PaydayOverridesEditor({
   );
   const nextPaydayRow = useRef<HTMLLIElement>(null);
 
-  // Open the list on the upcoming payday instead of months in the past.
+  // In the dialog, bring the upcoming payday into view by scrolling only the
+  // dialog body (the Save bar is sticky there), never the page.
   useEffect(() => {
-    nextPaydayRow.current?.scrollIntoView({ block: "center" });
-  }, []);
+    const row = nextPaydayRow.current;
+    const scrollBox = row?.closest<HTMLElement>("[data-payday-scroll]");
+    if (!scrollToNextPayday || !row || !scrollBox) return;
+    const overflow =
+      row.getBoundingClientRect().bottom - scrollBox.getBoundingClientRect().bottom;
+    if (overflow > 0) scrollBox.scrollTop += overflow + 16;
+  }, [scrollToNextPayday]);
   const hasChanges =
     JSON.stringify(Object.entries(drafts).sort()) !==
     JSON.stringify(Object.entries(savedOverrides).sort());
@@ -180,12 +189,37 @@ export function PaydayOverridesEditor({
   return (
     // Not a <form>: the editor also opens inside the goal form, and forms
     // cannot nest.
-    <div className="space-y-5">
-      <div className="rounded-xl border border-accent/20 bg-accent/5 px-4 py-3 text-sm">
-        <span className="text-white/60">Current pay period with these paydays: </span>
-        <span className="font-semibold text-white">
-          {shortDate.format(preview.start)} – {shortDate.format(preview.end)}
-        </span>
+    <div className="space-y-4">
+      <div
+        className={
+          scrollToNextPayday
+            ? "sticky -top-5 z-10 -mx-5 -mt-5 space-y-2 border-b border-line bg-panel px-5 pt-5 pb-3"
+            : "space-y-2"
+        }
+      >
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-64 flex-1 rounded-xl border border-accent/20 bg-accent/5 px-4 py-3 text-sm">
+          <span className="text-white/60">Current pay period with these paydays: </span>
+          <span className="font-semibold text-white">
+            {shortDate.format(preview.start)} – {shortDate.format(preview.end)}
+          </span>
+        </div>
+        <button
+          className="shrink-0 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:brightness-110 disabled:opacity-50"
+          disabled={isSaving || !hasChanges}
+          onClick={save}
+          type="button"
+        >
+          {isSaving ? "Saving…" : "Save paydays"}
+        </button>
+      </div>
+      <div aria-live="polite" className="min-h-5 text-sm">
+        {error ? (
+          <p className="text-red-300" role="alert">{error}</p>
+        ) : (
+          <p className="text-emerald-300" role="status">{status}</p>
+        )}
+      </div>
       </div>
       <fieldset className="disabled:opacity-60" disabled={isSaving}>
         <legend className="sr-only">Actual payday for each scheduled payday</legend>
@@ -269,21 +303,6 @@ export function PaydayOverridesEditor({
           })}
         </ul>
       </fieldset>
-      <div aria-live="polite" className="min-h-5 text-sm">
-        {error ? (
-          <p className="text-red-300" role="alert">{error}</p>
-        ) : (
-          <p className="text-emerald-300" role="status">{status}</p>
-        )}
-      </div>
-      <button
-        className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:brightness-110 disabled:opacity-50"
-        disabled={isSaving || !hasChanges}
-        onClick={save}
-        type="button"
-      >
-        {isSaving ? "Saving…" : "Save paydays"}
-      </button>
     </div>
   );
 }
@@ -335,8 +354,8 @@ export function AdjustPaydaysButton() {
                 Close
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-5">
-              <PaydayOverridesEditor onSaved={() => setOpen(false)} />
+            <div className="min-h-0 flex-1 overflow-y-auto p-5" data-payday-scroll>
+              <PaydayOverridesEditor onSaved={() => setOpen(false)} scrollToNextPayday />
             </div>
           </div>
         </div>,
