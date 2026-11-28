@@ -13,6 +13,7 @@ export const getBudgetPlanSettings = cache(async (): Promise<BudgetPlanSettings>
     return {
       budget_offset: "0.00",
       next_payday_override: null,
+      payday_overrides: {},
       navigation_preferences: {},
       financial_reminder_email: "",
       financial_reminder_notifications_enabled: true,
@@ -36,6 +37,7 @@ export const getBudgetPlanSettings = cache(async (): Promise<BudgetPlanSettings>
       return {
         budget_offset: "0.00",
         next_payday_override: null,
+        payday_overrides: {},
         navigation_preferences: {},
         financial_reminder_email: "",
         financial_reminder_notifications_enabled: true,
@@ -48,6 +50,7 @@ export const getBudgetPlanSettings = cache(async (): Promise<BudgetPlanSettings>
     return {
       budget_offset: "0.00",
       next_payday_override: null,
+      payday_overrides: {},
       navigation_preferences: {},
       financial_reminder_email: "",
       financial_reminder_notifications_enabled: true,

@@ -1,6 +1,10 @@
 import type { TransactionSelectorRecord } from "@/lib/credit-card-transaction-types";
 import type { ExpenseAutomationCondition } from "@/lib/expense-automation-rule-types";
-import { getCurrentPayPeriod, localPaydayString } from "./pay-cycle";
+import {
+  getCurrentPayPeriod,
+  localPaydayString,
+  type PaydayOverrides,
+} from "./pay-cycle";
 
 const payPeriodRangePattern = /^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/;
 
@@ -16,12 +20,13 @@ export function transactionMatchesCondition<
   transaction: Transaction,
   condition: ExpenseAutomationCondition,
   currentDate = new Date(),
+  paydayOverrides?: PaydayOverrides | null,
 ) {
   if (!["purchase", "fee", "interest"].includes(transaction.transaction_type)) return false;
 
   if (condition.field === "pay_period") {
     const target = Array.isArray(condition.value) ? condition.value[0] : condition.value;
-    const currentPeriod = getCurrentPayPeriod(currentDate);
+    const currentPeriod = getCurrentPayPeriod(currentDate, null, paydayOverrides);
     const currentStart = localPaydayString(currentPeriod.start);
     const currentEnd = localPaydayString(currentPeriod.end);
     const range =
@@ -96,6 +101,7 @@ export function selectTransactions<
   conditions: ExpenseAutomationCondition[],
   logic: "and" | "or",
   currentDate = new Date(),
+  paydayOverrides?: PaydayOverrides | null,
 ) {
   if (!conditions.length || conditions.some(conditionIsEmpty)) return [];
   return transactions.filter((transaction) =>
@@ -105,6 +111,7 @@ export function selectTransactions<
           transaction,
           condition,
           currentDate,
+          paydayOverrides,
         );
         if (index === 0) return conditionMatches;
         return (condition.logic_operator || logic) === "or"

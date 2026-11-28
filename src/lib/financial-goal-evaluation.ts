@@ -14,7 +14,11 @@ import type {
   FinancialGoalInput,
   FinancialGoalTrackingMetric,
 } from "./financial-goal-types";
-import { getCurrentPayPeriod, localPaydayString } from "./pay-cycle";
+import {
+  getCurrentPayPeriod,
+  localPaydayString,
+  type PaydayOverrides,
+} from "./pay-cycle";
 import type { PendingTransaction } from "./pending-transaction-types";
 import type { BankValueSnapshot, SnapshotAccountKey } from "./snapshot-types";
 import { selectTransactions } from "./transaction-selector";
@@ -99,9 +103,13 @@ export function normalizeFinancialGoal(goal: FinancialGoal): FinancialGoalInput 
   };
 }
 
-function periodRange(value: string, currentDate: Date) {
+function periodRange(
+  value: string,
+  currentDate: Date,
+  paydayOverrides?: PaydayOverrides | null,
+) {
   if (value === "current") {
-    const period = getCurrentPayPeriod(currentDate);
+    const period = getCurrentPayPeriod(currentDate, null, paydayOverrides);
     return {
       start: localPaydayString(period.start),
       end: localPaydayString(period.end),
@@ -111,7 +119,11 @@ function periodRange(value: string, currentDate: Date) {
   return match ? { start: match[1], end: match[2] } : null;
 }
 
-function selectedPeriodRange(goal: FinancialGoalInput, currentDate: Date) {
+function selectedPeriodRange(
+  goal: FinancialGoalInput,
+  currentDate: Date,
+  paydayOverrides?: PaydayOverrides | null,
+) {
   const successPeriod = goal.success_conditions.find(
     (condition) => condition.field === "spending_period",
   );
@@ -123,7 +135,11 @@ function selectedPeriodRange(goal: FinancialGoalInput, currentDate: Date) {
       ? scopePeriod.value[0]
       : scopePeriod.value
     : null;
-  return periodRange(successPeriod?.value || scopeValue || "", currentDate);
+  return periodRange(
+    successPeriod?.value || scopeValue || "",
+    currentDate,
+    paydayOverrides,
+  );
 }
 
 function daysLeftInPeriod(periodEnd: string, currentDate: Date) {
@@ -227,6 +243,7 @@ export function evaluateFinancialGoal({
   pendingCardTransactions = transactions,
   currentDate = new Date(),
   projectedNextPaycheck = null,
+  paydayOverrides = null,
 }: {
   goal: FinancialGoalInput;
   transactions: TransactionSelectorRecord[];
@@ -235,12 +252,14 @@ export function evaluateFinancialGoal({
   pendingCardTransactions?: PendingCardTransaction[];
   currentDate?: Date;
   projectedNextPaycheck?: number | null;
+  paydayOverrides?: PaydayOverrides | null;
 }) {
   const scopeMatches = selectTransactions(
     transactions,
     goal.scope_conditions,
     "and",
     currentDate,
+    paydayOverrides,
   );
   const includeOutstandingPending = goal.scope_conditions.some(
     (condition) =>
@@ -248,7 +267,7 @@ export function evaluateFinancialGoal({
       condition.operator === "equals" &&
       condition.include_outstanding_pending === true,
   );
-  const range = selectedPeriodRange(goal, currentDate);
+  const range = selectedPeriodRange(goal, currentDate, paydayOverrides);
   const spendingMatches = range
     ? scopeMatches.filter(
         (transaction) =>

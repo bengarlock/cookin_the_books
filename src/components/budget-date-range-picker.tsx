@@ -10,6 +10,7 @@ import {
   isExpenseDateRange,
   type ExpenseDateRange,
 } from "@/lib/expense-date-range";
+import { usePaydayOverrides } from "@/components/payday-overrides";
 import { currentPayPeriodDateRange } from "@/lib/pay-cycle";
 
 const goalsPath = "/dashboard/budget/goals";
@@ -39,9 +40,10 @@ export function BudgetDateRangePicker({
   const router = useRouter();
   const searchParams = useSearchParams();
   const isGoalsPage = pathname === goalsPath;
+  const paydayOverrides = usePaydayOverrides();
   const currentPayPeriodRange =
     pathname === projectionsPath
-      ? currentPayPeriodDateRange(new Date(), nextPaydayOverride)
+      ? currentPayPeriodDateRange(new Date(), nextPaydayOverride, paydayOverrides)
       : undefined;
   const start = searchParams.get("start") || "";
   const end = searchParams.get("end") || "";

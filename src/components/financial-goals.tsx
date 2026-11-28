@@ -8,6 +8,7 @@ import {
   PayPeriodSelector,
 } from "@/components/automation-selector-builder";
 import { useLiveSnapshot } from "@/components/live-snapshot-provider";
+import { usePaydayOverrides } from "@/components/payday-overrides";
 import { accountSelectorOptions } from "@/lib/account-transaction-filters";
 import type { BudgetPlanSettings } from "@/lib/budget-plan-settings-types";
 import { APP_BASE_PATH } from "@/lib/config";
@@ -406,9 +407,17 @@ function GoalFields({
       ).sort(),
     [transactions],
   );
+  const paydayOverrides = usePaydayOverrides();
   const preview = useMemo(
-    () => selectTransactions(transactions, value.scope_conditions, "and"),
-    [transactions, value.scope_conditions],
+    () =>
+      selectTransactions(
+        transactions,
+        value.scope_conditions,
+        "and",
+        new Date(),
+        paydayOverrides,
+      ),
+    [paydayOverrides, transactions, value.scope_conditions],
   );
   const hasSelectedAccounts = hasSelectedGoalAccounts(value.scope_conditions);
   const payPeriodCondition = value.scope_conditions.find(
@@ -671,11 +680,13 @@ export function FinancialGoals({
   initialTransactions: TransactionSelectorRecord[];
 }) {
   const { snapshot } = useLiveSnapshot();
+  const paydayOverrides = usePaydayOverrides();
   const projectedNextPaycheck = useMemo(() => {
     const currentDate = new Date();
     const payCycle = getNextPayCycle(
       currentDate,
       initialBudgetPlanSettings.next_payday_override,
+      paydayOverrides,
     );
     const projection = classifyPaychecks(
       initialIncomeEntries,
@@ -685,7 +696,11 @@ export function FinancialGoals({
     return projection.normalPaychecks.length
       ? projection.predictedNetPay
       : null;
-  }, [initialBudgetPlanSettings.next_payday_override, initialIncomeEntries]);
+  }, [
+    initialBudgetPlanSettings.next_payday_override,
+    initialIncomeEntries,
+    paydayOverrides,
+  ]);
   const [goals, setGoals] = useState(initialGoals);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<FinancialGoalInput>(emptyGoal);
@@ -965,6 +980,7 @@ export function FinancialGoals({
             projectedNextPaycheck,
             transactions: initialTransactions,
             snapshot,
+            paydayOverrides,
           });
           const summaries = scopeSummary(
             normalized.scope_conditions,
