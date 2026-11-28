@@ -816,11 +816,20 @@ function AccountTransactionList({
             match_value: editForm.match_value,
             category: editForm.category,
             apply_to_matching: applyToMatching,
+            tags: editForm.tags,
           }),
         },
       );
       if (!categoryResponse.ok) {
         throw new Error("Unable to update the transaction category.");
+      }
+      if (applyToMatching) {
+        const categorized = (await categoryResponse.json().catch(() => null)) as
+          | { transactions?: CreditCardTransaction[] }
+          | null;
+        categorized?.transactions
+          ?.filter((match) => match.id !== transaction.id)
+          .forEach(onTransactionUpdated);
       }
       const tagResponse = await fetch(
         `${APP_BASE_PATH}/api/credit-card-transactions/${transaction.id}/update-tags?include_unbudgeted=true`,
@@ -1278,7 +1287,7 @@ function AccountTransactionList({
                       >Save &amp; remember</button>
                       <button className="px-2 py-2 text-xs text-muted hover:text-white" onClick={() => setEditingTransactionId(null)} type="button">Cancel</button>
                   </div>
-                  <p className="mt-2 text-[11px] text-muted">Save this transaction changes only the selected row. Save &amp; remember also updates matching descriptions and future imports.</p>
+                  <p className="mt-2 text-[11px] text-muted">Save this transaction changes only the selected row. Save &amp; remember also applies this category and these tags to matching descriptions and future imports.</p>
                   {editError ? <p className="mt-2 text-xs text-rose-200">{editError}</p> : null}
                   </div>
                 ) : null}
