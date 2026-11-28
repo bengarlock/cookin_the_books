@@ -14,6 +14,7 @@ import {
   incomeLedgerTotals,
   reconcileSyncedIncome,
 } from "@/lib/income-reconciliation";
+import { mergeImportedIncomeEntries } from "@/lib/merge-imported-income-entries";
 import { validatePdfImportFiles } from "@/lib/pdf-import";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -468,17 +469,9 @@ export function IncomeHistory({
         ...(result.updated || []),
       ];
       if (changedEntries.length) {
-        setEntries((current) => {
-          const changedById = new Map(
-            changedEntries.map((entry) => [entry.id, entry]),
-          );
-          const merged = current.map((entry) => changedById.get(entry.id) || entry);
-          const currentIds = new Set(current.map((entry) => entry.id));
-          const newEntries = changedEntries.filter(
-            (entry) => !currentIds.has(entry.id),
-          );
-          return [...newEntries, ...merged];
-        });
+        setEntries((current) =>
+          mergeImportedIncomeEntries(current, changedEntries),
+        );
       }
       const createdText =
         result.created_count === 1
